@@ -1,0 +1,63 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { parseTtsArena, ttsArena } from '../../src/sources/ttsArena';
+import type { FetchCtx } from '../../src/sources/types';
+
+const read = (f: string) => readFileSync(new URL(`../fixtures/tts-arena/${f}`, import.meta.url), 'utf8');
+const sample = JSON.parse(read('sample.json')) as { rows: { name: string; elo: number; suspended: boolean }[] };
+const now = new Date('2026-10-12T06:00:00Z');
+
+describe('tts-arena parse', () => {
+  const obs = parseTtsArena(sample, now);
+
+  it('emits one elo snapshot observation per non-suspended row, stamped with the fetch day', () => {
+    expect(sample.rows).toHaveLength(39);
+    expect(obs).toHaveLength(38);
+    expect(obs.every((o) => o.series === 'tts-arena' && o.kind === 'elo' && o.dateKind === 'snapshot' && o.date === '2026-10-12')).toBe(true);
+  });
+
+  it('maps concrete rows exactly', () => {
+    expect(obs[0]).toEqual({ series: 'tts-arena', kind: 'elo', model: 'CastleFlow v1.0', date: '2026-10-12', dateKind: 'snapshot', value: 1561 });
+    expect(obs.find((o) => o.model === 'Inworld TTS MAX')?.value).toBe(1558);
+    expect(obs.find((o) => o.model === 'Aurora')?.value).toBe(1566); // elo is not monotonic in rank (ranked by CI lower bound)
+    expect(obs.find((o) => o.model === 'star-june-2026')?.value).toBe(1540); // stealth row without url
+  });
+
+  it('leaves out the suspended (vote manipulation) row but keeps retired ones', () => {
+    expect(sample.rows.find((r) => r.suspended)?.name).toBe('Vocu V3.0');
+    expect(obs.some((o) => o.model === 'Vocu V3.0')).toBe(false);
+    expect(obs.some((o) => o.model === 'CastleFlow v1.0')).toBe(true); // active: false
+  });
+
+  it('uses the date of the given clock and accepts JSON text', () => {
+    expect(parseTtsArena(read('sample.json'), new Date('2026-11-03T23:59:00Z'))[0].date).toBe('2026-11-03');
+    expect(parseTtsArena(read('sample-preliminary.json'), now)).toHaveLength(44); // 46 rows, 2 suspended
+  });
+
+  it('skips bad rows and returns [] for an unusable payload', () => {
+    expect(parseTtsArena({ rows: [null, 'x', { name: 'A' }, { elo: 1500 }, { name: 'B', elo: 'n/a' }, { name: 'C', elo: 1400 }] }, now).map((o) => o.model)).toEqual(['C']);
+    expect(parseTtsArena({ rows: [] }, now)).toEqual([]);
+    expect(parseTtsArena({}, now)).toEqual([]);
+    expect(parseTtsArena('<html>', now)).toEqual([]);
+    expect(parseTtsArena(null, now)).toEqual([]);
+  });
+});
+
+describe('tts-arena module', () => {
+  it('fetches /api/leaderboard and parses with ctx.now', async () => {
+    const seen: string[] = [];
+    const ctx = {
+      fetchJson: async (url: string) => {
+        seen.push(url);
+        return sample;
+      },
+    } as unknown as FetchCtx;
+    const raw = await ttsArena.fetch(ctx);
+    expect(seen).toEqual(['https://tts-agi-tts-arena-v2.hf.space/api/leaderboard']);
+    expect(ttsArena.parse(raw, { now })).toHaveLength(38);
+  });
+
+  it('declares the module contract', () => {
+    expect(ttsArena).toMatchObject({ id: 'tts-arena', role: 'strength', group: 'tts-arena', history: 'accumulate' });
+  });
+});
