@@ -84,10 +84,10 @@ describe('parseCloudflare', () => {
 describe('rankingUrl / backfillWindows', () => {
   it('asks for the Generative AI category with %20-style escaping', () => {
     expect(rankingUrl({ dateRange: '90d' })).toBe(
-      'https://api.cloudflare.com/client/v4/radar/ranking/internet_services/timeseries_groups?serviceCategory%5B%5D=Generative%20AI&limit=20&dateRange%5B%5D=90d&format=JSON',
+      'https://api.cloudflare.com/client/v4/radar/ranking/internet_services/timeseries_groups?serviceCategory=Generative%20AI&limit=20&dateRange=90d&format=JSON',
     );
     expect(rankingUrl({ dateStart: '2025-01-26T00:00:00.000Z', dateEnd: '2026-01-25T00:00:00.000Z' })).toBe(
-      'https://api.cloudflare.com/client/v4/radar/ranking/internet_services/timeseries_groups?serviceCategory%5B%5D=Generative%20AI&limit=20&dateStart%5B%5D=2025-01-26T00%3A00%3A00.000Z&dateEnd%5B%5D=2026-01-25T00%3A00%3A00.000Z&format=JSON',
+      'https://api.cloudflare.com/client/v4/radar/ranking/internet_services/timeseries_groups?serviceCategory=Generative%20AI&limit=20&dateStart=2025-01-26T00%3A00%3A00.000Z&dateEnd=2026-01-25T00%3A00%3A00.000Z&format=JSON',
     );
   });
 

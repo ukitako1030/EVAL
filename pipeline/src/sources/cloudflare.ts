@@ -8,7 +8,7 @@ const ENDPOINT = 'https://api.cloudflare.com/client/v4/radar/ranking/internet_se
 const CATEGORY = 'Generative AI';
 /** Daily data has been published since 2025-01-26 (launch post); the API floor is not documented. */
 export const BACKFILL_START = '2025-01-26T00:00:00Z';
-/** `dateRange[]` accepts at most 364d; the same bound is used for explicit windows. */
+/** `dateRange` accepts at most 364d; the same bound is used for explicit windows. */
 const MAX_WINDOW_DAYS = 364;
 /** Without backfill, the last two complete months plus the running one: this many months back from the current one. */
 const RECENT_MONTHS_BACK = 2;
@@ -40,14 +40,17 @@ export function recentWindow(now: Date): [string, string] {
   return [new Date(from).toISOString(), now.toISOString()];
 }
 
-/** Query string with `%20`-style escaping (URLSearchParams would write "Generative+AI"). */
+/**
+ * Query string with `%20`-style escaping (URLSearchParams would write "Generative+AI"). Array parameters are sent with
+ * bare names: the API ignores `dateStart[]`-style names ("You must send either range or start & end dates").
+ */
 export function rankingUrl(range: { dateRange: string } | { dateStart: string; dateEnd: string }): string {
   const pairs: [string, string][] = [
-    ['serviceCategory[]', CATEGORY],
+    ['serviceCategory', CATEGORY],
     ['limit', String(SERVICE_LIMIT)],
     ...('dateRange' in range
-      ? [['dateRange[]', range.dateRange] as [string, string]]
-      : ([['dateStart[]', range.dateStart], ['dateEnd[]', range.dateEnd]] as [string, string][])),
+      ? [['dateRange', range.dateRange] as [string, string]]
+      : ([['dateStart', range.dateStart], ['dateEnd', range.dateEnd]] as [string, string][])),
     ['format', 'JSON'],
   ];
   return `${ENDPOINT}?${pairs.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&')}`;
