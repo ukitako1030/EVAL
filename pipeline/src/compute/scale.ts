@@ -8,9 +8,9 @@ export type ScaleMethod = Method['scale'];
 /** A missing signal value is taken from up to this many previous months (monthly sources lag the current month). */
 const CARRY_MONTHS = 2;
 
-function valueAt(byMonth: Map<Month, number> | undefined, m: Month): number | undefined {
+function valueAt(byMonth: Map<Month, number> | undefined, m: Month, carry: number): number | undefined {
   if (!byMonth) return undefined;
-  for (let k = 0; k <= CARRY_MONTHS; k++) {
+  for (let k = 0; k <= carry; k++) {
     const v = byMonth.get(addMonths(m, -k));
     if (v != null) return v;
   }
@@ -29,6 +29,17 @@ function normalise(m: Map<string, number>): Map<string, number> {
   return new Map([...m].map(([k, v]) => [k, tot > 0 ? v / tot : 0]));
 }
 
+/** A signal spreads only the reference mass of the units it covers: implied(u) = M·share(u) if covered, else ref(u). */
+function implied(ref: Map<string, number>, share: Map<string, number> | undefined): Map<string, number> {
+  if (!share) return ref;
+  const mass = sum([...share.keys()].map((u) => ref.get(u) ?? 0));
+  return new Map([...ref].map(([u, r]) => [u, share.has(u) ? mass * share.get(u)! : r]));
+}
+
+function meanMaps(maps: Map<string, number>[], keys: string[]): Map<string, number> {
+  return new Map(keys.map((u) => [u, sum(maps.map((m) => m.get(u) ?? 0)) / maps.length]));
+}
+
 /** Unsmoothed shares (0–1) for one month. */
 export function scaleMonth(
   present: string[],
@@ -36,57 +47,42 @@ export function scaleMonth(
   signals: SignalTable,
   method: ScaleMethod,
 ): Map<string, { share: number; components: number }> {
-  // signal shares among units having the signal
+  // signal shares among the present units that have the signal
   const sigShare = new Map<string, Map<string, number>>();
   for (const [sig, byUnit] of signals) {
+    const carry = CARRY_MONTHS;
     const vals = new Map<string, number>();
     for (const u of present) {
-      const v = valueAt(byUnit.get(u), m);
+      const v = valueAt(byUnit.get(u), m, carry);
       if (v != null && v > 0) vals.set(u, v);
     }
     if (vals.size) sigShare.set(sig, normalise(vals));
   }
-  // component shares, normalised within S_c
-  const comp = new Map<string, Map<string, number>>();
-  for (const [cid, c] of Object.entries(method.components)) {
-    const acc = new Map<string, number[]>();
-    for (const sig of c.signals) {
-      for (const [u, v] of sigShare.get(sig) ?? []) {
-        if (!acc.has(u)) acc.set(u, []);
-        acc.get(u)!.push(v);
-      }
-    }
-    if (acc.size) comp.set(cid, normalise(new Map([...acc].map(([u, vs]) => [u, sum(vs) / vs.length]))));
-  }
-  // base
-  const baseRaw = new Map<string, number>();
-  for (const u of present) {
-    const vs = method.base.map((b) => comp.get(b)?.get(u)).filter((v): v is number => v != null);
-    if (vs.length) baseRaw.set(u, sum(vs) / vs.length);
-  }
+  // base: fixed point of r = mean over base signals of implied(r, signal) on the units covered by any base signal
+  const baseSignals = [
+    ...new Set(method.base.flatMap((b) => method.components[b].signals)),
+  ].filter((s) => sigShare.has(s));
+  const covered = present.filter((u) => baseSignals.some((s) => sigShare.get(s)!.has(u)));
   let base: Map<string, number>;
-  if (!baseRaw.size) {
+  if (!covered.length) {
     base = new Map(present.map((u) => [u, 1 / present.length]));
   } else {
-    const nb = normalise(baseRaw);
-    const floor = Math.min(...nb.values()) * method.floorFactor;
-    for (const u of present) if (!nb.has(u)) nb.set(u, floor);
-    base = normalise(nb);
+    let r = new Map(covered.map((u) => [u, 1 / covered.length]));
+    for (let i = 0; i < 50; i++) r = meanMaps(baseSignals.map((s) => implied(r, sigShare.get(s))), covered);
+    const floor = Math.min(...r.values()) * method.floorFactor;
+    base = normalise(new Map(present.map((u) => [u, r.get(u) ?? floor])));
   }
-  // implied per component, combined
+  // each component: every signal spreads the base mass of the units it covers; signals are averaged; components are weighted
   const combined = new Map(present.map((u) => [u, 0]));
-  for (const [cid, c] of Object.entries(method.components)) {
-    const sh = comp.get(cid);
-    const mass = sh ? sum([...sh.keys()].map((u) => base.get(u) ?? 0)) : 0;
-    for (const u of present) {
-      const implied = sh?.has(u) ? mass * sh.get(u)! : base.get(u)!;
-      combined.set(u, combined.get(u)! + c.weight * implied);
-    }
+  for (const c of Object.values(method.components)) {
+    const maps = c.signals.filter((s) => sigShare.has(s)).map((s) => implied(base, sigShare.get(s)));
+    const impliedC = maps.length ? meanMaps(maps, present) : base;
+    for (const u of present) combined.set(u, combined.get(u)! + c.weight * impliedC.get(u)!);
   }
   const shares = normalise(combined);
   const out = new Map<string, { share: number; components: number }>();
   for (const u of present) {
-    const components = Object.keys(method.components).filter((cid) => comp.get(cid)?.has(u)).length;
+    const components = Object.values(method.components).filter((c) => c.signals.some((s) => sigShare.get(s)?.has(u))).length;
     out.set(u, { share: shares.get(u)!, components });
   }
   return out;

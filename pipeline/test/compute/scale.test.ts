@@ -61,6 +61,73 @@ describe('scaleMonth', () => {
   });
 });
 
+describe('scaleMonth: per-signal redistribution', () => {
+  // attention is the base component and carries two signals
+  const twoSigMethod = {
+    ...method,
+    components: {
+      users: { weight: 0.5, signals: ['announcements' as const] },
+      attention: { weight: 0.5, signals: ['wikipedia' as const, 'itunes' as const] },
+    },
+  };
+  it('a base signal covering few units cannot inflate them (wikipedia 40/30/20/10 + itunes for d only)', () => {
+    const r = scaleMonth(
+      ['a', 'b', 'c', 'd'],
+      '2025-01',
+      tbl({
+        wikipedia: { a: { '2025-01': 40 }, b: { '2025-01': 30 }, c: { '2025-01': 20 }, d: { '2025-01': 10 } },
+        itunes: { d: { '2025-01': 5 } },
+      }),
+      twoSigMethod,
+    );
+    expect(r.get('a')!.share).toBeCloseTo(0.4, 9);
+    expect(r.get('b')!.share).toBeCloseTo(0.3, 9);
+    expect(r.get('c')!.share).toBeCloseTo(0.2, 9);
+    expect(r.get('d')!.share).toBeCloseTo(0.1, 9);
+  });
+  it('a non-base signal covering 2 of 3 units redistributes only those two units base mass', () => {
+    const r = scaleMonth(
+      ['a', 'b', 'c'],
+      '2025-01',
+      tbl({
+        wikipedia: { a: { '2025-01': 2 }, b: { '2025-01': 1 }, c: { '2025-01': 1 } },
+        announcements: { a: { '2025-01': 10 }, b: { '2025-01': 30 } },
+      }),
+      method,
+    );
+    const total = [...r.values()].reduce((t, x) => t + x.share, 0);
+    expect(total).toBeCloseTo(1, 12);
+    // base a .5 b .25 c .25 → users implied: a .1875, b .5625 (mass .75), c .25 (untouched)
+    expect(r.get('a')!.share + r.get('b')!.share).toBeCloseTo(0.5 * 0.75 + 0.5 * 0.75, 12);
+    expect(r.get('c')!.share).toBeCloseTo(0.25, 12);
+  });
+  it('signals inside one component are each confined to the units they cover, then averaged', () => {
+    const m = {
+      ...method,
+      components: {
+        users: { weight: 0.5, signals: ['announcements' as const, 'statcounter' as const] },
+        attention: { weight: 0.5, signals: ['wikipedia' as const] },
+      },
+    };
+    const r = scaleMonth(
+      ['a', 'b', 'c'],
+      '2025-01',
+      tbl({
+        wikipedia: { a: { '2025-01': 2 }, b: { '2025-01': 1 }, c: { '2025-01': 1 } },
+        announcements: { a: { '2025-01': 10 }, b: { '2025-01': 30 } }, // implied a .1875 b .5625 c .25
+        statcounter: { b: { '2025-01': 1 }, c: { '2025-01': 1 } }, // implied a .5 b .25 c .25
+      }),
+      m,
+    );
+    // users implied = mean → a .34375 b .40625 c .25 ; combined with base (.5,.25,.25) at 50/50
+    expect(r.get('a')!.share).toBeCloseTo(0.5 * 0.5 + 0.5 * 0.34375, 12);
+    expect(r.get('b')!.share).toBeCloseTo(0.5 * 0.25 + 0.5 * 0.40625, 12);
+    expect(r.get('c')!.share).toBeCloseTo(0.25, 12);
+    expect(r.get('a')!.components).toBe(2);
+    expect(r.get('c')!.components).toBe(2);
+  });
+});
+
 describe('computeScale', () => {
   it('smooths over the window, renormalises and returns 0–100; null when the unit does not exist', () => {
     const signals = tbl({
