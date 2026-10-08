@@ -72,10 +72,14 @@ export function detectEvents(args: {
   const raw: WorldEvent[] = [];
   let leadS: string | null = null;
   let leadC: string | null = null;
+  const seen = new Set<string>(); // units that have had a cell in any earlier month (or this one)
 
   months.forEach((m, i) => {
     const at = (u: string, k: number) => cells.get(u)![k];
     const present = ids.filter((u) => at(u, i));
+    // a unit that disappears and comes back is not "new" again; units present in the first month are not new either
+    const fresh = new Set(present.filter((u) => !seen.has(u)));
+    for (const u of present) seen.add(u);
     // estimated values are placeholders, not measurements: they never lead and never move
     const measured = present.filter((u) => at(u, i)!.q !== 'estimated');
     const push = (type: EventType, unit: string, extra: { model?: string; from?: string; down?: boolean } = {}) =>
@@ -106,7 +110,7 @@ export function detectEvents(args: {
       const cur = at(u, i)!;
       const prev = at(u, i - 1);
       if (!prev) {
-        push('new_unit', u);
+        if (fresh.has(u)) push('new_unit', u);
         continue;
       }
       if (cur.q === 'estimated' || prev.q === 'estimated') continue;

@@ -99,6 +99,14 @@ describe('detectEvents', () => {
     const e = detectEvents({ front, months: ['2024-01', '2024-02', '2024-03'], cells: gone, unitNames: { a: 'A', b: 'B' }, params, releases: [], overrides: [], custom: [] });
     expect(e.filter((x) => x.type === 'scale_lead_change').map((x) => `${x.month}:${x.unit}`)).toEqual(['2024-03:b']);
   });
+  it('emits new_unit only on a unit\'s first appearance, not when it disappears and returns', () => {
+    const back = cells({
+      a: [[100, 50, 'a-1'], [100, 50, 'a-1'], [100, 50, 'a-1'], [100, 50, 'a-1']],
+      b: [null, [60, 10, 'b-1'], null, [60, 10, 'b-1']],
+    });
+    const e = detectEvents({ front, months, cells: back, unitNames: { a: 'A', b: 'B' }, params, releases: [], overrides: [], custom: [] });
+    expect(e.filter((x) => x.type === 'new_unit').map((x) => `${x.month}:${x.unit}`)).toEqual(['2024-02:b']);
+  });
   it('caps events per front-month', () => {
     const ev3 = detectEvents({ front, months, cells: c, unitNames: names, params: { ...params, maxPerFrontMonth: 1 }, releases: [], overrides: [], custom: [] });
     expect(ev3.filter((e) => e.month === '2024-03').map((e) => e.type)).toEqual(['lead_change']);
