@@ -3,7 +3,9 @@ import { createGalaxy, type Galaxy } from './render/galaxy';
 import { FONT_DISP, FONT_JP, FONT_UI } from './render/labels';
 import { isPortrait } from './render/layout';
 import type { QualityLevel } from './fx/quality';
-import { createFlashBudget } from './fx/flashBudget';
+import { createFlashBudget, logFlashes } from './fx/flashBudget';
+import { createBattle } from './render/battle';
+import { STRINGS } from './i18n/strings';
 import { loadWorld } from './data/load';
 import { frontFrame, type UnitFrame } from './data/timeline';
 import type { FrontId, World } from './data/types';
@@ -25,7 +27,9 @@ async function boot(mount: HTMLElement) {
     if (q === '0' || q === '1' || q === '2' || q === '3') renderer.setQuality(Number(q) as QualityLevel);
 
     const store = createStore({ ...defaultState(world.months.length - 1), ...decodeUrl(location.search, world), reducedMotion: motion.matches });
-    const flashes = createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 });
+    // debug: ?debugFlash logs the granted flashes per second (stats also on window.__flashStats)
+    const flashLog = params.has('debugFlash') ? logFlashes(createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 }), { clock: () => performance.now() / 1000, log: (m) => console.log(m) }) : null;
+    const flashes = flashLog?.budget ?? createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 });
     // wait briefly for the web fonts so the first labels render in the right face (refreshed if they arrive later)
     await Promise.race([fonts, new Promise((r) => setTimeout(r, 1500))]);
     const galaxy = createGalaxy(renderer, { world, store, flashes });
@@ -47,6 +51,29 @@ async function boot(mount: HTMLElement) {
       const s = store.get();
       galaxy.update(dt, framesAt(world, s.t, s.sortBy));
     });
+
+    // ── Task 13: planet zoom battle — temporary wiring, Task 15 replaces this block ──────────────────
+    const battle = createBattle(renderer, galaxy, { world, store, flashes });
+    void fonts.then(() => battle.refreshText());
+    renderer.onFrame((dt) => battle.update(dt)); // registered after the galaxy's callback, so it runs after galaxy.update
+    window.addEventListener('keydown', (e) => {
+      // the detail panel consumes its own Escape (closes first); a second Escape leaves the front
+      if (e.key === 'Escape' && !e.defaultPrevented && store.get().front) store.set({ front: null });
+    });
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.style.cssText =
+      'position:fixed;left:16px;top:16px;z-index:5;padding:7px 14px;font:700 13px "Noto Sans JP",sans-serif;letter-spacing:.08em;color:#bff4ff;background:rgba(4,12,26,.78);border:1px solid rgba(95,232,255,.55);cursor:pointer';
+    back.addEventListener('click', () => store.set({ front: null }));
+    document.body.appendChild(back);
+    const showBack = (s: { front: FrontId | null; lang: 'ja' | 'en' }) => {
+      back.hidden = !s.front;
+      back.textContent = `◀ ${STRINGS.backToGalaxy[s.lang]}`;
+    };
+    showBack(store.get());
+    store.subscribe((s) => showBack(s));
+    if (import.meta.env.DEV || flashLog) Object.assign(window, { __battle: battle, __flashStats: flashLog?.stats ?? null });
+    // ── end Task 13 ───────────────────────────────────────────────────────────────────────────────
 
     // dev only: handles for poking the app from the console / harness (--eval)
     if (import.meta.env.DEV) Object.assign(window, { __renderer: renderer, __galaxy: galaxy, __store: store, __world: world });

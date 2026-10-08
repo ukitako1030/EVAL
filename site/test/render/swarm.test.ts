@@ -265,6 +265,18 @@ describe('swarm simulation', () => {
     expect(sw.pick(5, 5, 0.01)).toBe(-1);
   });
 
+  it('stays finite with real-world strengths (float32 rounding of the weakest unit)', () => {
+    const sw = createSwarm({ capacity: 800, seed: 4 });
+    const frames = [frame('suno', 87, 80.3), frame('udio', 5.6, 80.3), frame('eleven', 2.1, 44.1), frame('lyria', 2.5, 96.37), frame('stable', 0.3, 82.6)];
+    feed(sw, frames, 800, { instant: true });
+    for (let k = 0; k < 60; k++) {
+      feed(sw, frames, 800);
+      sw.step(1 / 60, k / 60);
+    }
+    for (let i = 0; i < sw.capacity; i++) if (sw.state[i] !== 0) expect(Number.isFinite(sw.x[i] + sw.y[i] + sw.vx[i] + sw.vy[i])).toBe(true);
+    for (const u of frames) expect(Number.isFinite(sw.units.cx[sw.slotOf(u.id)])).toBe(true);
+  });
+
   it('never tracks more than MAX_UNITS units', () => {
     const sw = createSwarm({ capacity: 500, seed: 1 });
     const many = Array.from({ length: MAX_UNITS + 5 }, (_, k) => frame('u' + k, 1 + k, 60));

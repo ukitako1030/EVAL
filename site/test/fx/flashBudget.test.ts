@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createFlashBudget } from '../../src/fx/flashBudget';
+import { createFlashBudget, logFlashes } from '../../src/fx/flashBudget';
 
 describe('flash budget', () => {
   it('grants at most 3 flashes per rolling second and caps intensity', () => {
@@ -48,5 +48,21 @@ describe('flash budget', () => {
     expect(b.request(1, 0)).toBe(1);
     for (let k = 1; k <= 20; k++) expect(b.request(1, k * 0.05)).toBe(0);
     expect(b.request(1, 1.25)).toBe(1);
+  });
+});
+
+describe('flash log (?debugFlash)', () => {
+  it('passes requests through, logs grants per second and tracks the busiest 1 s window', () => {
+    let clock = 0;
+    const lines: string[] = [];
+    const { budget, stats } = logFlashes(createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 }), { clock: () => clock, log: (m) => lines.push(m) });
+    for (const t of [0.1, 0.2, 0.3, 0.4, 1.5, 1.6]) {
+      clock = t;
+      budget.request(1, t);
+    }
+    expect(stats).toMatchObject({ granted: 5, denied: 1, maxPerSecond: 3 });
+    expect(stats.perSecond).toEqual([[0, 3]]);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('3 granted, 1 denied');
   });
 });

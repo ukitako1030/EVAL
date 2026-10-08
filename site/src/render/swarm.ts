@@ -2,10 +2,10 @@
  * Particle-swarm battle simulation (ported from mockups/c-swarm.html §3) — pure maths, no PixiJS.
  *
  * Coordinates are planet-local and normalised (the planet disc has radius 1, angles as in ./layout: y down).
- * Every unit gets a swarm whose size ∝ c × presence. Each particle is tied to its own anchor inside its unit's
- * home sector (the planet's territory wedge, fed per frame through `sectors`), so the swarms fill the same
- * territories the overview shows and follow the animated frontlines. Boids-style steering (anchor cohesion +
- * swirl, alignment, separation, a noise field) keeps them organic; enemies within reach push or pull by the
+ * Every unit gets a swarm whose size ∝ c × presence, split into squads (∝ its territory) whose centres are spread
+ * over the unit's home sector — the planet's territory wedge, fed per frame through `sectors` — so the swarms fill
+ * the same territories the overview shows and follow the animated frontlines. Boids-style steering (cohesion to the
+ * squad + a swirl around it, alignment, separation, a noise field) keeps them organic; enemies within reach push or pull by the
  * strength balance (the stronger swarm leans into the weaker one), raiders charge across the frontline
  * (aggression ∝ s) and close contacts clash: the loser (odds by strength) drops out and respawns at home.
  * Speed, brightness and trail length ∝ s. All state lives in typed arrays and the neighbour search uses a
@@ -23,6 +23,8 @@ export const RHO_MIN = CORE + 0.05;
 export const RHO_MAX = 0.955;
 /** a unit's share of the swarm never drops below this (so a 0.1 % unit is still a visible, clickable swarm) */
 export const MIN_SHARE = 0.8;
+/** a swarm is split into up to this many squads — swirling sub-clusters spread over its territory */
+export const MAX_SQUADS = 10;
 
 /** particle states */
 export const FREE = 0;
@@ -310,8 +312,7 @@ export function createSwarm(opts: { capacity: number; seed: number }): Swarm {
   const life = new Float32Array(N);
   const charge = new Float32Array(N);
   const seed = new Float32Array(N);
-  const homeU = new Float32Array(N);
-  const homeR = new Float32Array(N);
+  const squad = new Uint8Array(N);
   const state = new Uint8Array(N);
   const owner = new Uint8Array(N);
   const tgt = new Uint8Array(N);
@@ -338,7 +339,10 @@ export function createSwarm(opts: { capacity: number; seed: number }): Swarm {
   };
   const hasSector = new Uint8Array(M);
   const was = new Uint8Array(M);
-  const swirl = new Float32Array(M);
+  const nSq = new Uint8Array(M).fill(1);
+  const sig = new Float32Array(M).fill(0.2);
+  const sqX = new Float32Array(M * MAX_SQUADS);
+  const sqY = new Float32Array(M * MAX_SQUADS);
   const raid = new Float32Array(M);
   const share = new Float32Array(M);
   const count = new Int32Array(M);
@@ -393,15 +397,33 @@ export function createSwarm(opts: { capacity: number; seed: number }): Swarm {
     return a0 - m + u * (span + 2 * m);
   }
 
+  /** squad centres of every unit with territory at time t (they drift slowly inside the sector) */
+  function placeSquads(t: number) {
+    const lo = RHO_MIN + 0.07;
+    const hi = RHO_MAX - 0.07;
+    for (let s = 0; s < M; s++) {
+      if (units.id[s] === null || !hasSector[s]) continue;
+      const ns = nSq[s];
+      for (let q = 0; q < ns; q++) {
+        // radius: golden-ratio sequence (area-uniform); angle: stratified across the sector
+        const g = (0.5 + q * 0.6180339887) % 1;
+        const rho0 = Math.sqrt(lo * lo + (hi * hi - lo * lo) * g);
+        const rho = clamp(rho0 + 0.04 * Math.sin(t * 0.11 + q * 1.7 + s), lo, hi);
+        const u = clamp((q + 0.5) / ns + (0.22 / ns) * Math.sin(t * 0.13 + q * 2.3 + s * 0.7), 0.04, 0.96);
+        const a = anchorAngle(s, rho, u);
+        sqX[s * MAX_SQUADS + q] = Math.cos(a) * rho;
+        sqY[s * MAX_SQUADS + q] = Math.sin(a) * rho;
+      }
+    }
+  }
+
   function spawn(i: number, slot: number) {
-    const p = sampleInSector(RHO_MIN + 0.02, RHO_MAX - 0.02, rnd(), rnd());
-    homeR[i] = p.rho;
-    homeU[i] = p.u;
     owner[i] = slot;
     state[i] = ALIVE;
     alpha[i] = instantFill ? rnd() * 0.4 : 0;
     charge[i] = 0;
     seed[i] = rnd();
+    squad[i] = Math.floor(rnd() * 256);
     if (units.warpT[slot] > 0) {
       // warp-in: appear at the beam and burst outward toward the anchors
       const a = rnd() * TAU;
@@ -412,11 +434,11 @@ export function createSwarm(opts: { capacity: number; seed: number }): Swarm {
       vy[i] = Math.sin(a) * sp;
       return;
     }
-    const ang = anchorAngle(slot, p.rho, p.u);
-    const j = 0.03 * rnd();
-    const ja = rnd() * TAU;
-    x[i] = Math.cos(ang) * p.rho + Math.cos(ja) * j;
-    y[i] = Math.sin(ang) * p.rho + Math.sin(ja) * j;
+    const q = squad[i] % nSq[slot];
+    const p = sampleInSector(0, sig[slot] * 0.8, rnd(), rnd());
+    const ja = p.u * TAU;
+    x[i] = sqX[slot * MAX_SQUADS + q] + Math.cos(ja) * p.rho;
+    y[i] = sqY[slot * MAX_SQUADS + q] + Math.sin(ja) * p.rho;
     vx[i] = (rnd() - 0.5) * 0.06;
     vy[i] = (rnd() - 0.5) * 0.06;
   }
@@ -538,7 +560,6 @@ export function createSwarm(opts: { capacity: number; seed: number }): Swarm {
           units.id[s] = u.id;
           ccInit[s] = 0;
           count[s] = 0;
-          swirl[s] = s % 2 ? 1 : -1;
         }
         const w = unitWeight(u.c, u.presence);
         if (w <= 0) continue;
@@ -559,14 +580,19 @@ export function createSwarm(opts: { capacity: number; seed: number }): Swarm {
         units.target[s] = units.present[s] ? alloc[s] : 0;
         share[s] = W > 0 ? weights[s] / W : 0;
         if (!units.present[s]) continue;
+        // squads ∝ territory; each about as wide as its share of the sector
+        const area = share[s] * Math.PI * (RHO_MAX * RHO_MAX - RHO_MIN * RHO_MIN);
+        nSq[s] = clamp(Math.round(share[s] * 9), 1, MAX_SQUADS);
+        sig[s] = clamp(0.62 * Math.sqrt(area / nSq[s]), 0.05, 0.4);
         // strength → speed, glow, trail and aggression (mockup C `updateFactions`)
         const absN = clamp((units.s[s] - 50) / 47, 0, 1);
-        const relN = np > 1 ? (units.s[s] - minS) / (maxS - minS + 4) : 0.5;
+        // clamped: units.s is float32, minS / maxS were taken from the float64 values
+        const relN = np > 1 ? clamp((units.s[s] - minS) / (maxS - minS + 4), 0, 1) : 0.5;
         units.sN[s] = absN;
         units.aggr[s] = 0.12 + 0.88 * Math.pow(0.45 * absN + 0.55 * relN, 1.3);
-        units.vmax[s] = 0.06 + 0.21 * Math.pow(absN, 1.2);
-        units.trail[s] = 0.02 + 0.1 * absN * absN;
-        units.bright[s] = Math.min(1, 0.36 + 0.64 * Math.pow(absN, 1.4));
+        units.vmax[s] = 0.075 + 0.2 * Math.pow(absN, 1.2);
+        units.trail[s] = 0.03 + 0.09 * absN * absN;
+        units.bright[s] = Math.min(1, 0.45 + 0.55 * Math.pow(absN, 1.4));
         raid[s] = np > 1 ? 0.075 * units.aggr[s] * units.aggr[s] : 0;
       }
       // pair coefficients: > 0 pushes F away from E, < 0 pulls F in (the stronger side leans into the weaker)
@@ -613,6 +639,7 @@ export function createSwarm(opts: { capacity: number; seed: number }): Swarm {
       clashes.n = 0;
       if (!(dt > 0)) return;
       const reduced = !!o.reduced;
+      placeSquads(time);
       enforceCounts();
       for (let s = 0; s < M; s++) {
         sumX[s] = 0;
@@ -688,15 +715,14 @@ export function createSwarm(opts: { capacity: number; seed: number }): Swarm {
         let dvy = 0;
         let lim = 1.15;
 
-        // anchor in the home sector (follows the animated territory edges)
-        const hr = homeR[i];
-        const ha = anchorAngle(f, hr, homeU[i]);
-        let hx = Math.cos(ha) * hr - px;
-        let hy = Math.sin(ha) * hr - py;
+        // the particle's squad in the home sector (follows the animated territory edges)
+        const q = squad[i] % nSq[f];
+        let hx = sqX[f * MAX_SQUADS + q] - px;
+        let hy = sqY[f * MAX_SQUADS + q] - py;
         const hd = Math.sqrt(hx * hx + hy * hy) + 1e-6;
         hx /= hd;
         hy /= hd;
-        const rel = hd / 0.09;
+        const rel = hd / sig[f];
 
         let chg = charge[i];
         if (chg > 0) {
@@ -717,12 +743,12 @@ export function createSwarm(opts: { capacity: number; seed: number }): Swarm {
           }
         }
         if (charge[i] <= 0) {
-          // cohesion to the anchor + a swirl around it
-          const pull = rel < 1 ? 0.25 * rel : 0.25 + (rel - 1) * 0.9;
+          // cohesion to the squad + a swirl around it (neighbouring squads turn opposite ways)
+          const pull = rel < 1 ? 0.14 * rel : 0.14 + (rel - 1) * 1.6;
           const pm = (pull > 2.4 ? 2.4 : pull) * vmax;
           dvx += hx * pm;
           dvy += hy * pm;
-          const sw = vmax * 0.8 * (rel < 1 ? rel : 1 / rel) * swirl[f];
+          const sw = vmax * 0.8 * (rel < 1 ? rel : 1 / rel) * ((q + f) & 1 ? 1 : -1);
           dvx -= hy * sw;
           dvy += hx * sw;
           if (!reduced && raid[f] > 0 && t1[f] >= 0 && alpha[i] > 0.9 && rnd() < raid[f] * dt) {
@@ -840,6 +866,10 @@ export function createSwarm(opts: { capacity: number; seed: number }): Swarm {
             nvx -= vr * nx * 1.6;
             nvy -= vr * ny * 1.6;
           }
+        }
+        if (px !== px || py !== py || nvx !== nvx || nvy !== nvy) {
+          spawn(i, f); // never let a NaN poison the centroids (bad input data): start over at home
+          continue;
         }
         x[i] = px;
         y[i] = py;
