@@ -168,7 +168,7 @@ export function createFleets(galaxy: Galaxy, renderer: Renderer, opts: FleetsOpt
         const dir = u < 0.98 ? 1 : -1;
         const tx = (tmpB.x - out.x) * dir;
         const ty = (tmpB.y - out.y) * dir;
-        const L = Math.hypot(tx, ty) || 1;
+        const L = Math.sqrt(tx * tx + ty * ty) || 1;
         out.x -= (ty / L) * off;
         out.y += (tx / L) * off;
       }

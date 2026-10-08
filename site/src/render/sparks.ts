@@ -3,12 +3,15 @@
  * frontlines — more where the neighbours are evenly matched, mostly into the weaker side — and small
  * skirmish bursts (an expanding ring + a spray of streaks). Bursts are deliberately not light flashes:
  * no glow puff and no white fill, so they never brighten an area (the flash budget stays free for events).
- * One fixed pool of particles on a ParticleContainer; nothing is allocated per frame.
+ * One fixed pool of particles on a ParticleContainer, pooled rings drawn into a dynamic mesh; nothing is
+ * allocated per frame.
  */
-import { Container, Graphics, Particle, ParticleContainer, type Texture } from 'pixi.js';
+import { Container, Particle, ParticleContainer, type Texture } from 'pixi.js';
 import { CORE } from './layout';
 import type { Planet } from './planet';
 import { hexColor } from './color';
+import { createDynMesh } from './dynMesh';
+import { rgba, strokeCircle } from './meshBuild';
 
 export interface Sparks {
   readonly container: Container;
@@ -54,9 +57,8 @@ export function createSparks(streak: Texture): Sparks {
   container.eventMode = 'none';
   const pc = new ParticleContainer({ texture: streak, dynamicProperties: { position: true, rotation: true, vertex: true, color: true } });
   pc.blendMode = 'add';
-  const rings = new Graphics();
-  rings.blendMode = 'add';
-  container.addChild(rings, pc);
+  const rings = createDynMesh({ label: 'spark-rings', blendMode: 'add' });
+  container.addChild(rings.mesh, pc);
 
   const pool: Spark[] = [];
   for (let i = 0; i < MAX_SPARKS; i++) {
@@ -68,8 +70,11 @@ export function createSparks(streak: Texture): Sparks {
   let cursor = 0;
   let alive = 0;
   const ringList: Ring[] = [];
-  const acc = new Map<string, { spark: number; boom: number; seen: number }>();
+  const ringPool: Ring[] = [];
+  /** spark / boom accumulators per planet, per frontline key */
+  const acc = new Map<string, Map<string, { spark: number; boom: number; seen: number }>>();
   let frame = 0;
+  let ringsShown = false;
 
   function spawn(x: number, y: number, vx: number, vy: number, life: number, color: number, w: number) {
     // round-robin over the pool: when full, the oldest spark is recycled
@@ -104,12 +109,16 @@ export function createSparks(streak: Texture): Sparks {
       const sizeF = clamp(R / px / 140, 0.15, 2.2);
       const rate = reduced ? 0.15 : 1;
       frame++;
+      let pa = acc.get(planet.id);
+      if (!pa) {
+        pa = new Map();
+        acc.set(planet.id, pa);
+      }
       for (const b of planet.lines) {
-        const key = planet.id + ':' + b.key;
-        let a = acc.get(key);
+        let a = pa.get(b.key);
         if (!a) {
           a = { spark: Math.random(), boom: Math.random() * 0.5, seen: frame };
-          acc.set(key, a);
+          pa.set(b.key, a);
         }
         a.seen = frame;
         const prevC = hexColor(b.prev.color);
@@ -139,12 +148,22 @@ export function createSparks(streak: Texture): Sparks {
           const y = planet.y + Math.sin(ang) * rho * R;
           const color = Math.random() < 0.5 ? prevC : curC;
           const sz = rand(9, 20) * Math.sqrt(sizeF) * px;
-          if (ringList.length < MAX_RINGS) ringList.push({ x, y, r1: sz * 1.7, t: 0, dur: 0.5, color, w: 1.5 });
+          if (ringList.length < MAX_RINGS) {
+            const r = ringPool.pop() ?? { x: 0, y: 0, r1: 0, t: 0, dur: 0.5, color: 0, w: 1.5 };
+            r.x = x;
+            r.y = y;
+            r.r1 = sz * 1.7;
+            r.t = 0;
+            r.dur = 0.5;
+            r.color = color;
+            r.w = 1.5;
+            ringList.push(r);
+          }
           burst(x, y, color, 6 + Math.floor(Math.random() * 6), 110 * Math.sqrt(sizeF) * px, 0.6);
         }
       }
       // forget accumulators of frontlines that no longer exist
-      if (frame % 120 === 0) for (const [k, v] of acc) if (frame - v.seen > 60) acc.delete(k);
+      if (frame % 120 === 0) for (const m of acc.values()) for (const [k, v] of m) if (frame - v.seen > 60) m.delete(k);
     },
     update(dt, px) {
       const damp = 1 - Math.min(1, dt * 2.6);
@@ -173,7 +192,7 @@ export function createSparks(streak: Texture): Sparks {
           s.vx *= damp;
           s.vy *= damp;
           const f = s.life / s.max;
-          const v = Math.hypot(s.vx, s.vy);
+          const v = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
           p.x = s.x;
           p.y = s.y;
           p.rotation = Math.atan2(s.vy, s.vx);
@@ -182,18 +201,23 @@ export function createSparks(streak: Texture): Sparks {
           p.alpha = f;
         }
       }
-      rings.clear();
+      if (!ringList.length && !ringsShown) return;
+      rings.begin();
       for (let i = ringList.length - 1; i >= 0; i--) {
         const r = ringList[i];
         r.t += dt;
         const e = r.t / r.dur;
         if (e >= 1) {
-          ringList.splice(i, 1);
+          ringPool.push(r);
+          ringList[i] = ringList[ringList.length - 1];
+          ringList.pop();
           continue;
         }
         const ease = 1 - Math.pow(1 - e, 3);
-        rings.circle(r.x, r.y, Math.max(0.1 * px, 2 * px + (r.r1 - 2 * px) * ease)).stroke({ width: (r.w * (1 - e) + 0.5) * px, color: r.color, alpha: (1 - e) * 0.75 });
+        strokeCircle(rings.buf, r.x, r.y, Math.max(0.1 * px, 2 * px + (r.r1 - 2 * px) * ease), (r.w * (1 - e) + 0.5) * px, rgba(r.color, (1 - e) * 0.75));
       }
+      rings.end();
+      ringsShown = ringList.length > 0;
     },
     setScale(scale) {
       cap = clamp(Math.round(MAX_SPARKS * scale), 16, MAX_SPARKS);
@@ -202,6 +226,7 @@ export function createSparks(streak: Texture): Sparks {
     destroy() {
       acc.clear();
       ringList.length = 0;
+      rings.destroy();
       container.destroy({ children: true });
     },
   };

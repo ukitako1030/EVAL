@@ -8,6 +8,9 @@
  * round caps, open and closed paths), and arcs / circles use PixiJS's segment counts, so a stroke looks exactly like
  * the `Graphics.stroke()` it replaces. Fills are triangulated directly (fans, rectangles, polar grids for territory
  * wedges). Colours are packed RGBA8 (straight alpha; ./dynMesh premultiplies in its shader, like PixiJS's batcher).
+ *
+ * Hot loops write straight into the typed arrays (no per-vertex helper calls): a double handed to a call V8 does not
+ * inline is boxed into a fresh heap number, which is garbage too.
  */
 
 export interface MeshBuf {
@@ -38,6 +41,7 @@ export const CAP_ROUND = 1;
 
 const CLOSE_EPS = 1e-4; // PixiJS closePointEps
 const AREA_EPS2 = 1e-8; // PixiJS curveEps²
+const TAU = Math.PI * 2;
 
 export function createMeshBuf(verts = 256, indices = 768): MeshBuf {
   return { pos: new Float32Array(verts * 2), col: new Uint32Array(verts), idx: new Uint32Array(indices), nv: 0, ni: 0, grew: false };
@@ -75,22 +79,6 @@ export function reserve(b: MeshBuf, nv: number, ni: number): void {
   if (b.ni + ni > b.idx.length) growI(b, b.ni + ni);
 }
 
-function vtx(b: MeshBuf, x: number, y: number): void {
-  if (b.nv >= b.col.length) growV(b, b.nv + 1);
-  const k = b.nv++ * 2;
-  b.pos[k] = x;
-  b.pos[k + 1] = y;
-}
-
-function tri(b: MeshBuf, a: number, c: number, d: number): void {
-  if (b.ni + 3 > b.idx.length) growI(b, b.ni + 3);
-  const k = b.ni;
-  b.idx[k] = a;
-  b.idx[k + 1] = c;
-  b.idx[k + 2] = d;
-  b.ni = k + 3;
-}
-
 /**
  * 0xRRGGBB + alpha → packed RGBA8 (little-endian: R in the low byte), straight alpha. The alpha byte is truncated
  * like PixiJS's batcher does.
@@ -117,15 +105,19 @@ export function pathReset(p: Path): void {
   p.n = 0;
 }
 
+function growPath(p: Path, points: number): void {
+  let n = Math.max(32, p.xy.length);
+  while (n < points * 2) n *= 2;
+  const xy = new Float64Array(n);
+  xy.set(p.xy);
+  p.xy = xy;
+}
+
 /** append a point (an exact repeat of the last one is dropped, like `Graphics.lineTo`) */
 export function pathPush(p: Path, x: number, y: number): void {
   const k = p.n * 2;
   if (p.n > 0 && p.xy[k - 2] === x && p.xy[k - 1] === y) return;
-  if (k + 2 > p.xy.length) {
-    const xy = new Float64Array(Math.max(32, p.xy.length * 2));
-    xy.set(p.xy);
-    p.xy = xy;
-  }
+  if (k + 2 > p.xy.length) growPath(p, p.n + 1);
   p.xy[k] = x;
   p.xy[k + 1] = y;
   p.n++;
@@ -139,14 +131,23 @@ export function arcSteps(r: number, dist: number): number {
 /** append the arc a0 → a1 (increasing; wraps when a1 < a0) as `Graphics.arc(cx, cy, r, a0, a1)` samples it */
 export function pathArc(p: Path, cx: number, cy: number, r: number, a0: number, a1: number): void {
   let dist = Math.abs(a0 - a1);
-  if (a0 > a1) dist = 2 * Math.PI - dist;
+  if (a0 > a1) dist = TAU - dist;
   const steps = arcSteps(r, dist);
+  if ((p.n + steps + 1) * 2 > p.xy.length) growPath(p, p.n + steps + 1);
+  const xy = p.xy;
   const f = dist / steps;
   let t = a0;
+  let k = p.n * 2;
   for (let i = 0; i <= steps; i++) {
-    pathPush(p, cx + Math.cos(t) * r, cy + Math.sin(t) * r);
+    const x = cx + Math.cos(t) * r;
+    const y = cy + Math.sin(t) * r;
     t += f;
+    if (k > 0 && xy[k - 2] === x && xy[k - 1] === y) continue;
+    xy[k] = x;
+    xy[k + 1] = y;
+    k += 2;
   }
+  p.n = k / 2;
 }
 
 /** PixiJS `buildCircle` point count for radius r */
@@ -158,7 +159,7 @@ export function circlePoints(r: number): number {
 export function pathCircle(p: Path, cx: number, cy: number, r: number): void {
   const n = circlePoints(r);
   for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
+    const a = (i / n) * TAU;
     pathPush(p, cx + Math.cos(a) * r, cy + Math.sin(a) * r);
   }
 }
@@ -168,53 +169,54 @@ export function pathCircle(p: Path, cx: number, cy: number, r: number): void {
 
 let scratch = new Float64Array(256);
 /** the stroke's triangle strip in float64 (PixiJS tests degenerate triangles on unrounded values) */
-let strip = new Float64Array(512);
-let ns = 0;
+let strip = new Float64Array(1024);
 
-function sv(x: number, y: number): void {
-  if (2 * ns + 2 > strip.length) {
-    const next = new Float64Array(strip.length * 2);
-    next.set(strip);
-    strip = next;
-  }
-  strip[2 * ns] = x;
-  strip[2 * ns + 1] = y;
-  ns++;
-}
-
-function roundJoin( cx: number, cy: number, sx: number, sy: number, ex: number, ey: number, clockwise: boolean): void {
+/** round join / cap fan (PixiJS buildLine `round`) written at S[k…]; returns the new k */
+function roundJoin(S: Float64Array, k: number, cx: number, cy: number, sx: number, sy: number, ex: number, ey: number, clockwise: boolean): number {
   const c2p0x = sx - cx;
   const c2p0y = sy - cy;
   let angle0 = Math.atan2(c2p0x, c2p0y);
   let angle1 = Math.atan2(ex - cx, ey - cy);
-  if (clockwise && angle0 < angle1) angle0 += Math.PI * 2;
-  else if (!clockwise && angle0 > angle1) angle1 += Math.PI * 2;
+  if (clockwise && angle0 < angle1) angle0 += TAU;
+  else if (!clockwise && angle0 > angle1) angle1 += TAU;
   let start = angle0;
   const diff = angle1 - angle0;
   const radius = Math.sqrt(c2p0x * c2p0x + c2p0y * c2p0y);
-  const segCount = ((15 * Math.abs(diff) * Math.sqrt(radius)) / Math.PI) | 0 || 0;
-  const segs = segCount + 1;
+  const segs = (((15 * Math.abs(diff) * Math.sqrt(radius)) / Math.PI) | 0 || 0) + 1;
   const inc = diff / segs;
   start += inc;
   if (clockwise) {
-    sv(cx, cy);
-    sv(sx, sy);
+    S[k++] = cx;
+    S[k++] = cy;
+    S[k++] = sx;
+    S[k++] = sy;
     for (let i = 1, a = start; i < segs; i++, a += inc) {
-      sv(cx, cy);
-      sv(cx + Math.sin(a) * radius, cy + Math.cos(a) * radius);
+      S[k++] = cx;
+      S[k++] = cy;
+      S[k++] = cx + Math.sin(a) * radius;
+      S[k++] = cy + Math.cos(a) * radius;
     }
-    sv(cx, cy);
-    sv(ex, ey);
+    S[k++] = cx;
+    S[k++] = cy;
+    S[k++] = ex;
+    S[k++] = ey;
   } else {
-    sv(sx, sy);
-    sv(cx, cy);
+    S[k++] = sx;
+    S[k++] = sy;
+    S[k++] = cx;
+    S[k++] = cy;
     for (let i = 1, a = start; i < segs; i++, a += inc) {
-      sv(cx + Math.sin(a) * radius, cy + Math.cos(a) * radius);
-      sv(cx, cy);
+      S[k++] = cx + Math.sin(a) * radius;
+      S[k++] = cy + Math.cos(a) * radius;
+      S[k++] = cx;
+      S[k++] = cy;
     }
-    sv(ex, ey);
-    sv(cx, cy);
+    S[k++] = ex;
+    S[k++] = ey;
+    S[k++] = cx;
+    S[k++] = cy;
   }
+  return k;
 }
 
 /**
@@ -242,10 +244,15 @@ export function strokePath(b: MeshBuf, p: Path, width: number, color: number, cl
     pts = scratch;
     n = m + 2;
   }
-  ns = 0;
   const hw = width / 2;
   const hw2 = hw * hw;
   const ml2 = miterLimit * miterLimit;
+  // worst case strip size: 4 vertices per point, plus a fan per round join / cap (PixiJS's segment count bound)
+  const fan = join === JOIN_ROUND || cap === CAP_ROUND ? 2 * (((30 * Math.sqrt(hw)) | 0) + 2) + 2 : 0;
+  const maxV = n * (6 + fan) + 2 * fan + 8;
+  if (strip.length < 2 * maxV) strip = new Float64Array(Math.max(2 * maxV, strip.length * 2));
+  const S = strip;
+  let k = 0;
 
   let x0 = pts[0];
   let y0 = pts[1];
@@ -260,9 +267,11 @@ export function strokePath(b: MeshBuf, p: Path, width: number, color: number, cl
   let dist = Math.sqrt(perpX * perpX + perpY * perpY);
   perpX = (perpX / dist) * hw;
   perpY = (perpY / dist) * hw;
-  if (!closed && cap === CAP_ROUND) roundJoin(x0, y0, x0 - perpX, y0 - perpY, x0 + perpX, y0 + perpY, true);
-  sv(x0 - perpX, y0 - perpY);
-  sv(x0 + perpX, y0 + perpY);
+  if (!closed && cap === CAP_ROUND) k = roundJoin(S, k, x0, y0, x0 - perpX, y0 - perpY, x0 + perpX, y0 + perpY, true);
+  S[k++] = x0 - perpX;
+  S[k++] = y0 - perpY;
+  S[k++] = x0 + perpX;
+  S[k++] = y0 + perpY;
 
   for (let i = 1; i < n - 1; ++i) {
     x0 = pts[(i - 1) * 2];
@@ -289,12 +298,16 @@ export function strokePath(b: MeshBuf, p: Path, width: number, color: number, cl
     const cross = dy0 * dx1 - dy1 * dx0;
     const clockwise = cross < 0;
     if (Math.abs(cross) < 1e-3 * Math.abs(dot)) {
-      sv(x1 - perpX, y1 - perpY);
-      sv(x1 + perpX, y1 + perpY);
+      S[k++] = x1 - perpX;
+      S[k++] = y1 - perpY;
+      S[k++] = x1 + perpX;
+      S[k++] = y1 + perpY;
       if (dot >= 0) {
-        if (join === JOIN_ROUND) roundJoin(x1, y1, x1 - perpX, y1 - perpY, x1 - perp1x, y1 - perp1y, false);
-        sv(x1 - perp1x, y1 - perp1y);
-        sv(x1 + perp1x, y1 + perp1y);
+        if (join === JOIN_ROUND) k = roundJoin(S, k, x1, y1, x1 - perpX, y1 - perpY, x1 - perp1x, y1 - perp1y, false);
+        S[k++] = x1 - perp1x;
+        S[k++] = y1 - perp1y;
+        S[k++] = x1 + perp1x;
+        S[k++] = y1 + perp1y;
       }
       continue;
     }
@@ -312,51 +325,77 @@ export function strokePath(b: MeshBuf, p: Path, width: number, color: number, cl
     if (insideMiterOk) {
       if (join === JOIN_BEVEL || pDist / hw2 > ml2) {
         if (clockwise) {
-          sv(imx, imy);
-          sv(x1 + perpX, y1 + perpY);
-          sv(imx, imy);
-          sv(x1 + perp1x, y1 + perp1y);
+          S[k++] = imx;
+          S[k++] = imy;
+          S[k++] = x1 + perpX;
+          S[k++] = y1 + perpY;
+          S[k++] = imx;
+          S[k++] = imy;
+          S[k++] = x1 + perp1x;
+          S[k++] = y1 + perp1y;
         } else {
-          sv(x1 - perpX, y1 - perpY);
-          sv(omx, omy);
-          sv(x1 - perp1x, y1 - perp1y);
-          sv(omx, omy);
+          S[k++] = x1 - perpX;
+          S[k++] = y1 - perpY;
+          S[k++] = omx;
+          S[k++] = omy;
+          S[k++] = x1 - perp1x;
+          S[k++] = y1 - perp1y;
+          S[k++] = omx;
+          S[k++] = omy;
         }
       } else if (join === JOIN_ROUND) {
         if (clockwise) {
-          sv(imx, imy);
-          sv(x1 + perpX, y1 + perpY);
-          roundJoin(x1, y1, x1 + perpX, y1 + perpY, x1 + perp1x, y1 + perp1y, true);
-          sv(imx, imy);
-          sv(x1 + perp1x, y1 + perp1y);
+          S[k++] = imx;
+          S[k++] = imy;
+          S[k++] = x1 + perpX;
+          S[k++] = y1 + perpY;
+          k = roundJoin(S, k, x1, y1, x1 + perpX, y1 + perpY, x1 + perp1x, y1 + perp1y, true);
+          S[k++] = imx;
+          S[k++] = imy;
+          S[k++] = x1 + perp1x;
+          S[k++] = y1 + perp1y;
         } else {
-          sv(x1 - perpX, y1 - perpY);
-          sv(omx, omy);
-          roundJoin(x1, y1, x1 - perpX, y1 - perpY, x1 - perp1x, y1 - perp1y, false);
-          sv(x1 - perp1x, y1 - perp1y);
-          sv(omx, omy);
+          S[k++] = x1 - perpX;
+          S[k++] = y1 - perpY;
+          S[k++] = omx;
+          S[k++] = omy;
+          k = roundJoin(S, k, x1, y1, x1 - perpX, y1 - perpY, x1 - perp1x, y1 - perp1y, false);
+          S[k++] = x1 - perp1x;
+          S[k++] = y1 - perp1y;
+          S[k++] = omx;
+          S[k++] = omy;
         }
       } else {
-        sv(imx, imy);
-        sv(omx, omy);
+        S[k++] = imx;
+        S[k++] = imy;
+        S[k++] = omx;
+        S[k++] = omy;
       }
     } else {
-      sv(x1 - perpX, y1 - perpY);
-      sv(x1 + perpX, y1 + perpY);
+      S[k++] = x1 - perpX;
+      S[k++] = y1 - perpY;
+      S[k++] = x1 + perpX;
+      S[k++] = y1 + perpY;
       if (join === JOIN_ROUND) {
-        if (clockwise) roundJoin(x1, y1, x1 + perpX, y1 + perpY, x1 + perp1x, y1 + perp1y, true);
-        else roundJoin(x1, y1, x1 - perpX, y1 - perpY, x1 - perp1x, y1 - perp1y, false);
+        if (clockwise) k = roundJoin(S, k, x1, y1, x1 + perpX, y1 + perpY, x1 + perp1x, y1 + perp1y, true);
+        else k = roundJoin(S, k, x1, y1, x1 - perpX, y1 - perpY, x1 - perp1x, y1 - perp1y, false);
       } else if (join === JOIN_MITER && pDist / hw2 <= ml2) {
         if (clockwise) {
-          sv(omx, omy);
-          sv(omx, omy);
+          S[k++] = omx;
+          S[k++] = omy;
+          S[k++] = omx;
+          S[k++] = omy;
         } else {
-          sv(imx, imy);
-          sv(imx, imy);
+          S[k++] = imx;
+          S[k++] = imy;
+          S[k++] = imx;
+          S[k++] = imy;
         }
       }
-      sv(x1 - perp1x, y1 - perp1y);
-      sv(x1 + perp1x, y1 + perp1y);
+      S[k++] = x1 - perp1x;
+      S[k++] = y1 - perp1y;
+      S[k++] = x1 + perp1x;
+      S[k++] = y1 + perp1y;
     }
   }
 
@@ -369,26 +408,34 @@ export function strokePath(b: MeshBuf, p: Path, width: number, color: number, cl
   dist = Math.sqrt(perpX * perpX + perpY * perpY);
   perpX = (perpX / dist) * hw;
   perpY = (perpY / dist) * hw;
-  sv(x1 - perpX, y1 - perpY);
-  sv(x1 + perpX, y1 + perpY);
-  if (!closed && cap === CAP_ROUND) roundJoin(x1, y1, x1 - perpX, y1 - perpY, x1 + perpX, y1 + perpY, false);
+  S[k++] = x1 - perpX;
+  S[k++] = y1 - perpY;
+  S[k++] = x1 + perpX;
+  S[k++] = y1 + perpY;
+  if (!closed && cap === CAP_ROUND) k = roundJoin(S, k, x1, y1, x1 - perpX, y1 - perpY, x1 + perpX, y1 + perpY, false);
 
   // the strip as a triangle list, skipping (near-)degenerate triangles
+  const ns = k / 2;
   reserve(b, ns, 3 * ns);
   const v0 = b.nv;
   const pos = b.pos;
-  for (let i = 0, o = 2 * v0; i < 2 * ns; i++) pos[o + i] = strip[i];
+  for (let i = 0, o = 2 * v0; i < k; i++) pos[o + i] = S[i];
   b.nv = v0 + ns;
+  const idx = b.idx;
+  let ni = b.ni;
   for (let i = 0; i < ns - 2; ++i) {
-    const ax = strip[i * 2];
-    const ay = strip[i * 2 + 1];
-    const bx = strip[i * 2 + 2];
-    const by = strip[i * 2 + 3];
-    const cx = strip[i * 2 + 4];
-    const cy = strip[i * 2 + 5];
+    const ax = S[i * 2];
+    const ay = S[i * 2 + 1];
+    const bx = S[i * 2 + 2];
+    const by = S[i * 2 + 3];
+    const cx = S[i * 2 + 4];
+    const cy = S[i * 2 + 5];
     if (Math.abs(ax * (by - cy) + bx * (cy - ay) + cx * (ay - by)) < AREA_EPS2) continue;
-    tri(b, v0 + i, v0 + i + 1, v0 + i + 2);
+    idx[ni++] = v0 + i;
+    idx[ni++] = v0 + i + 1;
+    idx[ni++] = v0 + i + 2;
   }
+  b.ni = ni;
   b.col.fill(color, v0, b.nv);
 }
 
@@ -402,12 +449,26 @@ export function strokeSegment(b: MeshBuf, x0: number, y0: number, x1: number, y1
   py = (py / d) * (width / 2);
   reserve(b, 4, 6);
   const v = b.nv;
-  vtx(b, x0 - px, y0 - py);
-  vtx(b, x0 + px, y0 + py);
-  vtx(b, x1 - px, y1 - py);
-  vtx(b, x1 + px, y1 + py);
-  tri(b, v, v + 1, v + 2);
-  tri(b, v + 1, v + 2, v + 3);
+  const pos = b.pos;
+  const o = 2 * v;
+  pos[o] = x0 - px;
+  pos[o + 1] = y0 - py;
+  pos[o + 2] = x0 + px;
+  pos[o + 3] = y0 + py;
+  pos[o + 4] = x1 - px;
+  pos[o + 5] = y1 - py;
+  pos[o + 6] = x1 + px;
+  pos[o + 7] = y1 + py;
+  b.nv = v + 4;
+  const idx = b.idx;
+  const i = b.ni;
+  idx[i] = v;
+  idx[i + 1] = v + 1;
+  idx[i + 2] = v + 2;
+  idx[i + 3] = v + 1;
+  idx[i + 4] = v + 2;
+  idx[i + 5] = v + 3;
+  b.ni = i + 6;
   b.col.fill(color, v, v + 4);
 }
 
@@ -415,7 +476,7 @@ const arcPath = createPath(64);
 
 /** stroke the arc a0 → a1 (`moveTo(start).arc(…).stroke(…)`) */
 export function strokeArc(b: MeshBuf, cx: number, cy: number, r: number, a0: number, a1: number, width: number, color: number): void {
-  pathReset(arcPath);
+  arcPath.n = 0;
   pathArc(arcPath, cx, cy, r, a0, a1);
   strokePath(b, arcPath, width, color);
 }
@@ -423,7 +484,7 @@ export function strokeArc(b: MeshBuf, cx: number, cy: number, r: number, a0: num
 /** stroke a circle (`circle(…).stroke(…)`) */
 export function strokeCircle(b: MeshBuf, cx: number, cy: number, r: number, width: number, color: number): void {
   if (!(r > 0)) return;
-  pathReset(arcPath);
+  arcPath.n = 0;
   pathCircle(arcPath, cx, cy, r);
   strokePath(b, arcPath, width, color, true);
 }
@@ -435,12 +496,26 @@ export function fillRect(b: MeshBuf, x: number, y: number, w: number, h: number,
   if (!(w > 0) || !(h > 0)) return;
   reserve(b, 4, 6);
   const v = b.nv;
-  vtx(b, x, y);
-  vtx(b, x + w, y);
-  vtx(b, x + w, y + h);
-  vtx(b, x, y + h);
-  tri(b, v, v + 1, v + 2);
-  tri(b, v, v + 2, v + 3);
+  const pos = b.pos;
+  const o = 2 * v;
+  pos[o] = x;
+  pos[o + 1] = y;
+  pos[o + 2] = x + w;
+  pos[o + 3] = y;
+  pos[o + 4] = x + w;
+  pos[o + 5] = y + h;
+  pos[o + 6] = x;
+  pos[o + 7] = y + h;
+  b.nv = v + 4;
+  const idx = b.idx;
+  const i = b.ni;
+  idx[i] = v;
+  idx[i + 1] = v + 1;
+  idx[i + 2] = v + 2;
+  idx[i + 3] = v;
+  idx[i + 4] = v + 2;
+  idx[i + 5] = v + 3;
+  b.ni = i + 6;
   b.col.fill(color, v, v + 4);
 }
 
@@ -449,20 +524,31 @@ export function fillCircle(b: MeshBuf, cx: number, cy: number, r: number, color:
   const n = circlePoints(r);
   reserve(b, n + 1, 3 * n);
   const c = b.nv;
-  vtx(b, cx, cy);
+  const pos = b.pos;
+  pos[2 * c] = cx;
+  pos[2 * c + 1] = cy;
   for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    vtx(b, cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    const a = (i / n) * TAU;
+    pos[2 * (c + 1 + i)] = cx + Math.cos(a) * r;
+    pos[2 * (c + 1 + i) + 1] = cy + Math.sin(a) * r;
   }
-  for (let i = 0; i < n; i++) tri(b, c, c + 1 + i, c + 1 + ((i + 1) % n));
+  b.nv = c + 1 + n;
+  const idx = b.idx;
+  let k = b.ni;
+  for (let i = 0; i < n; i++) {
+    idx[k++] = c;
+    idx[k++] = c + 1 + i;
+    idx[k++] = c + 1 + ((i + 1) % n);
+  }
+  b.ni = k;
   b.col.fill(color, c, c + 1 + n);
 }
 
 /**
  * Fill the region between two sampled frontlines of a planet: border `bs` starts it and `be` (+ `wrap`) ends it, both
  * sampled at radius fractions `rho(i) = core + (1 − core) i / NS`, i = 0..NS (planet-local, radius R). Triangulated as
- * a polar grid whose rim and core edges are arcs of at most `step` radians — the same outline as the territory
- * polygon (./planetDraw `wedgePolygon`).
+ * a polar grid whose rim and core edges are arcs of at most `step` radians — the outline of the territory polygon the
+ * overview drew before (frontline, rim arc, frontline, core arc).
  */
 export function fillSector(b: MeshBuf, bs: ArrayLike<number>, be: ArrayLike<number>, wrap: number, NS: number, R: number, core: number, color: number, step = 0.08): void {
   let span = 0;
@@ -470,22 +556,33 @@ export function fillSector(b: MeshBuf, bs: ArrayLike<number>, be: ArrayLike<numb
   const J = Math.max(1, Math.ceil(span / step));
   reserve(b, (NS + 1) * (J + 1), 6 * NS * J);
   const v0 = b.nv;
+  const pos = b.pos;
+  let o = 2 * v0;
   for (let i = 0; i <= NS; i++) {
     const r = (core + ((1 - core) * i) / NS) * R;
     const a0 = bs[i];
     const da = (be[i] + wrap - a0) / J;
     for (let j = 0; j <= J; j++) {
       const a = a0 + da * j;
-      vtx(b, Math.cos(a) * r, Math.sin(a) * r);
+      pos[o++] = Math.cos(a) * r;
+      pos[o++] = Math.sin(a) * r;
     }
   }
+  b.nv = o / 2;
   const W = J + 1;
+  const idx = b.idx;
+  let k = b.ni;
   for (let i = 0; i < NS; i++) {
     for (let j = 0; j < J; j++) {
       const a = v0 + i * W + j;
-      tri(b, a, a + 1, a + W);
-      tri(b, a + 1, a + W + 1, a + W);
+      idx[k++] = a;
+      idx[k++] = a + 1;
+      idx[k++] = a + W;
+      idx[k++] = a + 1;
+      idx[k++] = a + W + 1;
+      idx[k++] = a + W;
     }
   }
+  b.ni = k;
   b.col.fill(color, v0, b.nv);
 }

@@ -251,7 +251,7 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
       s.front = p.id;
       let dx = hub.x - p.x;
       let dy = hub.y - p.y;
-      const L = Math.hypot(dx, dy) || 1;
+      const L = Math.sqrt(dx * dx + dy * dy) || 1;
       dx /= L;
       dy /= L;
       const nx = -dy;
@@ -269,7 +269,11 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
       pathReset(streamPath);
       for (let i = 0; i <= STREAM_SAMPLES; i++) {
         bez(q, i / STREAM_SAMPLES, pa);
-        if (i) len += Math.hypot(pa.x - s.xs[i - 1], pa.y - s.ys[i - 1]);
+        if (i) {
+          const ex = pa.x - s.xs[i - 1];
+          const ey = pa.y - s.ys[i - 1];
+          len += Math.sqrt(ex * ex + ey * ey);
+        }
         s.xs[i] = pa.x;
         s.ys[i] = pa.y;
         s.ls[i] = len;
