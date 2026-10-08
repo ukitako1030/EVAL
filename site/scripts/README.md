@@ -51,4 +51,6 @@ Notes:
   the real GPU when one is available; fps measured on a software renderer (SwiftShader) is not
   representative.
 - Dev-only debug hooks in `main.ts`: `?quality=0..3` pins the render quality level (works in
-  preview too); `window.__renderer` exposes the renderer (dev server only).
+  preview too); `window.__renderer`, `__galaxy`, `__store` and `__world` expose the renderer,
+  the galaxy overview, the app store and the loaded data (dev server only), e.g.
+  `--eval "__store.set({ front: 'image' })"` zooms into a planet.
