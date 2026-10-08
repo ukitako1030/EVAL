@@ -19,8 +19,9 @@ import { tr } from './i18n/strings';
 import { loadWorld } from './data/load';
 import { createFrameSource, monthIndex } from './data/timeline';
 import type { FrontId, Lang, World } from './data/types';
-import { createStore, defaultState, type AppState, type Store } from './state/store';
-import { decodeUrl, encodeUrl } from './state/url';
+import { createStore, defaultState, type AppState } from './state/store';
+import { decodeUrl } from './state/url';
+import { syncUrl } from './state/urlSync';
 import { initialPlayback, safeLocalStorage } from './state/intro';
 import { HOLD_SECONDS, MAX_HOLD_SECONDS, createPlayback } from './playback/clock';
 import { createBannerQueue, holdCounts, selectEvents } from './events/queue';
@@ -36,10 +37,6 @@ import { showLoadError } from './ui/loadError';
 
 /** Banners stay up this long (s); the focused view shows one at a time, the galaxy two. */
 const BANNER_SECONDS = 4;
-/** Minimum gap between two `history.replaceState` calls (ms). */
-const URL_THROTTLE_MS = 350;
-/** The parameters `encodeUrl` owns. */
-const SHARE_KEYS = new Set(['front', 't', 'lang']);
 
 const mount = document.getElementById('app');
 if (mount) void boot(mount);
@@ -192,7 +189,17 @@ async function boot(mount: HTMLElement) {
       if (started.size > visible.length) for (const k of started) if (!visible.some((b) => b.key === k)) started.delete(k);
     });
 
-    syncUrl(store, world);
+    // keep the address bar shareable (front / whole month / language), throttled
+    syncUrl(store, world, {
+      read: () => location.search,
+      write(search) {
+        try {
+          history.replaceState(history.state, '', `${location.pathname}${search}${location.hash}`);
+        } catch {
+          /* sandboxed / opaque origins refuse; the share button still works */
+        }
+      },
+    });
 
     // debug: ?hover=<org> pins the org highlight (screenshots)
     const hover = params.get('hover');
@@ -207,32 +214,6 @@ async function boot(mount: HTMLElement) {
     const l = params.get('lang');
     showLoadError(document.body, l === 'en' || l === 'ja' ? (l as Lang) : 'ja');
   }
-}
-
-/** Keep the address bar shareable: front / whole month / language, at most one write per URL_THROTTLE_MS. */
-function syncUrl(store: Store<AppState>, world: World) {
-  const keyOf = (s: AppState) => `${s.front ?? ''}|${monthIndex(world, s.t)}|${s.lang}`;
-  let key = keyOf(store.get());
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let lastWrite = -Infinity;
-  const write = () => {
-    timer = undefined;
-    lastWrite = performance.now();
-    const next = new URLSearchParams(encodeUrl(store.get(), world));
-    // keep any other (debug) parameters after the shareable ones (an absent `front` means the galaxy: drop the old one)
-    for (const [k, v] of new URLSearchParams(location.search)) if (!SHARE_KEYS.has(k)) next.append(k, v);
-    try {
-      history.replaceState(history.state, '', `${location.pathname}?${next.toString()}${location.hash}`);
-    } catch {
-      /* sandboxed / opaque origins refuse; the share button still works */
-    }
-  };
-  store.subscribe((s) => {
-    const k = keyOf(s);
-    if (k === key) return;
-    key = k;
-    if (timer === undefined) timer = setTimeout(write, Math.max(0, lastWrite + URL_THROTTLE_MS - performance.now()));
-  });
 }
 
 /** Leave room for the HUD: ranking panel on the right (desktop), top bar and timeline. */
