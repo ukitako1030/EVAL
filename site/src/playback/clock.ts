@@ -15,10 +15,27 @@ export interface TickResult extends PlaybackState {
   holding: boolean;
 }
 
-/** `eventMonths`: month index → number of banners that month; playback holds `HOLD_SECONDS[speed]` per banner. */
-export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlyMap<number, number> }) {
+/** The app caps every month's hold at this many seconds (a month with many banners must not stall playback). */
+export const MAX_HOLD_SECONDS = 6;
+
+/**
+ * How many of a month's `count` banners playback holds for at `speed` when each month's hold is capped at `maxSeconds`:
+ * the largest number with `HOLD_SECONDS[speed] × n ≤ maxSeconds` (at least 1, so a month with news always pauses).
+ */
+export function cappedHoldCount(count: number, speed: 1 | 2 | 4, maxSeconds = Infinity): number {
+  if (!(count > 0)) return 0;
+  const most = Math.max(1, Math.floor(maxSeconds / HOLD_SECONDS[speed] + 1e-9));
+  return Math.min(Math.floor(count), most);
+}
+
+/**
+ * `eventMonths`: month index → number of banners that month; playback holds `HOLD_SECONDS[speed]` per banner, the
+ * number of banners clamped so one month never holds longer than `maxHoldSeconds` (default: no cap).
+ */
+export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlyMap<number, number>; maxHoldSeconds?: number }) {
   let hold = 0;
   let heldMonth = -1; // the month the current hold belongs to
+  const holdFor = (m: number, speed: 1 | 2 | 4) => HOLD_SECONDS[speed] * cappedHoldCount(opts.eventMonths.get(m) ?? 0, speed, opts.maxHoldSeconds);
   return {
     tick(rawDt: number, st: PlaybackState): TickResult {
       if (!st.playing) {
@@ -38,15 +55,25 @@ export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlyM
       const crossed: number[] = [];
       for (let m = Math.floor(from + 1e-9) + 1; m <= Math.floor(to + 1e-9); m++) {
         crossed.push(m);
-        const items = opts.eventMonths.get(m) ?? 0;
-        if (items > 0 && m < opts.lastIndex) {
+        const secs = holdFor(m, st.speed);
+        if (secs > 0 && m < opts.lastIndex) {
           to = m;
-          hold = HOLD_SECONDS[st.speed] * items;
+          hold = secs;
           heldMonth = m;
           break;
         }
       }
       return { t: to, playing: to < opts.lastIndex, speed: st.speed, crossed, holding: hold > 0 };
+    },
+    /**
+     * Start holding on whole month `month` as if playback had just reached it (e.g. month 0 when the intro starts, which
+     * playback never "crosses"). No-op for a month without banners or for the last month.
+     */
+    holdAt(month: number, speed: 1 | 2 | 4) {
+      const secs = month < opts.lastIndex ? holdFor(month, speed) : 0;
+      if (secs <= 0) return;
+      hold = secs;
+      heldMonth = month;
     },
     reset() {
       hold = 0;

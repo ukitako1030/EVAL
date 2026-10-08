@@ -107,10 +107,44 @@ export interface OrgDeployment {
   totalShare: number;
 }
 
+/** Every front's frame at `t` — what the renderer and the HUD share each animation frame. */
+export type Frames = Partial<Record<FrontId, readonly UnitFrame[]>>;
+
+export function allFrames(world: World, t: number, sortBy: SortBy = 'strength'): Frames {
+  const out: Frames = {};
+  for (const f of world.fronts) out[f.id] = frontFrame(world, f.id, t, sortBy);
+  return out;
+}
+
+export type FrameSource = (t: number, sortBy: SortBy) => Frames;
+
+/**
+ * `allFrames`, recomputed only when `t` or `sortBy` changes: one computation per animation frame however many
+ * components (galaxy, battle, ranking, deployment) ask for it.
+ */
+export function createFrameSource(world: World): FrameSource {
+  let lastT = Number.NaN;
+  let lastSort: SortBy | null = null;
+  let frames: Frames = {};
+  return (t, sortBy) => {
+    if (!Object.is(t, lastT) || sortBy !== lastSort) {
+      lastT = t;
+      lastSort = sortBy;
+      frames = allFrames(world, t, sortBy);
+    }
+    return frames;
+  };
+}
+
 export function orgDeployment(world: World, t: number): OrgDeployment[] {
+  return orgDeploymentFrom(world, allFrames(world, t));
+}
+
+/** `orgDeployment` from frames already computed for that `t` (in any sort order: the result does not depend on it). */
+export function orgDeploymentFrom(world: World, frames: Frames): OrgDeployment[] {
   const by = new Map<string, OrgDeployment>();
   for (const f of world.fronts) {
-    for (const u of frontFrame(world, f.id, t)) {
+    for (const u of frames[f.id] ?? []) {
       let d = by.get(u.org);
       if (!d) {
         d = { org: u.org, name: world.orgs[u.org]?.name ?? u.org, color: u.color, fronts: [], totalShare: 0 };

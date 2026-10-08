@@ -1,5 +1,5 @@
 import type { FrontId, Lang, World } from '../data/types';
-import { frontFrame, monthIndex, type SortBy, type UnitFrame } from '../data/timeline';
+import { frontFrame, monthIndex, type FrameSource, type SortBy, type UnitFrame } from '../data/timeline';
 import { CONFIDENCE_KEY, tr } from '../i18n/strings';
 import type { AppState, Store } from '../state/store';
 import { clamp, fmt1, frontName, h, orgName, setAccent, setAttr, setStyle, setText, srOnly, uid } from './dom';
@@ -43,8 +43,10 @@ export function deltaMark(u: Pick<UnitFrame, 'rankDelta'>, isNew: boolean, lang:
 /**
  * Standings of `state.front ?? 'general'` at `state.t`: one absolutely positioned `<li>` per unit that slides to its
  * rank (CSS transition; none under reduced motion). Click → `selectedUnit`, hover / focus → `hoverOrg`.
+ * `opts.frames` shares the app's per-frame `frontFrame`s (main.ts); without it the ranking computes its own.
  */
-export function createRanking(root: HTMLElement, world: World, store: Store<AppState>): Ranking {
+export function createRanking(root: HTMLElement, world: World, store: Store<AppState>, opts: { frames?: FrameSource } = {}): Ranking {
+  const frameOf = (f: FrontId, t: number, sortBy: SortBy): readonly UnitFrame[] => (opts.frames ? (opts.frames(t, sortBy)[f] ?? []) : frontFrame(world, f, t, sortBy));
   const titleId = uid('rank-title');
   const titleEl = h('h2', { id: titleId, class: 'hud-h' });
   const frontEl = h('div', { class: 'rank-front' });
@@ -146,7 +148,7 @@ export function createRanking(root: HTMLElement, world: World, store: Store<AppS
     setAttr(sortC, 'aria-pressed', String(state.sortBy === 'scale'));
     el.classList.toggle('reduced-motion', state.reducedMotion);
 
-    const frame = frontFrame(world, f, state.t, state.sortBy);
+    const frame = frameOf(f, state.t, state.sortBy);
     const i0 = monthIndex(world, state.t);
     const series = world.series[f] ?? {};
     const shown = new Set<string>();
