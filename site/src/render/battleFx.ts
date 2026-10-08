@@ -7,8 +7,10 @@
  *  - selection reticle around the selected swarm.
  * The caller asks the flash budget; this module only draws what it is told.
  */
-import { CanvasSource, Container, Graphics, Sprite, Texture } from 'pixi.js';
+import { CanvasSource, Container, Sprite, Texture } from 'pixi.js';
 import { colorGain, mixColor } from './color';
+import { createDynMesh } from './dynMesh';
+import { rgba, strokeArc, strokeCircle, strokeSegment } from './meshBuild';
 
 export interface BattleFx {
   readonly container: Container;
@@ -51,6 +53,8 @@ interface Fx {
 
 const MAX_FX = 12;
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+/** ring growth; under reduced motion rings appear at their final size and only fade */
+const grow = (q: number, reduced: boolean) => (reduced ? 0.6 : easeOut(q));
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 
 /** soft vertical beam: bright along the centre line, fading to both ends and to the sides */
@@ -77,10 +81,10 @@ function beamTexture(): Texture {
 export function createBattleFx(glow: Texture): BattleFx {
   const container = new Container({ label: 'battle-fx' });
   container.eventMode = 'none';
-  const lines = new Graphics();
-  lines.blendMode = 'add';
+  const lines = createDynMesh({ label: 'battle-fx-lines', blendMode: 'add' });
   const sprites = new Container();
-  container.addChild(sprites, lines);
+  container.addChild(sprites, lines.mesh);
+  let drawn = false;
   const beamTex = beamTexture();
   const list: Fx[] = [];
   const spritePool: Sprite[] = [];
@@ -110,7 +114,7 @@ export function createBattleFx(glow: Texture): BattleFx {
   function add(kind: Fx['kind'], x: number, y: number, color: number, grant: number) {
     if (list.length >= MAX_FX) drop(0);
     const g = clamp(Number.isFinite(grant) ? grant : 0, 0, 1);
-    list.push({
+    const f: Fx = {
       kind,
       x,
       y,
@@ -123,7 +127,12 @@ export function createBattleFx(glow: Texture): BattleFx {
       glow: take(glow),
       beam: kind === 'warp' ? take(beamTex) : null,
       flare: kind === 'warp' ? take(beamTex) : null,
-    });
+    };
+    // the colours are fixed for the effect's life: tint once (the setters normalise a Color per call)
+    f.glow.tint = f.color;
+    if (f.beam) f.beam.tint = f.pale;
+    if (f.flare) f.flare.tint = f.pale;
+    list.push(f);
   }
 
   return {
@@ -132,7 +141,18 @@ export function createBattleFx(glow: Texture): BattleFx {
     warp: (x, y, color, grant) => add('warp', x, y, color, grant),
     update(dt, v) {
       const { R, px, vis } = v;
-      lines.clear();
+      if (!list.length && !(v.selected && vis > 0.01)) {
+        // nothing to draw: leave the (empty) mesh alone
+        if (drawn) {
+          lines.begin();
+          lines.end();
+          drawn = false;
+        }
+        return;
+      }
+      drawn = true;
+      lines.begin();
+      const m = lines.buf;
       for (let i = list.length - 1; i >= 0; i--) {
         const f = list[i];
         f.t += dt;
@@ -146,37 +166,34 @@ export function createBattleFx(glow: Texture): BattleFx {
         // without a flash grant the effect still reads, but only as thin, dim lines
         const base = (f.grant > 0 ? 1 : 0.4) * f.gain * vis;
         // reduced motion: rings appear at their final size and only fade (no expansion)
-        const grow = (q: number) => (v.reduced ? 0.6 : easeOut(q));
         if (f.kind === 'shock') {
           for (let r = 0; r < 3; r++) {
             const d = r * 0.12;
             const pp = clamp((p - d) / (1 - d), 0, 1);
             if (pp <= 0) continue;
-            const rad = grow(pp) * R * (0.8 - r * 0.15);
+            const rad = grow(pp, v.reduced) * R * (0.8 - r * 0.15);
             const w = ((1 - pp) * (r === 0 ? 6 : 2) + 0.6) * px;
-            lines.circle(cx, cy, Math.max(px, rad)).stroke({ width: w, color: r === 1 ? f.pale : f.color, alpha: (1 - pp) * 0.85 * base });
+            strokeCircle(m, cx, cy, Math.max(px, rad), w, rgba(r === 1 ? f.pale : f.color, (1 - pp) * 0.85 * base));
           }
-          const rr = grow(p) * R * 0.7;
+          const rr = grow(p, v.reduced) * R * 0.7;
+          const glint = rgba(f.pale, (1 - p) * 0.6 * base);
           for (let q = 0; q < 16; q++) {
             const a = (q / 16) * Math.PI * 2 + f.x * 7;
-            lines.moveTo(cx + Math.cos(a) * rr * 0.75, cy + Math.sin(a) * rr * 0.75).lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+            strokeSegment(m, cx + Math.cos(a) * rr * 0.75, cy + Math.sin(a) * rr * 0.75, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, px, glint);
           }
-          lines.stroke({ width: px, color: f.pale, alpha: (1 - p) * 0.6 * base });
           // the flash: a local, coloured glow at the granted intensity
           f.glow.position.set(cx, cy);
-          f.glow.width = f.glow.height = R * (0.35 + 0.5 * grow(p));
-          f.glow.tint = f.color;
+          f.glow.width = f.glow.height = R * (0.35 + 0.5 * grow(p, v.reduced));
           f.glow.alpha = f.grant * (1 - p) * (1 - p) * f.gain * vis;
         } else {
           const q = 1 - p;
           const rad = (1 - easeOut(Math.min(1, p * 1.6))) * R * 0.5;
-          lines.circle(cx, cy, rad + 2 * px).stroke({ width: 2 * px, color: f.color, alpha: q * 0.9 * base });
+          strokeCircle(m, cx, cy, rad + 2 * px, 2 * px, rgba(f.color, q * 0.9 * base));
           const beamA = (f.grant > 0 ? 0.3 + 2 * f.grant : 0.18) * q * f.gain * vis;
           if (f.beam) {
             f.beam.position.set(cx, cy);
             f.beam.width = (4 + 10 * q) * px;
             f.beam.height = R * 1.8 * Math.sqrt(q);
-            f.beam.tint = f.pale;
             f.beam.alpha = Math.min(1, beamA);
           }
           if (f.flare) {
@@ -184,12 +201,10 @@ export function createBattleFx(glow: Texture): BattleFx {
             f.flare.rotation = Math.PI / 2;
             f.flare.width = 5 * px;
             f.flare.height = R * 1.2 * q;
-            f.flare.tint = f.pale;
             f.flare.alpha = Math.min(1, beamA * 0.8);
           }
           f.glow.position.set(cx, cy);
           f.glow.width = f.glow.height = R * 0.24 * (0.5 + q);
-          f.glow.tint = f.color;
           f.glow.alpha = f.grant * q * f.gain * vis;
         }
       }
@@ -200,20 +215,24 @@ export function createBattleFx(glow: Texture): BattleFx {
         const rr = s.r * R + 14 * px;
         const t = v.reduced ? 0 : v.time;
         const col = mixColor(s.color, 0xffffff, 0.4);
+        const arc = rgba(col, 0.95 * vis);
         for (let i = 0; i < 4; i++) {
           const a = t * 0.9 + (i * Math.PI) / 2;
-          lines.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr).arc(cx, cy, rr, a, a + 0.6);
+          strokeArc(m, cx, cy, rr, a, a + 0.6, 2 * px, arc);
         }
-        lines.stroke({ width: 2 * px, color: col, alpha: 0.95 * vis });
-        lines.circle(cx, cy, rr + 7 * px).stroke({ width: px, color: col, alpha: 0.35 * vis });
+        strokeCircle(m, cx, cy, rr + 7 * px, px, rgba(col, 0.35 * vis));
       }
+      lines.end();
     },
     clear() {
       for (let i = list.length - 1; i >= 0; i--) drop(i);
-      lines.clear();
+      lines.begin();
+      lines.end();
+      drawn = false;
     },
     destroy() {
       list.length = 0;
+      lines.destroy();
       container.destroy({ children: true });
       for (const s of spritePool) s.destroy();
       spritePool.length = 0;

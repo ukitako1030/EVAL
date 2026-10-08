@@ -136,12 +136,18 @@ export function pathArc(p: Path, cx: number, cy: number, r: number, a0: number, 
   if ((p.n + steps + 1) * 2 > p.xy.length) growPath(p, p.n + steps + 1);
   const xy = p.xy;
   const f = dist / steps;
-  let t = a0;
+  // rotate (cos, sin) by the step instead of calling cos / sin per point
+  const df = Math.cos(f);
+  const dg = Math.sin(f);
+  let c = Math.cos(a0) * r;
+  let s = Math.sin(a0) * r;
   let k = p.n * 2;
   for (let i = 0; i <= steps; i++) {
-    const x = cx + Math.cos(t) * r;
-    const y = cy + Math.sin(t) * r;
-    t += f;
+    const x = cx + c;
+    const y = cy + s;
+    const nc = c * df - s * dg;
+    s = s * df + c * dg;
+    c = nc;
     if (k > 0 && xy[k - 2] === x && xy[k - 1] === y) continue;
     xy[k] = x;
     xy[k + 1] = y;
@@ -436,7 +442,7 @@ export function strokePath(b: MeshBuf, p: Path, width: number, color: number, cl
     idx[ni++] = v0 + i + 2;
   }
   b.ni = ni;
-  b.col.fill(color, v0, b.nv);
+  for (let q = v0, e = b.nv, col = b.col; q < e; q++) col[q] = color;
 }
 
 /** a single straight stroke with butt caps (one `moveTo` / `lineTo` sub-path) */
@@ -469,7 +475,7 @@ export function strokeSegment(b: MeshBuf, x0: number, y0: number, x1: number, y1
   idx[i + 4] = v + 2;
   idx[i + 5] = v + 3;
   b.ni = i + 6;
-  b.col.fill(color, v, v + 4);
+  for (let q = v, e = v + 4, col = b.col; q < e; q++) col[q] = color;
 }
 
 const arcPath = createPath(64);
@@ -516,7 +522,7 @@ export function fillRect(b: MeshBuf, x: number, y: number, w: number, h: number,
   idx[i + 4] = v + 2;
   idx[i + 5] = v + 3;
   b.ni = i + 6;
-  b.col.fill(color, v, v + 4);
+  for (let q = v, e = v + 4, col = b.col; q < e; q++) col[q] = color;
 }
 
 export function fillCircle(b: MeshBuf, cx: number, cy: number, r: number, color: number): void {
@@ -541,7 +547,7 @@ export function fillCircle(b: MeshBuf, cx: number, cy: number, r: number, color:
     idx[k++] = c + 1 + ((i + 1) % n);
   }
   b.ni = k;
-  b.col.fill(color, c, c + 1 + n);
+  for (let q = c, e = c + 1 + n, col = b.col; q < e; q++) col[q] = color;
 }
 
 /**
@@ -561,12 +567,22 @@ export function fillSector(b: MeshBuf, bs: ArrayLike<number>, be: ArrayLike<numb
   for (let i = 0; i <= NS; i++) {
     const r = (core + ((1 - core) * i) / NS) * R;
     const a0 = bs[i];
-    const da = (be[i] + wrap - a0) / J;
-    for (let j = 0; j <= J; j++) {
-      const a = a0 + da * j;
-      pos[o++] = Math.cos(a) * r;
-      pos[o++] = Math.sin(a) * r;
+    const a1 = be[i] + wrap;
+    const da = (a1 - a0) / J;
+    // rotate (cos, sin) along the row; both border columns are exact (shared with the neighbouring territory)
+    const dc = Math.cos(da);
+    const ds = Math.sin(da);
+    let c = Math.cos(a0) * r;
+    let s = Math.sin(a0) * r;
+    for (let j = 0; j < J; j++) {
+      pos[o++] = c;
+      pos[o++] = s;
+      const nc = c * dc - s * ds;
+      s = s * dc + c * ds;
+      c = nc;
     }
+    pos[o++] = Math.cos(a1) * r;
+    pos[o++] = Math.sin(a1) * r;
   }
   b.nv = o / 2;
   const W = J + 1;
@@ -584,5 +600,5 @@ export function fillSector(b: MeshBuf, bs: ArrayLike<number>, be: ArrayLike<numb
     }
   }
   b.ni = k;
-  b.col.fill(color, v0, b.nv);
+  for (let q = v0, e = b.nv, col = b.col; q < e; q++) col[q] = color;
 }

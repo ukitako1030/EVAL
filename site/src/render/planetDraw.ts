@@ -18,8 +18,16 @@ export const sampleRho = (i: number, NS: number) => CORE + ((1 - CORE) * i) / NS
  * Fill the territory between two sampled frontlines (`bs` starts it, `be` ends it; `wrap` = 2π for the last wedge):
  * the region bounded by `bs` from the core to the rim, the rim arc, `be` back down and the core arc.
  */
-export function fillWedge(b: MeshBuf, bs: Float64Array, be: Float64Array, wrap: number, NS: number, R: number, color: number): void {
-  fillSector(b, bs, be, wrap, NS, R, CORE, color);
+export function fillWedge(b: MeshBuf, bs: Float64Array, be: Float64Array, wrap: number, NS: number, R: number, color: number, step = 0.08): void {
+  fillSector(b, bs, be, wrap, NS, R, CORE, color, step);
+}
+
+/**
+ * Angular step for territory fills on a planet of `sr` screen px: 0.08 rad (the overview's original polygon), coarser on
+ * small planets as long as the rim arc stays within 0.25 px of a true circle (and under the rim stroke anyway).
+ */
+export function fillStep(sr: number): number {
+  return Math.max(0.08, 2 * Math.sqrt(0.5 / Math.max(1, sr)));
 }
 
 /** rim start angle of wedge k from the sampled frontlines */
@@ -35,34 +43,38 @@ const path = createPath(64);
 // miter joins: the lines bend gently, and round joins / caps would multiply the triangles
 const FRONT_MITER = 2;
 
-function linePath(a: Float64Array, NS: number, R: number): void {
+// the current frontline's sample angles as cos / sin (computed once per line, used by all five of its paths)
+let ca = new Float64Array(32);
+let sa = new Float64Array(32);
+
+function linePath(NS: number, R: number): void {
   pathReset(path);
   for (let i = 0; i <= NS; i++) {
     const r = Math.min(0.995, sampleRho(i, NS)) * R;
-    pathPush(path, Math.cos(a[i]) * r, Math.sin(a[i]) * r);
+    pathPush(path, ca[i] * r, sa[i] * r);
   }
 }
 
 /** the line offset into one side's territory (prev lies at smaller angles), kept inside narrow wedges, tapered at the core */
-function bandPath(a: Float64Array, NS: number, R: number, side: number, off: number, narrow: number): void {
+function bandPath(NS: number, R: number, side: number, off: number, narrow: number): void {
   pathReset(path);
   for (let i = 0; i <= NS; i++) {
     const r = Math.min(0.995, sampleRho(i, NS)) * R;
     const d = side * Math.min(off, r * 0.35 * narrow);
-    pathPush(path, Math.cos(a[i]) * r - Math.sin(a[i]) * d, Math.sin(a[i]) * r + Math.cos(a[i]) * d);
+    pathPush(path, ca[i] * r - sa[i] * d, sa[i] * r + ca[i] * d);
   }
 }
 
-function sideGlow(m: MeshBuf, a: Float64Array, NS: number, R: number, px: number, sr: number, side: number, w: Wedge, level: number, thin: number, room: number, narrow: number) {
+function sideGlow(m: MeshBuf, NS: number, R: number, px: number, sr: number, side: number, w: Wedge, level: number, thin: number, room: number, narrow: number) {
   const col = hexColor(w.color);
   const lv = level * colorGain(col);
   if (lv <= 0.004) return;
   // the wide soft band only shows on big planets
   if (sr >= 95) {
-    bandPath(a, NS, R, side, R * 0.045 * thin, narrow);
+    bandPath(NS, R, side, R * 0.045 * thin, narrow);
     strokePath(m, path, R * 0.09 * thin, rgba(col, (0.05 + 0.14 * lv) * room), false, JOIN_MITER, CAP_BUTT, FRONT_MITER);
   }
-  bandPath(a, NS, R, side, R * 0.016 * thin, narrow);
+  bandPath(NS, R, side, R * 0.016 * thin, narrow);
   strokePath(m, path, Math.max(1.2 * px, R * 0.03 * thin), rgba(col, (0.1 + 0.26 * lv) * Math.sqrt(room)), false, JOIN_MITER, CAP_BUTT, FRONT_MITER);
 }
 
@@ -83,9 +95,17 @@ export function drawFrontline(m: MeshBuf, b: Frontline, a: Float64Array, NS: num
   const thin = clamp(spanPx / 22, 0.3, 1);
   // additive glows pile up between close frontlines: fade them where the territories are narrow
   const room = clamp(spanPx / 40, 0.12, 1);
-  sideGlow(m, a, NS, R, px, sr, -1, b.prev, levelPrev, thin, room, narrow);
-  sideGlow(m, a, NS, R, px, sr, 1, b.cur, levelCur, thin, room, narrow);
-  linePath(a, NS, R);
+  if (ca.length < NS + 1) {
+    ca = new Float64Array(NS + 1);
+    sa = new Float64Array(NS + 1);
+  }
+  for (let i = 0; i <= NS; i++) {
+    ca[i] = Math.cos(a[i]);
+    sa[i] = Math.sin(a[i]);
+  }
+  sideGlow(m, NS, R, px, sr, -1, b.prev, levelPrev, thin, room, narrow);
+  sideGlow(m, NS, R, px, sr, 1, b.cur, levelCur, thin, room, narrow);
+  linePath(NS, R);
   strokePath(m, path, 10 * wS * px * thin, rgba(sc, (0.06 + 0.13 * b.fierce) * room), false, JOIN_MITER, CAP_BUTT, FRONT_MITER);
   strokePath(m, path, 3.2 * wS * px * thin, rgba(mc, (0.25 + 0.3 * b.fierce) * Math.sqrt(room)), false, JOIN_MITER, CAP_BUTT, FRONT_MITER);
   strokePath(m, path, 1.1 * wS * px * Math.max(0.6, thin), rgba(0xffffff, (0.35 + 0.5 * b.fierce) * (0.5 + 0.5 * room)), false, JOIN_MITER, CAP_BUTT, FRONT_MITER);

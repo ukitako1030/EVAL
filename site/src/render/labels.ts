@@ -198,16 +198,21 @@ export function createGalaxyLabels(): GalaxyLabels {
     boxes[k + 3] = y1;
   }
 
-  function place(l: Label, x: number, y: number, pad = 2, force = false): boolean {
+  /**
+   * Show `l` at (x, y) with horizontal anchor `ax` unless it collides (or `force`). The anchor is written only on
+   * success and only when it changes: a text's anchor change re-validates it and rebuilds PixiJS's instruction list.
+   */
+  function place(l: Label, x: number, y: number, pad = 2, force = false, ax = 0.5): boolean {
     const t = l.t;
     // collide on the glyph box (the line box is taller than the glyphs)
     const w = t.width;
     const h = t.height * 0.38;
-    const x0 = x - w * t.anchor.x - pad;
+    const x0 = x - w * ax - pad;
     const y0 = y - h - pad;
     const x1 = x0 + w + 2 * pad;
     const y1 = y + h + pad;
     if (!force && (hitsBox(x0, y0, x1, y1) || x0 < 4 || y0 < 4 || x1 > screen.w - 4 || y1 > screen.h - 4)) return false;
+    if (t.anchor.x !== ax || t.anchor.y !== 0.5) t.anchor.set(ax, 0.5);
     t.position.set(Math.round(x), Math.round(y));
     l.want = true;
     pushBox(x0, y0, x1, y1);
@@ -297,13 +302,14 @@ export function createGalaxyLabels(): GalaxyLabels {
         am = -Math.PI / 2;
         aw = Math.PI * 2;
       } else {
-        const [a0, a1] = p.rangeAt(wi, rhoL);
+        // p.rangeAt(wi, rhoL) without the tuple: the territory lies between frontlines wi and wi + 1
+        const a0 = p.borderAt(wi, rhoL);
+        const a1 = p.borderAt((wi + 1) % n, rhoL) + (wi === n - 1 ? Math.PI * 2 : 0);
         am = (a0 + a1) / 2;
         aw = a1 - a0;
       }
       if (aw >= MIN_INSIDE && aw * rhoL * sr > l.t.width * 0.85 + 12) {
-        l.t.anchor.set(0.5);
-        if (place(l, c0x + Math.cos(am) * rhoL * sr, c0y + Math.sin(am) * rhoL * sr, 2)) continue;
+        if (place(l, c0x + Math.cos(am) * rhoL * sr, c0y + Math.sin(am) * rhoL * sr, 2, false, 0.5)) continue;
       }
       if (w.share < 0.004) continue;
       const o = outSlot();
@@ -331,12 +337,11 @@ export function createGalaxyLabels(): GalaxyLabels {
         const R1 = sr * 1.18;
         const dy = o.y - c0y;
         const ex = c0x + s * Math.sqrt(Math.max(0, R1 * R1 - dy * dy));
-        o.l.t.anchor.set(s > 0 ? 0 : 1, 0.5);
         // blocked (e.g. by the planet title)? slide outward along a longer leader line
         let tx = Number.NaN;
         for (let q = 0; q < 6; q++) {
           const x = ex + s * (18 + q * 14);
-          if (place(o.l, x + s * 4, o.y)) {
+          if (place(o.l, x + s * 4, o.y, 2, false, s > 0 ? 0 : 1)) {
             tx = x;
             break;
           }

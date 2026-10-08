@@ -16,7 +16,7 @@ export interface FogLayer {
    * after a geometry rebuild: the planet's wedges and their sampled borders (`ang[k]` = frontline k at NS + 1 radius
    * samples, planet radius R; null when the planet has a single territory)
    */
-  rebuild(wedges: readonly Wedge[], ang: readonly Float64Array[] | null, NS: number, R: number): void;
+  rebuild(wedges: readonly Wedge[], ang: readonly Float64Array[] | null, NS: number, R: number, step?: number): void;
   /** per frame: drift the puffs inside their (moving) wedges; `start` / `end` give wedge k's angles at radius fraction rho */
   update(time: number, R: number, start: (k: number, rho: number) => number, end: (k: number, rho: number) => number, reduced: boolean): void;
   destroy(): void;
@@ -77,14 +77,14 @@ export function createFog(cloud: Texture): FogLayer {
 
   return {
     container,
-    rebuild(wedges, ang, NS, R) {
+    rebuild(wedges, ang, NS, R, step = 0.08) {
       veil.begin();
       gen++;
       const n = wedges.length;
       for (let k = 0; k < n; k++) {
         const w = wedges[k];
         if (w.fogBlend <= 0.01) continue;
-        if (ang && n >= 2) fillWedge(veil.buf, ang[k], ang[(k + 1) % n], k === n - 1 ? TAU : 0, NS, R, rgba(VEIL, VEIL_ALPHA * w.fogBlend));
+        if (ang && n >= 2) fillWedge(veil.buf, ang[k], ang[(k + 1) % n], k === n - 1 ? TAU : 0, NS, R, rgba(VEIL, VEIL_ALPHA * w.fogBlend), step);
         const span = w.a1 - w.a0;
         const want = span < 7 * DEG ? 0 : Math.min(6, 1 + Math.round(span / (34 * DEG)));
         let b = banks.get(w.id);

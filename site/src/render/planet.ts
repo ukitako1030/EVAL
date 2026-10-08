@@ -16,7 +16,7 @@ import type { FlashBudget } from '../fx/flashBudget';
 import { START_ANGLE, TAU, borderAngle, followGlow, frontlines, territories, wedgeBrightness, type Frontline, type PlanetSlot, type Wedge } from './layout';
 import { createFog } from './fog';
 import { createPlanetDecor } from './planetDecor';
-import { drawFrontline, drawPulses, drawRimGlow, fillWedge, rimEnd, rimStart, sampleRho, type PulseView } from './planetDraw';
+import { drawFrontline, drawPulses, drawRimGlow, fillStep, fillWedge, rimEnd, rimStart, sampleRho, type PulseView } from './planetDraw';
 import { colorGain, hexColor, mixColor } from './color';
 import { createDynMesh, type DynMesh } from './dynMesh';
 import { fillCircle, rgba, strokeArc, strokeCircle } from './meshBuild';
@@ -300,6 +300,7 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
     const L = layers[active];
     const wb = L.m.buf;
     const rimW = Math.max(2 * px, R * 0.05);
+    const step = fillStep(sr);
     L.m.begin();
     edges.begin();
     edgeKey = edgeSignature(emph);
@@ -314,7 +315,7 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
         fillCircle(wb, 0, 0, R, rgba(col, 0.8 * gain));
         strokeCircle(wb, 0, 0, R - rimW / 2, rimW, rgba(col, gain));
       } else {
-        fillWedge(wb, ang[k], ang[(k + 1) % n], k === n - 1 ? TAU : 0, NS, R, rgba(col, 0.8 * gain));
+        fillWedge(wb, ang[k], ang[(k + 1) % n], k === n - 1 ? TAU : 0, NS, R, rgba(col, 0.8 * gain), step);
         if (o1 - o0 > 0.004) strokeArc(wb, 0, 0, R - rimW / 2, o0, o1, rimW, rgba(col, gain));
       }
       const r = (L.ranges[k] ??= { id: '', v0: 0, v1: 0, alpha: 0 });
@@ -341,7 +342,7 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
     lineMesh.end();
     lineMesh.keepColors();
 
-    fog.rebuild(wedges, n >= 2 ? ang : null, NS, R);
+    fog.rebuild(wedges, n >= 2 ? ang : null, NS, R, step);
     for (const id of disp.keys()) {
       let live = false;
       for (let k = 0; k < n && !live; k++) live = wedges[k].id === id;
