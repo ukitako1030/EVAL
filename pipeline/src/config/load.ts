@@ -66,7 +66,7 @@ export function parseUnits(text: string): UnitsConfig {
   for (const f of FRONT_IDS) {
     fronts[f] = { name: raw.fronts[f].name };
     units[f] = Object.entries(raw.fronts[f].units).map(([id, u]) => {
-      if (!raw.orgs[u.org]) throw new Error(`units.yaml: ${f}.${id}: unknown org "${u.org}"`);
+      if (!Object.hasOwn(raw.orgs, u.org)) throw new Error(`units.yaml: ${f}.${id}: unknown org "${u.org}"`);
       return {
         id,
         front: f,
@@ -89,7 +89,7 @@ export function parseMethod(text: string): Method {
     if (!(FRONT_IDS as readonly string[]).includes(f)) throw new Error(`method.yaml: unknown front "${f}" in weights`);
   }
   for (const b of m.scale.base) {
-    if (!m.scale.components[b]) throw new Error(`method.yaml: base component "${b}" is not defined`);
+    if (!Object.hasOwn(m.scale.components, b)) throw new Error(`method.yaml: base component "${b}" is not defined`);
   }
   return m;
 }

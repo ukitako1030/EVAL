@@ -61,6 +61,10 @@ describe('config loaders', () => {
   it('rejects units with unknown org', () => {
     expect(() => parseUnits(UNITS.replace('org: openai', 'org: nobody'))).toThrow(/unknown org "nobody"/);
   });
+  it('does not resolve inherited property names as orgs or base components', () => {
+    expect(() => parseUnits(UNITS.replace('org: openai', 'org: toString'))).toThrow(/unknown org "toString"/);
+    expect(() => parseMethod(METHOD.replace('base: [attention]', 'base: [toString]'))).toThrow(/base component "toString"/);
+  });
   it('rejects a missing front', () => {
     expect(() => parseUnits(UNITS.replace(/  music:[\s\S]*$/, ''))).toThrow(/music/);
   });
