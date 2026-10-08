@@ -2252,8 +2252,9 @@ describe('detectEvents', () => {
       b: [[94, 50, null, 'estimated'], [100, 70, null, 'estimated'], [80, 70, 'b-1']],
     });
     const ev4 = detectEvents({ front, months: ['2024-01', '2024-02', '2024-03'], cells: est, unitNames: { a: 'A', b: 'B' }, params, releases: [], overrides: [], custom: [] });
-    // 2024-02: b is estimated → no surge/lead events; 2024-03: b measured but previous month estimated → no surge
-    expect(ev4.filter((e) => e.unit === 'b' && e.type !== 'new_unit')).toEqual([]);
+    // 2024-02: b is estimated → no strength lead / model / surge events (its scale is real, so a scale-lead change is allowed);
+    // 2024-03: b measured but the previous month was estimated → no surge
+    expect(ev4.filter((e) => e.unit === 'b').map((e) => e.type)).toEqual(['scale_lead_change']);
   });
   it('caps events per front-month', () => {
     const ev3 = detectEvents({ front, months, cells: c, unitNames: names, params: { ...params, maxPerFrontMonth: 1 }, releases: [], overrides: [], custom: [] });
