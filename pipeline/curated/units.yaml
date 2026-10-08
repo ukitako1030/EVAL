@@ -1,0 +1,600 @@
+# AI WAR — factions (orgs), fronts and units (spec §3, §6.2).
+#
+# Model matching (pipeline/src/config/load.ts, compute/assign.ts):
+# - every `match` entry is a JavaScript RegExp compiled with flag `i` and tested against the model name
+#   exactly as the source reports it (slugs like `gpt-4o-2024-05-13`, display names like `GPT 5.5 (High)`,
+#   provider-prefixed ids like `openai/gpt-5`, `chutes/DeepSeek-R1`, Epoch effort suffixes like `_high`).
+#   Patterns use look-arounds such as `(?<![a-z0-9])` instead of `^` so provider prefixes still match.
+# - the first unit (in file order) whose patterns match wins; the curated test checks that no fixture
+#   model name matches two units of one front.
+# - `orgMatch` (flag `i`) is only checked when the source reports an organization (Arena, Epoch, SWE-bench,
+#   OSWorld, tau2); sources without one skip it. It is set only for LLM units, whose org strings are clean.
+#   Media sources' organization fields are unreliable (sources-media.md), so media units match by name only.
+# - names matching any `exclude` pattern are assigned to no unit (third-party fine-tunes that carry a family
+#   token, multi-model "agent + model" strings).
+#
+# Scale keys (spec §6.2; identifiers from docs/superpowers/recon/sources-scale.md "Product → identifiers"):
+# - crux: bare hosts; the CrUX module also tries `https://www.<host>`, so `meta.ai` covers https://www.meta.ai.
+# - tranco: exact hosts from the Tranco subdomain list.
+# - statcounter: column labels; openrouter: model-slug prefixes; wikipedia: en.wikipedia titles incl. former
+#   titles (the API does not follow redirects); itunes: US App Store ids; announcements: series id in
+#   announcements.yaml.
+# - cloudflare: service names as written in Cloudflare's Year-in-Review posts — UNVERIFIED (no token during
+#   recon); confirm the exact strings with the first real API call.
+# - ramp: none (Ramp does not license its data; see sources-scale.md).
+# A key may appear in several fronts but never twice within one front (load.ts rejects that).
+
+exclude:
+  # third-party fine-tunes / look-alikes that contain a family token (notes-gh.md EXCLUDE, notes-epoch.md).
+  # `raft-` is guarded with a look-behind so it cannot hit `recraft-v3`.
+  - 'swe-gpt|swe-llama|hermes|nemotron|dracarys|deepswe|skywork|openhands-lm|swe-agent-lm|frog(?:boss|mini)|(?<![a-z0-9])raft-|reflection-70b|wizardlm|tulu|simpo'
+  - 'distill-(?:qwen|llama)|cerebras-gpt|gpt4all|sharegpt|llava|video_?chat|videollama|open_llama|steerlm|dolphin|smaug|opencua'
+  # DeepSeek-R1 distillations into Qwen/Llama that are named without "distill" (e.g. deepseek-r1-0528-qwen3-8b)
+  - 'deepseek-r1(?:-\d+)?-(?:qwen|llama)'
+  # multi-model strings: "agent + model", "GPT-4o & Claude 3 Opus", "DeepSeek R1 + claude-3-5-sonnet"
+  - ' \+ |&'
+
+orgs:
+  openai: { name: OpenAI, color: '#19c37d' }
+  anthropic: { name: Anthropic, color: '#ff8a4c' }
+  google: { name: Google, color: '#4c8dff' }
+  xai: { name: xAI, color: '#e6e8f2' }
+  meta: { name: Meta, color: '#00e0ff' }
+  deepseek: { name: DeepSeek, color: '#7a6cff' }
+  alibaba: { name: Alibaba, color: '#ff4fd8' }
+  mistral: { name: Mistral AI, color: '#f4e04d' }
+  midjourney: { name: Midjourney, color: '#ffd23f' }
+  bfl: { name: Black Forest Labs, color: '#b388ff' }
+  bytedance: { name: ByteDance, color: '#ff3b5c' }
+  ideogram: { name: Ideogram, color: '#ff9e3d' }
+  recraft: { name: Recraft, color: '#4dd0e1' }
+  kuaishou: { name: Kuaishou, color: '#ffb300' }
+  runway: { name: Runway, color: '#a0ff3c' }
+  # mockups used #ff6ec7, which is nearly identical to Alibaba's #ff4fd8 (both on the video front with Wan)
+  minimax: { name: MiniMax, color: '#5ce1e6' }
+  luma: { name: Luma AI, color: '#f5f0e1' }
+  elevenlabs: { name: ElevenLabs, color: '#dcdcdc' }
+  cartesia: { name: Cartesia, color: '#ffe36e' }
+  hume: { name: Hume AI, color: '#c792ea' }
+  suno: { name: Suno, color: '#ffcf33' }
+  udio: { name: Udio, color: '#b06bff' }
+  stability: { name: Stability AI, color: '#26c6da' }
+  producer: { name: Producer.ai (Riffusion), color: '#ff8a65' }
+
+fronts:
+  # ───────────────────────────── general ─────────────────────────────
+  general:
+    name: { ja: 総合戦線, en: General Front }
+    units:
+      gpt:
+        org: openai
+        name: GPT
+        since: 2022-11 # ChatGPT launch (2022-11-30)
+        match: &gpt_match
+          # gpt-3.5…gpt-6.x, gpt-4o, gpt-oss, chatgpt-4o-latest, "GPT 5.5 (High)", openai/gpt-5; not image/voice models
+          - '(?<![a-z0-9])(?:chat)?gpt(?!.*(?:realtime|[-_ .(]live(?![a-z])|image|tts|transcri|audio|voice))(?:[-_ .]?(?:[1-9]|oss)|[-_ ]latest)'
+          # o-series: o1, o1-mini, o3-mini-high, o4-mini, "O3 Mini", openai/o3 (not kling-o1, hidream-o1)
+          - '(?<![a-z0-9-])o[1-9](?![a-z0-9.])'
+          # GPT-3 / GPT-3.5 base models in Epoch data (davinci-002, text-davinci-003)
+          - '(?<![a-z0-9])(?:text-|code-)?davinci(?![a-z])'
+          # OpenAI's computer-using agent model (CUA)
+          - '(?<![a-z0-9])computer-use-preview'
+        orgMatch: &gpt_org 'openai'
+        scale: &gpt_scale
+          announcements: chatgpt
+          crux: [chatgpt.com, chat.openai.com]
+          tranco: [chatgpt.com, chat.openai.com]
+          statcounter: [ChatGPT]
+          cloudflare: ['ChatGPT / OpenAI']
+          openrouter: [openai/]
+          wikipedia: [ChatGPT]
+          itunes: ['6448311069']
+      claude:
+        org: anthropic
+        name: Claude
+        since: 2023-03 # Claude launch (2023-03-14)
+        match: &claude_match
+          - '(?<![a-z0-9])claude(?![a-z])'
+          # Epoch APEX / framework display names that drop "Claude": "Opus 5.5", "Fable 5", "Sonnet 4.6"
+          - '(?<![a-z0-9])(?:opus|sonnet|haiku|fable|mythos)[-_ ]?\d'
+        orgMatch: &claude_org 'anthropic'
+        scale: &claude_scale
+          crux: [claude.ai, claude.com]
+          tranco: [claude.ai, claude.com]
+          statcounter: [Claude]
+          cloudflare: ['Claude / Anthropic']
+          openrouter: [anthropic/]
+          wikipedia: [Claude_(AI), Claude_(language_model)]
+          itunes: ['6473753684']
+      gemini:
+        org: google
+        name: Gemini
+        since: 2023-03 # Bard launch (2023-03-21); renamed Gemini 2024-02 (Bard hosts/titles are configured below)
+        match: &gemini_match
+          # gemini-pro … gemini-4-argon; not Gemma, not PaLM 2, not Gemini image/video/voice models
+          - '(?<![a-z0-9])gemini(?![a-z])(?!.*(?:image|imagen|nano-?banana|omni|veo|tts|[-_ .(]live(?![a-z])|native-audio|embedding|robotics))'
+        orgMatch: &gemini_org 'google|deepmind'
+        scale: &gemini_scale
+          announcements: gemini-app
+          crux: [gemini.google.com, bard.google.com, gemini.google]
+          tranco: [gemini.google.com, bard.google.com, gemini.google]
+          statcounter: [Google Gemini]
+          cloudflare: ['Google Gemini']
+          openrouter: [google/gemini]
+          wikipedia: [Google_Gemini, Gemini_(chatbot), Bard_(chatbot)]
+          itunes: ['6477489729']
+      grok:
+        org: xai
+        name: Grok
+        since: 2023-11 # Grok-1 early access (2023-11-04)
+        match: &grok_match
+          # grok-2 … grok-4.7, grok-code-fast-1, "Grok Build 0.1"; not Grok Imagine / voice
+          - '(?<![a-z0-9])grok(?![a-z])(?!.*(?:imagine|voice|tts|realtime|[-_ .(]live(?![a-z])))'
+        orgMatch: &grok_org 'xai|x\.ai|x corp'
+        scale: &grok_scale
+          announcements: grok
+          crux: [grok.com, grok.x.ai]
+          tranco: [grok.com, grok.x.ai]
+          cloudflare: ['Grok / xAI']
+          openrouter: [x-ai/]
+          wikipedia: [Grok_(chatbot)]
+          itunes: ['6670324846']
+      deepseek:
+        org: deepseek
+        name: DeepSeek
+        since: 2023-11 # DeepSeek Coder (2023-11-02) / DeepSeek LLM (2023-11-29)
+        match: &deepseek_match
+          - '(?<![a-z0-9])deepseek'
+        orgMatch: &deepseek_org 'deepseek'
+        scale: &deepseek_scale
+          crux: [chat.deepseek.com]
+          tranco: [chat.deepseek.com]
+          statcounter: [Deepseek]
+          cloudflare: [DeepSeek]
+          openrouter: [deepseek/]
+          # company article carries most of the attention; the chatbot article was renamed 2026-09-21
+          wikipedia: [DeepSeek, DeepSeek_(AI), DeepSeek_(chatbot)]
+          itunes: ['6737597349']
+      qwen:
+        org: alibaba
+        name: Qwen
+        since: 2023-08 # Qwen-7B open release (2023-08-03)
+        match: &qwen_match
+          # qwen-14b-chat, qwen1.5…qwen3.8, "Qwen 3.6 Plus", QwQ, QVQ, CodeQwen; not Qwen-Image / Omni / TTS
+          # (look-behind also rejects "(" so VBench's "Wan2.2-T2V-A14B (Qwen prompt-optimized)" is not Qwen)
+          - '(?<![a-z0-9(])(?:code)?(?:qwen|qwq|qvq)(?![a-z])(?!.*(?:image|tts|omni|realtime|audio|[-_ .(]live(?![a-z])))'
+        orgMatch: &qwen_org 'alibaba|qwen|tongyi'
+        scale: &qwen_scale
+          crux: [chat.qwen.ai, chat.qwenlm.ai]
+          tranco: [chat.qwen.ai, chat.qwenlm.ai, qwen.ai]
+          openrouter: [qwen/]
+          wikipedia: [Qwen]
+          # no US App Store listing (sources-scale.md)
+      llama:
+        org: meta
+        name: Llama / Muse
+        since: 2023-02 # LLaMA release (2023-02-24)
+        match:
+          # llama-13b, llama-2/3/3.1/3.3/4, codellama, meta-llama/…; third-party fine-tunes are in `exclude`
+          - '(?<![a-z0-9])(?:code)?llama(?![a-z])'
+          # Meta's proprietary successors: muse-spark*, "Muse Spark 1.3 (Max)", muse-glimmer (not muse-image/-video)
+          - '(?<![a-z0-9])muse[-_ ](?:spark|glimmer)'
+        orgMatch: 'meta'
+        scale:
+          announcements: meta-ai
+          crux: [meta.ai]
+          tranco: [meta.ai, www.meta.ai]
+          openrouter: [meta/, meta-llama/]
+          wikipedia: [Llama_(language_model), LLaMA, Muse_(AI_agent)]
+          # no itunes: 1558240027 is the renamed Meta View glasses app (ratings predate Meta AI)
+      mistral:
+        org: mistral
+        name: Mistral
+        since: 2023-09 # Mistral 7B (2023-09-27)
+        match:
+          - '(?<![a-z0-9])(?:mistral|mixtral|magistral|ministral|codestral|devstral|pixtral|mathstral)(?![a-z])'
+        orgMatch: 'mistral'
+        scale:
+          crux: [chat.mistral.ai]
+          tranco: [chat.mistral.ai]
+          openrouter: [mistralai/]
+          wikipedia: [Mistral_AI, Mistral_Vibe, Le_Chat_(AI), Le_Chat_(chatbot)]
+          itunes: ['6740410176'] # "Vibe by Mistral" (ex-Le Chat)
+
+  # ───────────────────────────── code ─────────────────────────────
+  # Same model families as the general front. Scale uses the same product identifiers (sources-scale.md maps
+  # ChatGPT etc. to general, code and agent fronts).
+  code:
+    name: { ja: コード戦線, en: Code Front }
+    units:
+      claude:
+        org: anthropic
+        name: Claude
+        since: 2023-03
+        match: *claude_match
+        orgMatch: *claude_org
+        scale: *claude_scale
+      gpt:
+        org: openai
+        name: GPT / Codex
+        since: 2022-11
+        match: *gpt_match
+        orgMatch: *gpt_org
+        scale: *gpt_scale
+      gemini:
+        org: google
+        name: Gemini
+        since: 2023-12 # Gemini 1.0 (2023-12-06); Bard-era PaLM models are not Gemini
+        match: *gemini_match
+        orgMatch: *gemini_org
+        scale: *gemini_scale
+      deepseek:
+        org: deepseek
+        name: DeepSeek
+        since: 2023-11
+        match: *deepseek_match
+        orgMatch: *deepseek_org
+        scale: *deepseek_scale
+      qwen:
+        org: alibaba
+        name: Qwen
+        since: 2023-08
+        match: *qwen_match
+        orgMatch: *qwen_org
+        scale: *qwen_scale
+      grok:
+        org: xai
+        name: Grok
+        since: 2023-11
+        match: *grok_match
+        orgMatch: *grok_org
+        scale: *grok_scale
+
+  # ───────────────────────────── agent ─────────────────────────────
+  agent:
+    name: { ja: エージェント戦線, en: Agent Front }
+    units:
+      claude:
+        org: anthropic
+        name: Claude
+        since: 2023-03
+        match: *claude_match
+        orgMatch: *claude_org
+        scale: *claude_scale
+      gpt:
+        org: openai
+        name: GPT
+        since: 2022-11
+        match: *gpt_match
+        orgMatch: *gpt_org
+        scale: *gpt_scale
+      gemini:
+        org: google
+        name: Gemini
+        since: 2023-12
+        match: *gemini_match
+        orgMatch: *gemini_org
+        scale: *gemini_scale
+      grok:
+        org: xai
+        name: Grok
+        since: 2023-11
+        match: *grok_match
+        orgMatch: *grok_org
+        scale: *grok_scale
+      deepseek:
+        org: deepseek
+        name: DeepSeek
+        since: 2023-11
+        match: *deepseek_match
+        orgMatch: *deepseek_org
+        scale: *deepseek_scale
+      qwen:
+        org: alibaba
+        name: Qwen
+        since: 2023-08
+        match: *qwen_match
+        orgMatch: *qwen_org
+        scale: *qwen_scale
+
+  # ───────────────────────────── image ─────────────────────────────
+  image:
+    name: { ja: 画像戦線, en: Image Front }
+    units:
+      gptimage:
+        org: openai
+        name: GPT Image
+        since: 2022-09 # DALL·E 2 open to everyone 2022-09-28 (invite-only beta from 2022-07-20; https://en.wikipedia.org/wiki/DALL-E)
+        match:
+          # dall-e-3, "DALL·E 3", gpt-image-1…2.5, "GPT Image 1.5", chatgpt-image-latest
+          - '(?<![a-z0-9])(?:dall[-·. ]?e|(?:chat)?gpt[-_ ]image)(?![a-z])'
+        scale: {} # no separate host (inside chatgpt.com)
+      nanobanana:
+        org: google
+        name: Nano Banana
+        since: 2023-12 # Imagen 2 generally available on Vertex AI (2023-12-13; not re-checked this session)
+        match:
+          - '(?<![a-z0-9])imagen(?![a-z])'
+          # gemini-2.0-flash-preview-image-generation, gemini-2.5-flash-image-preview (nano-banana), gemini-3-pro-image…
+          - '(?<![a-z0-9])gemini(?![a-z]).*image'
+          - 'nano[-_ ]?banana'
+        scale:
+          # labs.google hosts ImageFX/Whisk (image) and Flow/VideoFX (video): shared with Veo, different front
+          crux: [labs.google]
+          tranco: [labs.google]
+          # no Wikipedia article: Nano_Banana redirects into Gemini_(language_model) since 2026-01
+      midjourney:
+        org: midjourney
+        name: Midjourney
+        since: 2022-07 # Midjourney open beta (2022-07-12; not re-checked this session)
+        match:
+          - '(?<![a-z0-9])midjourney(?![a-z])'
+        scale:
+          crux: [midjourney.com, alpha.midjourney.com]
+          tranco: [midjourney.com, www.midjourney.com]
+          wikipedia: [Midjourney]
+          # no official iOS app
+      flux:
+        org: bfl
+        name: FLUX
+        since: 2024-08 # FLUX.1 (2024-08-01, https://bfl.ai/announcing-black-forest-labs/)
+        match:
+          # flux-1.1-pro, FLUX.1-dev, flux-1-kontext-*, flux-2-*, GenAI-Arena "FluxTimestep"; not flux-3-video
+          - '(?<![a-z0-9])flux(?![a-z])(?!.*video)'
+          - '(?<![a-z0-9])fluxtimestep'
+        scale:
+          crux: [bfl.ai]
+          tranco: [bfl.ai]
+          wikipedia: [Flux_(text-to-image_model), FLUX.1]
+      seedream:
+        org: bytedance
+        name: Seedream
+        since: 2025-04 # Seedream 3.0 (2025-04); earlier Seedream versions only inside Doubao/Jimeng (not re-checked)
+        match:
+          # seedream-3, seedream-4-2k, "Seedream 4.0", seededit-3.0 (not bagel, a separate research model)
+          - '(?<![a-z0-9])seed(?:ream|edit)(?![a-z])'
+        scale: {}
+      ideogram:
+        org: ideogram
+        name: Ideogram
+        since: 2023-08 # Ideogram launch (2023-08-22; not re-checked this session)
+        match:
+          # look-behind also rejects "-" so Pruna's `p-image-ideogram (…)` is not Ideogram
+          - '(?<![a-z0-9-])ideogram(?![a-z])'
+        scale:
+          crux: [ideogram.ai]
+          tranco: [ideogram.ai]
+          wikipedia: [Ideogram_(text-to-image_model), Ideogram_(generative_AI_site)]
+      recraft:
+        org: recraft
+        name: Recraft
+        since: 2024-10 # Recraft V3 (2024-10-30), the first Recraft model in our sources; earlier Recraft models not dated
+        match:
+          - '(?<![a-z0-9])recraft(?![a-z])'
+        scale:
+          crux: [recraft.ai]
+          tranco: [recraft.ai, www.recraft.ai]
+
+  # ───────────────────────────── video ─────────────────────────────
+  video:
+    name: { ja: 動画戦線, en: Video Front }
+    units:
+      veo:
+        org: google
+        name: Veo
+        since: 2024-12 # first public Veo: Veo 2 in VideoFX (2024-12; Veo 1 was announced 2024-05 behind a waitlist)
+        match:
+          - '(?<![a-z0-9])veo(?![a-z])'
+          # Google's Gemini Omni video models (top Google video entries since 2026-06)
+          - '(?<![a-z0-9])gemini[-_ ]omni'
+        scale:
+          crux: [labs.google]
+          tranco: [labs.google]
+          wikipedia: [Veo_(text-to-video_model)]
+      sora:
+        org: openai
+        name: Sora
+        since: 2024-12 # Sora public launch (2024-12-09)
+        match:
+          # sora, sora-2, sora-2-pro, "Sora 2"; look-behind rejects "-" so Open-Sora is not Sora
+          - '(?<![a-z0-9-])sora(?![a-z])'
+        scale:
+          crux: [sora.chatgpt.com, sora.com]
+          tranco: [sora.chatgpt.com, sora.com]
+          wikipedia: [Sora_(text-to-video_model)]
+          # no itunes: app 6744034028 was removed (2026-04)
+      kling:
+        org: kuaishou
+        name: Kling
+        since: 2024-06 # Kling beta (2024-06, https://en.wikipedia.org/wiki/Kling_AI)
+        match:
+          # kling-v2.1-master, kling-2.6-pro, kling-o1-pro, "Kling 1.6"; not the kling-image-o1 image model
+          - '(?<![a-z0-9])kling(?![a-z])(?!.*image)'
+        scale:
+          crux: [kling.ai, klingai.com, app.klingai.com]
+          tranco: [klingai.com, kling.ai]
+          wikipedia: [Kling_AI, Kling_AI_(company)]
+          itunes: ['6738049229']
+      runway:
+        org: runway
+        name: Runway
+        since: 2023-06 # Gen-2 opened to all users (2023-06; announced 2023-03; not re-checked this session)
+        match:
+          # runway-gen4-turbo, runway-gen-4.5 (not runway-gen4, Runway's text-to-image model)
+          - '(?<![a-z0-9])runway(?![a-z])(?!-gen-?4(?![-.\d]))'
+          # VBench: "Gen-2 (2023-12)", "Gen-3 (2024-07)", "Gen-4-I2V"
+          - '(?<![a-z0-9-])gen-?[234](?![0-9])'
+        scale:
+          crux: [runwayml.com, app.runwayml.com, runway.com]
+          tranco: [runwayml.com, app.runwayml.com, runway.com]
+          wikipedia: [Runway_(company)]
+          itunes: ['1665024375']
+      hailuo:
+        org: minimax
+        name: Hailuo
+        since: 2024-09 # MiniMax video-01 / Hailuo AI video (2024-09; not re-checked this session)
+        match:
+          - '(?<![a-z0-9])hailuo(?![a-z])'
+          # minimax-h3, "MiniMax-Video-01", "MiniMax Hailuo 02" (not MiniMax LLMs or speech)
+          - '(?<![a-z0-9])minimax[-_ ](?:video|hailuo|h\d|t2v|i2v)'
+        scale:
+          crux: [hailuoai.video, hailuoai.com, hailuo.ai]
+          tranco: [hailuoai.video]
+      seedance:
+        org: bytedance
+        name: Seedance
+        since: 2025-06 # Seedance 1.0 (2025-06, https://arxiv.org/abs/2506.09113)
+        match:
+          - '(?<![a-z0-9])seedance(?![a-z])'
+        scale: {}
+      luma:
+        org: luma
+        name: Luma Ray
+        since: 2024-06 # Dream Machine launch (2024-06-12; not re-checked this session)
+        match:
+          - '(?<![a-z0-9])ray[-_ ]?\d'
+          # VBench "Luma" (not Luma's Photon / UNI image models)
+          - '(?<![a-z0-9])luma(?![a-z])(?!.*(?:photon|uni-))'
+        scale:
+          # not luma.com (the Luma events platform)
+          crux: [lumalabs.ai, dream-machine.lumalabs.ai]
+          tranco: [lumalabs.ai]
+      wan:
+        org: alibaba
+        name: Wan
+        since: 2025-02 # Wan 2.1 open release (2025-02-25; VBench lists "Wan2.1 (2025-02-24)")
+        match:
+          # wan-v2.2-a14b, wan2.5-t2v-preview, wan3.0, "Wan2.1-T2V-14B"; not wan image models
+          - '(?<![a-z0-9])wan[-_ ]?v?\d(?!.*(?:t2i|i2i|image))'
+        scale: {}
+
+  # ───────────────────────────── speech ─────────────────────────────
+  # TTS Arena reports the stable `id` (e.g. eleven-v3, minimax-speech-2.8-hd, cartesia-sonic-2, hume-octave);
+  # Design Arena reports display names (Eleven v3, MiniMax Speech 2.8 HD, …). Patterns match both.
+  speech:
+    name: { ja: 音声戦線, en: Speech Front }
+    units:
+      elevenlabs:
+        org: elevenlabs
+        name: ElevenLabs
+        since: 2023-01 # ElevenLabs public beta (2023-01; not re-checked this session)
+        match:
+          # eleven-v3, eleven-flash-v2.5, "Eleven Multilingual v2", elevenlabs/eleven_v3 (not Eleven Music)
+          - '(?<![a-z0-9])eleven(?:labs)?(?![a-z])(?!.*music)'
+        scale:
+          crux: [elevenlabs.io]
+          tranco: [elevenlabs.io]
+          wikipedia: [ElevenLabs]
+          itunes: ['6743162587', '6479373050'] # ElevenLabs, ElevenReader
+      openaitts:
+        org: openai
+        name: OpenAI TTS
+        since: 2023-11 # tts-1 / tts-1-hd at OpenAI DevDay (2023-11-06)
+        match:
+          - '(?<![a-z0-9])(?:tts-1(?:-hd)?|gpt-4o(?:-mini)?-(?:tts|realtime)|gpt[-_ ]realtime)(?![a-z])'
+          # Design Arena: "OpenAI GPT-4o Mini TTS", "OpenAI GPT Realtime 2"
+          - '(?<![a-z0-9])openai[-_ ](?:gpt|tts)'
+        scale: {}
+      geminitts:
+        org: google
+        name: Gemini TTS
+        since: 2025-05 # Gemini 2.5 Flash/Pro TTS preview (2025-05-20, https://ai.google.dev/gemini-api/docs/changelog)
+        match:
+          # gemini-2.5-flash-preview-tts, "Google Gemini 3.8 Flash TTS"
+          - '(?<![a-z0-9])gemini(?![a-z]).*tts'
+        scale: {}
+      minimax:
+        org: minimax
+        name: MiniMax Speech
+        since: 2025-08 # first month in our sources (TTS Arena V2 captures from 2025-08); MiniMax's T2A line is older but undated here
+        match:
+          # minimax-speech-2.8-hd, "MiniMax Speech 02 HD", "MiniMax Speech-02-Turbo"
+          - '(?<![a-z0-9])minimax[-_ ]?speech'
+        scale:
+          # company site (shared with MiniMax's LLMs and Hailuo, which live on other fronts)
+          crux: [minimax.io]
+      cartesia:
+        org: cartesia
+        name: Cartesia
+        since: 2024-05 # Cartesia Sonic launch (2024-05; not re-checked this session)
+        match:
+          - '(?<![a-z0-9])cartesia(?![a-z])'
+        scale:
+          crux: [cartesia.ai] # candidate host, not checked in recon
+      hume:
+        org: hume
+        name: Hume
+        since: 2025-02 # Octave, Hume's TTS model (2025-02; not re-checked this session)
+        match:
+          - '(?<![a-z0-9])hume(?![a-z])'
+          - '(?<![a-z0-9])octave(?![a-z])'
+        scale:
+          crux: [hume.ai] # candidate host, not checked in recon
+
+  # ───────────────────────────── music ─────────────────────────────
+  # Music Arena reports system keys (riffusion-fuzz-1-0, lyria-3-pro-preview) in battles and early TSVs, and
+  # display names (Riffusion FUZZ v1.0, Lyria 3 Pro) in later TSVs. Patterns match both.
+  music:
+    name: { ja: 音楽戦線, en: Music Front }
+    units:
+      suno:
+        org: suno
+        name: Suno
+        since: 2023-09 # first month in our sources (CrUX lists https://www.suno.ai from 2023-09)
+        match:
+          - '(?<![a-z0-9])suno(?![a-z])'
+        scale:
+          # suno.ai also covers https://www.suno.ai (pre-2024-04 host)
+          crux: [suno.com, suno.ai, app.suno.ai]
+          tranco: [suno.com, suno.ai]
+          # plain `Suno` was a disambiguation page before 2026-08-14 (small pre-move noise accepted)
+          wikipedia: [Suno, Suno_AI, Suno_(platform)]
+          itunes: ['6480136315']
+      udio:
+        org: udio
+        name: Udio
+        since: 2024-04 # Udio public launch (2024-04-10; not re-checked this session)
+        match:
+          - '(?<![a-z0-9])udio(?![a-z])'
+        scale:
+          crux: [udio.com]
+          tranco: [udio.com, www.udio.com]
+          wikipedia: [Udio]
+          itunes: ['6511211165']
+      lyria:
+        org: google
+        name: Lyria
+        since: 2023-11 # Lyria announced with YouTube Dream Track (2023-11-16, limited; not re-checked this session)
+        match:
+          - '(?<![a-z0-9])lyria(?![a-z])'
+          # Magenta RealTime: Google DeepMind's open-weights sibling of Lyria RealTime
+          - '(?<![a-z0-9])magenta[-_ ]?(?:rt|realtime)(?![a-z])'
+        scale: {}
+      elevenmusic:
+        org: elevenlabs
+        name: Eleven Music
+        since: 2025-08 # Eleven Music launch (2025-08-05; not re-checked this session)
+        match:
+          # elevenlabs-music-v1, "ElevenLabs Music v1", "Eleven Music"
+          - '(?<![a-z0-9])eleven(?:labs)?[-_ ]?music'
+        scale:
+          itunes: ['6755965224'] # ElevenMusic app
+      stableaudio:
+        org: stability
+        name: Stable Audio
+        since: 2023-09 # Stable Audio launch (2023-09-13; not re-checked this session)
+        match:
+          # "Stable Audio Open", "Stable Audio 3 (Medium)", Music Arena keys sao, sao-small, sa3-medium, sa2
+          - '(?<![a-z0-9])stable[-_ ]?audio'
+          - '(?<![a-z0-9])sao(?:-small)?(?![a-z0-9])'
+          - '(?<![a-z0-9])sa[23](?![a-z0-9.])'
+        scale:
+          crux: [stableaudio.com] # candidate host, not checked in recon
+      riffusion:
+        org: producer
+        name: Riffusion
+        since: 2022-12 # original Riffusion release (2022-12-15, https://en.wikipedia.org/wiki/Riffusion); FUZZ models from 2025
+        match:
+          - '(?<![a-z0-9])riffusion(?![a-z])'
+          - '(?<![a-z0-9])fuzz[-_ ]?v?\d'
+        scale: {}

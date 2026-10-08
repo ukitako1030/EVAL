@@ -1,0 +1,359 @@
+# Model release months (+ vendor display names) — spec §6.1-6 reconstruction and §6.4 event texts.
+#
+# `match` is a JavaScript RegExp (flag `i`) tested against the source's model name; the FIRST matching entry
+# wins, so specific entries come before general ones (and media entries before LLM entries, e.g. Nano Banana
+# before Gemini 2.5 Flash). `release` is the month the model became publicly available (vendor announcement,
+# URL in the comment). Entries cover the unit models of the first snapshot of every snapshot-type source
+# (Arena text 2023-05-08, legacy 2023-05-22, text_style_control 2024-08-28, t2i 2025-01-05,
+# image_edit 2025-06-24, t2v/i2v 2025-08-07, Music Arena 2025-08-31, WebDev 2025-11-12) and headline models.
+# Models whose month could not be sourced are left out. Dates were checked against vendor pages / changelogs on
+# 2026-10-08 except where a comment says "not re-checked"; openai.com refuses automated fetches, so OpenAI dates
+# come from OpenAI's developer changelog and the openai.com URLs are the announcement addresses.
+models:
+  # ═════════════════════════════ image ═════════════════════════════
+  # ── OpenAI ──
+  # DALL·E 3 in ChatGPT Plus/Enterprise 2023-10, announced 2023-09 (https://en.wikipedia.org/wiki/DALL-E; openai.com blocks fetches)
+  - { match: '(?<![a-z0-9])dall[-·. ]?e[-_ ]?3', release: 2023-10, display: DALL·E 3 }
+  # GPT Image 1 mini, OpenAI DevDay 2025-10-06 (not re-checked this session)
+  - { match: '(?<![a-z0-9])gpt[-_ ]image[-_ ]1[-_ ]mini', release: 2025-10, display: GPT Image 1 mini }
+  # gpt-image-1 in the API 2025-04-23 (OpenAI image generation API post; ChatGPT 4o image generation 2025-03 per Wikipedia)
+  - { match: '(?<![a-z0-9])gpt[-_ ]image[-_ ]1(?![.\d])', release: 2025-04, display: GPT Image 1 }
+  # ── Google ── (https://ai.google.dev/gemini-api/docs/changelog)
+  # Nano Banana Pro 2025-11-20; Nano Banana 2025-08-26; native image output preview 2025-05-07
+  - { match: '(?<![a-z0-9])gemini[-_ ]3[-_ ]pro[-_ ]image|nano[-_ ]?banana[-_ ]?pro', release: 2025-11, display: Nano Banana Pro }
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.5[-_ ]flash[-_ ]image|nano[-_ ]?banana(?![-_ ]?(?:pro|\d))', release: 2025-08, display: Nano Banana }
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.0[-_ ]flash.*image', release: 2025-05, display: Gemini 2.0 Flash Image }
+  # Imagen 4 launched at Google I/O 2025-05-20 (Gemini API GA 2025-08-14 per the changelog)
+  - { match: '(?<![a-z0-9])imagen[-_ ](?:ultra[-_ ])?4', release: 2025-05, display: Imagen 4 }
+  # ── Black Forest Labs ──
+  # FLUX.2 2025-11-25 and FLUX.1 Kontext 2025-05-29 (BFL announcements; not re-checked this session)
+  - { match: '(?<![a-z0-9])flux[-_ .]?2(?![\d])(?!.*video)', release: 2025-11, display: FLUX.2 }
+  - { match: '(?<![a-z0-9])flux[-_ .]?1[-_ ]kontext', release: 2025-05, display: FLUX.1 Kontext }
+  # https://bfl.ai/announcing-flux-1-1-pro-and-the-bfl-api/ (2024-10-02)
+  - { match: '(?<![a-z0-9])flux[-_ .]?1\.1[-_ ]pro', release: 2024-10, display: 'FLUX1.1 [pro]' }
+  # https://bfl.ai/announcing-black-forest-labs/ (FLUX.1 [pro]/[dev]/[schnell], 2024-08-01)
+  - { match: '(?<![a-z0-9])flux[-_ .]?1[-_ .](?:dev|schnell|pro)', release: 2024-08, display: FLUX.1 }
+  # ── others ──
+  # https://www.recraft.ai/blog/recraft-introduces-a-revolutionary-ai-model-that-thinks-in-design-language (2024-10-30)
+  - { match: '(?<![a-z0-9])recraft[-_ ]v3', release: 2024-10, display: Recraft V3 }
+  # Ideogram 2.0 (2024-08-21) and 3.0 (2025-03-26), Ideogram announcements (the 2.0 page now redirects; not re-checked)
+  - { match: '(?<![a-z0-9-])ideogram[-_ ]v2', release: 2024-08, display: Ideogram 2.0 }
+  - { match: '(?<![a-z0-9-])ideogram[-_ ]v3', release: 2025-03, display: Ideogram 3.0 }
+  # Seedream 3.0 (2025-04) and 4.0 (2025-09), ByteDance Seed announcements (not re-checked this session)
+  - { match: '(?<![a-z0-9])seedream[-_ ]3', release: 2025-04, display: Seedream 3.0 }
+  - { match: '(?<![a-z0-9])seedream[-_ ]4(?![.\d])', release: 2025-09, display: Seedream 4.0 }
+  # not units: Stable Diffusion 3.5 (2024-10-22), Luma Photon (2024-11-25); vendor announcements, not re-checked
+  - { match: '(?<![a-z0-9])stable-diffusion-v35', release: 2024-10, display: Stable Diffusion 3.5 }
+  - { match: '(?<![a-z0-9])photon(?![a-z])', release: 2024-11, display: Luma Photon }
+
+  # ═════════════════════════════ video ═════════════════════════════
+  # Veo 3.1 2025-10-15 (Gemini API changelog); Veo 3 Fast in the Gemini API 2025-07
+  # (https://developers.googleblog.com/en/veo-3-fast-image-to-video-capabilities-now-available-gemini-api/);
+  # Veo 3 at Google I/O 2025-05; Veo 2 public in VideoFX 2024-12 (https://en.wikipedia.org/wiki/Veo_(text-to-video_model))
+  - { match: '(?<![a-z0-9])veo[-_ ]3\.1', release: 2025-10, display: Veo 3.1 }
+  - { match: '(?<![a-z0-9])veo[-_ ]3[-_ ]fast', release: 2025-07, display: Veo 3 Fast }
+  - { match: '(?<![a-z0-9])veo[-_ ]3(?![.\d])', release: 2025-05, display: Veo 3 }
+  - { match: '(?<![a-z0-9])veo[-_ ]2(?![.\d])', release: 2024-12, display: Veo 2 }
+  # Sora 2 2025-09-30, Sora public 2024-12-09 (OpenAI announcements; openai.com blocks fetches, not re-checked)
+  - { match: '(?<![a-z0-9-])sora[-_ ]2(?![.\d])', release: 2025-09, display: Sora 2 }
+  - { match: '(?<![a-z0-9-])sora(?![-_ ]?\d)(?![a-z])', release: 2024-12, display: Sora }
+  # https://www.minimax.io/news/minimax-hailuo-02 (2025-06-18)
+  - { match: '(?<![a-z0-9])hailuo[-_ ]02', release: 2025-06, display: Hailuo 02 }
+  # Seedance 1.0 technical report 2025-06-10 (https://arxiv.org/abs/2506.09113)
+  - { match: '(?<![a-z0-9])(?:dreamina-)?seedance[-_ ]v?1(?:\.0)?(?![.\d])', release: 2025-06, display: Seedance 1.0 }
+  # Kling 2.1 (2025-05, https://en.wikipedia.org/wiki/Kling_AI)
+  - { match: '(?<![a-z0-9])kling[-_ ]v?2\.1', release: 2025-05, display: Kling 2.1 }
+  # https://github.com/Wan-Video/Wan2.2 (2025-07-28); Wan 2.1 open release 2025-02-25 (VBench lists "Wan2.1 (2025-02-24)")
+  - { match: '(?<![a-z0-9])wan[-_ ]?v?2\.2', release: 2025-07, display: Wan 2.2 }
+  - { match: '(?<![a-z0-9])wan[-_ ]?v?2\.1', release: 2025-02, display: Wan 2.1 }
+  # Luma Ray2 (2025-01-15, Luma announcement; not re-checked this session)
+  - { match: '(?<![a-z0-9])ray[-_ ]?2(?![.\d])', release: 2025-01, display: Ray2 }
+  # not units: Genmo Mochi 1 (2024-10-22), Pika 2.2 (2025-02); vendor announcements, not re-checked
+  - { match: '(?<![a-z0-9])mochi[-_ ]?v?1', release: 2024-10, display: Mochi 1 }
+  - { match: '(?<![a-z0-9])pika[-_ ]v?2\.2', release: 2025-02, display: Pika 2.2 }
+
+  # ═════════════════════════════ music ═════════════════════════════
+  # Riffusion FUZZ 1.0 / 1.1 are left undated: no vendor date could be verified (riffusion.com now redirects to
+  # producer.ai); test/curated.test.ts allow-lists them.
+  # Eleven Music 2025-08-05 (ElevenLabs announcement; not re-checked this session)
+  - { match: '(?<![a-z0-9])eleven(?:labs)?[-_ ]?music[-_ ]v?1', release: 2025-08, display: Eleven Music }
+  # Stable Audio Open 2024-06-05 (Stability AI announcement; not re-checked this session)
+  - { match: '(?<![a-z0-9])sao(?![-a-z0-9])|stable audio open(?! small)', release: 2024-06, display: Stable Audio Open }
+  # Magenta RealTime 2025-06 (Google Magenta blog; not re-checked this session)
+  - { match: '(?<![a-z0-9])magenta[-_ ]?(?:rt|realtime)(?![-_ ]?2)', release: 2025-06, display: Magenta RealTime }
+  # not units: ACE-Step 2025-05, MusicGen 2023-06 (project releases; not re-checked this session)
+  - { match: '(?<![a-z0-9])acestep(?![-.\d])|ace-step(?![-_ ]1\.5)', release: 2025-05, display: ACE-Step }
+  - { match: '(?<![a-z0-9])musicgen', release: 2023-06, display: MusicGen }
+
+  # ═════════════════════════════ LLMs ═════════════════════════════
+  # ── OpenAI ──
+  # ChatGPT launched 2022-11-30 on GPT-3.5 (https://openai.com/index/chatgpt/); OpenAI's 2023-03-01 API post calls
+  # gpt-3.5-turbo "the same model used in the ChatGPT product" (https://openai.com/index/introducing-chatgpt-and-whisper-apis/)
+  - { match: '(?<![a-z0-9])gpt-3\.5-turbo(?![-.\w])', release: 2022-11, display: GPT-3.5 Turbo }
+  # Arena labels OpenAI's gpt-3.5-turbo-0301 snapshot "0314"
+  - { match: '(?<![a-z0-9])gpt-3\.5-turbo-03(?:01|14)', release: 2023-03, display: GPT-3.5 Turbo }
+  # https://openai.com/index/function-calling-and-other-api-updates/
+  - { match: '(?<![a-z0-9])gpt-3\.5-turbo-0613', release: 2023-06, display: GPT-3.5 Turbo }
+  # https://openai.com/index/new-models-and-developer-products-announced-at-devday/
+  - { match: '(?<![a-z0-9])gpt-3\.5-turbo-1106', release: 2023-11, display: GPT-3.5 Turbo }
+  # announced 2024-01-25, released 2024-02-01 (https://developers.openai.com/api/docs/changelog)
+  - { match: '(?<![a-z0-9])gpt-3\.5-turbo-0125', release: 2024-02, display: GPT-3.5 Turbo }
+  # https://openai.com/index/gpt-4-research/
+  - { match: '(?<![a-z0-9])gpt-4(?:-0314)?(?![-.\w])', release: 2023-03, display: GPT-4 }
+  - { match: '(?<![a-z0-9])gpt-4-0613', release: 2023-06, display: GPT-4 }
+  - { match: '(?<![a-z0-9])gpt-4-1106-preview', release: 2023-11, display: GPT-4 Turbo }
+  # https://openai.com/index/new-embedding-models-and-api-updates/
+  - { match: '(?<![a-z0-9])gpt-4-0125-preview', release: 2024-01, display: GPT-4 Turbo }
+  - { match: '(?<![a-z0-9])gpt-4-turbo-2024-04-09', release: 2024-04, display: GPT-4 Turbo }
+  # Arena's 2023-11..2024-01 "gpt-4-turbo" row is gpt-4-1106-preview (DevDay, 2023-11-06)
+  - { match: '(?<![a-z0-9])gpt-4-turbo(?![-.\w])', release: 2023-11, display: GPT-4 Turbo }
+  # https://openai.com/index/gpt-4o-mini-advancing-cost-efficient-intelligence/
+  - { match: '(?<![a-z0-9])gpt[-_ ]?4o[-_ ]mini(?!.*(?:tts|transcribe|realtime|audio|search))', release: 2024-07, display: GPT-4o mini }
+  # https://openai.com/index/introducing-structured-outputs-in-the-api/
+  - { match: '(?<![a-z0-9])gpt[-_ ]?4o.*2024-?08-?06', release: 2024-08, display: GPT-4o }
+  - { match: '(?<![a-z0-9])gpt[-_ ]?4o.*2024-?11-?20', release: 2024-11, display: GPT-4o }
+  - { match: '(?<![a-z0-9])chatgpt-4o-latest.*2025-?0?3', release: 2025-03, display: ChatGPT-4o }
+  - { match: '(?<![a-z0-9])chatgpt-4o-latest-?2025-?01', release: 2025-01, display: ChatGPT-4o }
+  - { match: '(?<![a-z0-9])chatgpt-4o-latest-?2024-?11', release: 2024-11, display: ChatGPT-4o }
+  - { match: '(?<![a-z0-9])chatgpt-4o-latest-?2024-?09', release: 2024-09, display: ChatGPT-4o }
+  # chatgpt-4o-latest added to the API 2024-08-15 (changelog)
+  - { match: '(?<![a-z0-9])chatgpt-4o-latest', release: 2024-08, display: ChatGPT-4o }
+  # https://openai.com/index/hello-gpt-4o/
+  - { match: '(?<![a-z0-9])gpt[-_ ]?4o(?!.*(?:tts|transcribe|realtime|audio|search|image))', release: 2024-05, display: GPT-4o }
+  # https://openai.com/index/introducing-openai-o1-preview/
+  - { match: '(?<![a-z0-9-])o1-preview', release: 2024-09, display: o1-preview }
+  - { match: '(?<![a-z0-9-])o1-mini', release: 2024-09, display: o1-mini }
+  # https://openai.com/index/openai-o1-and-new-tools-for-developers/
+  - { match: '(?<![a-z0-9-])o1(?![a-z0-9.])', release: 2024-12, display: o1 }
+  # https://openai.com/index/openai-o3-mini/
+  - { match: '(?<![a-z0-9-])o3[-_ ]mini', release: 2025-01, display: o3-mini }
+  # https://openai.com/index/introducing-o3-and-o4-mini/
+  - { match: '(?<![a-z0-9-])o4[-_ ]mini', release: 2025-04, display: o4-mini }
+  - { match: '(?<![a-z0-9-])o3(?![a-z0-9.])(?![-_ ]pro)', release: 2025-04, display: o3 }
+  # https://openai.com/index/introducing-gpt-4-5/
+  - { match: '(?<![a-z0-9])gpt[-_ ]?4\.5', release: 2025-02, display: GPT-4.5 }
+  # https://openai.com/index/gpt-4-1/
+  - { match: '(?<![a-z0-9])gpt[-_ ]?4\.1', release: 2025-04, display: GPT-4.1 }
+  # https://openai.com/index/introducing-gpt-oss/
+  - { match: '(?<![a-z0-9])gpt-oss', release: 2025-08, display: gpt-oss }
+  # https://openai.com/index/introducing-gpt-5/
+  - { match: '(?<![a-z0-9])gpt[-_ ]?5(?![.\d])(?![-_ ]codex)', release: 2025-08, display: GPT-5 }
+  # https://openai.com/index/gpt-5-1/
+  - { match: '(?<![a-z0-9])gpt[-_ ]?5\.1(?!\d)', release: 2025-11, display: GPT-5.1 }
+  # https://openai.com/index/introducing-gpt-5-2/
+  - { match: '(?<![a-z0-9])gpt[-_ ]?5\.2(?!\d)', release: 2025-12, display: GPT-5.2 }
+  # https://openai.com/index/introducing-gpt-5-3-codex/ (2026-02-05); GPT-5.3 Instant 2026-03-03 (changelog)
+  - { match: '(?<![a-z0-9])gpt[-_ ]?5\.3[-_ ]codex', release: 2026-02, display: GPT-5.3-Codex }
+  - { match: '(?<![a-z0-9])gpt[-_ ]?5\.3(?!\d)', release: 2026-03, display: GPT-5.3 Instant }
+  # https://openai.com/index/introducing-gpt-5-4/
+  - { match: '(?<![a-z0-9])gpt[-_ ]?5\.4(?!\d)', release: 2026-03, display: GPT-5.4 }
+  # https://openai.com/index/introducing-gpt-5-5/
+  - { match: '(?<![a-z0-9])gpt[-_ ]?5\.5(?!\d)', release: 2026-04, display: GPT-5.5 }
+
+  # ── Anthropic ── (https://www.anthropic.com/news/…)
+  # introducing-claude (Claude and Claude Instant, 2023-03-14)
+  - { match: '(?<![a-z0-9])claude-instant', release: 2023-03, display: Claude Instant }
+  - { match: '(?<![a-z0-9])claude-(?:v1|1)(?![.\d])', release: 2023-03, display: Claude 1 }
+  # claude-2-1
+  - { match: '(?<![a-z0-9])claude[-_ ]2\.1', release: 2023-11, display: Claude 2.1 }
+  # claude-2
+  - { match: '(?<![a-z0-9])claude[-_ ]2(?:\.0)?(?![.\d])', release: 2023-07, display: Claude 2 }
+  # claude-3-family (2024-03-04); claude-3-haiku (API 2024-03-13)
+  - { match: '(?<![a-z0-9])claude[-_ ]3[-_ ]opus', release: 2024-03, display: Claude 3 Opus }
+  - { match: '(?<![a-z0-9])claude[-_ ]3[-_ ]sonnet', release: 2024-03, display: Claude 3 Sonnet }
+  - { match: '(?<![a-z0-9])claude[-_ ]3[-_ ]haiku', release: 2024-03, display: Claude 3 Haiku }
+  # 3-5-models-and-computer-use (2024-10-22; Claude 3.5 Haiku reached the API 2024-11-04)
+  - { match: '(?<![a-z0-9])claude[-_ ]3[-.]5[-_ ]sonnet.*(?:20241022|oct)', release: 2024-10, display: Claude 3.5 Sonnet }
+  - { match: '(?<![a-z0-9])claude[-_ ]3[-.]5[-_ ]haiku', release: 2024-11, display: Claude 3.5 Haiku }
+  # claude-3-5-sonnet (2024-06-20)
+  - { match: '(?<![a-z0-9])claude[-_ ]3[-.]5[-_ ]sonnet', release: 2024-06, display: Claude 3.5 Sonnet }
+  # claude-3-7-sonnet (2025-02-24)
+  - { match: '(?<![a-z0-9])claude[-_ ]3[-.]7[-_ ]sonnet', release: 2025-02, display: Claude 3.7 Sonnet }
+  # claude-4 (2025-05-22): claude-opus-4-20250514, claude-4-opus, "Claude 4 Sonnet (20250514)" — not 4-1/4.5…
+  - { match: '(?<![a-z0-9])claude[-_ ](?:opus[-_ ]4|4[-_ ]opus)(?![-.]\d(?!\d))', release: 2025-05, display: Claude Opus 4 }
+  - { match: '(?<![a-z0-9])claude[-_ ](?:sonnet[-_ ]4|4[-_ ]sonnet)(?![-.]\d(?!\d))', release: 2025-05, display: Claude Sonnet 4 }
+  # claude-opus-4-1 (2025-08-05)
+  - { match: '(?<![a-z0-9])claude[-_ ](?:opus[-_ ]4[-.]1|4[-.]1[-_ ]opus)(?!\d)', release: 2025-08, display: Claude Opus 4.1 }
+  # claude-sonnet-4-5 (2025-09-29)
+  - { match: '(?<![a-z0-9])claude[-_ ](?:sonnet[-_ ]4[-.]5|4[-.]5[-_ ]sonnet)(?!\d)', release: 2025-09, display: Claude Sonnet 4.5 }
+  # claude-haiku-4-5 (2025-10-15)
+  - { match: '(?<![a-z0-9])claude[-_ ](?:haiku[-_ ]4[-.]5|4[-.]5[-_ ]haiku)(?!\d)', release: 2025-10, display: Claude Haiku 4.5 }
+  # claude-opus-4-5 (2025-11-24)
+  - { match: '(?<![a-z0-9])claude[-_ ](?:opus[-_ ]4[-.]5|4[-.]5[-_ ]opus)(?!\d)', release: 2025-11, display: Claude Opus 4.5 }
+  # claude-opus-4-6 (2026-02-05), claude-sonnet-4-6 (2026-02-17), claude-opus-4-7 (2026-04-16)
+  - { match: '(?<![a-z0-9])claude[-_ ](?:opus[-_ ]4[-.]6|4[-.]6[-_ ]opus)(?!\d)', release: 2026-02, display: Claude Opus 4.6 }
+  - { match: '(?<![a-z0-9])claude[-_ ](?:sonnet[-_ ]4[-.]6|4[-.]6[-_ ]sonnet)(?!\d)', release: 2026-02, display: Claude Sonnet 4.6 }
+  - { match: '(?<![a-z0-9])claude[-_ ](?:opus[-_ ]4[-.]7|4[-.]7[-_ ]opus)(?!\d)', release: 2026-04, display: Claude Opus 4.7 }
+
+  # ── Google ──
+  # Bard's Gemini Pro build of late January 2024 (no Google release-notes entry; the-decoder.com report)
+  - { match: '(?<![a-z0-9])bard-jan-24-gemini-pro', release: 2024-01, display: Bard (Gemini Pro) }
+  # https://blog.google/technology/ai/gemini-api-developers-cloud/ (Gemini 1.0 Pro, Bard 2023-12-06, API 2023-12-13)
+  - { match: '(?<![a-z0-9])gemini(?:-pro(?:-dev-api)?(?![-.\w])|[-_ ]1\.0[-_ ]pro)', release: 2023-12, display: Gemini 1.0 Pro }
+  # https://ai.google.dev/gemini-api/docs/changelog
+  - { match: '(?<![a-z0-9])gemini-1\.5-pro-api-0409', release: 2024-04, display: Gemini 1.5 Pro }
+  - { match: '(?<![a-z0-9])gemini-1\.5-pro-api-0514|gemini-advanced-0514', release: 2024-05, display: Gemini 1.5 Pro }
+  - { match: '(?<![a-z0-9])gemini-1\.5-flash-api-0514', release: 2024-05, display: Gemini 1.5 Flash }
+  - { match: '(?<![a-z0-9])gemini-1\.5-pro-exp-08(?:01|27)', release: 2024-08, display: Gemini 1.5 Pro }
+  - { match: '(?<![a-z0-9])gemini-1\.5-flash(?:-8b)?-exp-0827', release: 2024-08, display: Gemini 1.5 Flash }
+  # https://ai.google.dev/gemini-api/docs/changelog (2024-11-14, 2024-11-21, 2024-12-06 experimental models)
+  - { match: '(?<![a-z0-9])gemini-exp-11(?:14|21)', release: 2024-11, display: Gemini Experimental }
+  - { match: '(?<![a-z0-9])gemini-exp-1206', release: 2024-12, display: Gemini Experimental }
+  # https://blog.google/technology/google-deepmind/gemini-model-updates-february-2025/ (2.0 Flash experimental 2024-12-11, GA 2025-02-05)
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.0[-_ ]flash[-_ ]thinking.*(?:01-21|jan 2025)', release: 2025-01, display: Gemini 2.0 Flash Thinking }
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.0[-_ ]flash[-_ ]thinking', release: 2024-12, display: Gemini 2.0 Flash Thinking }
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.0[-_ ]flash(?:-exp(?![-\w])|.*dec 2024)', release: 2024-12, display: Gemini 2.0 Flash }
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.0[-_ ](?:flash|pro)(?!.*image)', release: 2025-02, display: Gemini 2.0 }
+  # Gemini 2.5 Pro: experimental 2025-03-25, preview 05-06 and 06-05, stable 2025-06-17 (changelog)
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.5[-_ ]pro.*03-25', release: 2025-03, display: Gemini 2.5 Pro }
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.5[-_ ]pro.*05-06', release: 2025-05, display: Gemini 2.5 Pro }
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.5[-_ ]pro(?!.*(?:tts|image))', release: 2025-06, display: Gemini 2.5 Pro }
+  # Gemini 2.5 Flash: preview 2025-04-17, stable 2025-06-17 (changelog)
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.5[-_ ]flash.*(?:04-17|apr 2025)', release: 2025-04, display: Gemini 2.5 Flash }
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.5[-_ ]flash.*05-20', release: 2025-05, display: Gemini 2.5 Flash }
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.5[-_ ]flash.*09-2025', release: 2025-09, display: Gemini 2.5 Flash }
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.5[-_ ]flash(?!.*(?:tts|image|live|audio))', release: 2025-06, display: Gemini 2.5 Flash }
+  # https://blog.google/products/gemini/gemini-3/ (2025-11-18), …/gemini-3-flash/ (2025-12-17)
+  - { match: '(?<![a-z0-9])gemini[-_ ]3(?:\.0)?[-_ ]pro(?!.*image)', release: 2025-11, display: Gemini 3 Pro }
+  - { match: '(?<![a-z0-9])gemini[-_ ]3[-_ ]flash(?!.*image)', release: 2025-12, display: Gemini 3 Flash }
+  # https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-1-pro/ (2026-02-19)
+  - { match: '(?<![a-z0-9])gemini[-_ ]3\.1[-_ ]pro', release: 2026-02, display: Gemini 3.1 Pro }
+  # https://blog.google/technology/ai/google-palm-2-ai-large-language-model/ (not a unit model)
+  - { match: '(?<![a-z0-9])palm[-_ ]?2', release: 2023-05, display: PaLM 2 }
+
+  # ── xAI ── (https://x.ai/news/…)
+  - { match: '(?<![a-z0-9])grok[-_ ]2[-_ ]mini', release: 2024-08, display: Grok-2 mini }
+  - { match: '(?<![a-z0-9])grok[-_ ]2(?:-1212|.*dec 2024)', release: 2024-12, display: Grok-2 }
+  - { match: '(?<![a-z0-9])grok[-_ ]2(?![.\d])', release: 2024-08, display: Grok-2 }
+  # grok-3 (launched 2025-02-17, with Grok 3 mini)
+  - { match: '(?<![a-z0-9])grok[-_ ]3(?![.\d])|early-grok-3', release: 2025-02, display: Grok 3 }
+  # grok-code-fast-1 (2025-08-28)
+  - { match: '(?<![a-z0-9])grok[-_ ]code[-_ ]fast', release: 2025-08, display: Grok Code Fast 1 }
+  # grok-4-1 (2025-11-17), incl. grok-4-1-fast
+  - { match: '(?<![a-z0-9])grok[-_ ]4[-.]1(?!\d)', release: 2025-11, display: Grok 4.1 }
+  # Grok 4.20: beta on Arena from 2026-02-19, API 2026-03 (https://docs.x.ai/developers/release-notes)
+  - { match: '(?<![a-z0-9])grok[-_ ]4[-.]20', release: 2026-02, display: Grok 4.20 }
+  # grok-4 (2025-07-09)
+  - { match: '(?<![a-z0-9])grok[-_ ]4(?![.\d])(?![-_ ]fast)', release: 2025-07, display: Grok 4 }
+
+  # ── DeepSeek ──
+  # https://huggingface.co/deepseek-ai/deepseek-llm-67b-chat (2023-11-29); DeepSeek Coder 2023-11
+  - { match: '(?<![a-z0-9])deepseek[-_ ]llm[-_ ]67b', release: 2023-11, display: DeepSeek LLM 67B }
+  # month from the id (open weights 2024-09-05): https://huggingface.co/deepseek-ai/DeepSeek-Coder-V2-Instruct-0724
+  - { match: '(?<![a-z0-9])deepseek[-_ ]coder[-_ ]v2.*0724', release: 2024-07, display: DeepSeek-Coder-V2 }
+  # https://github.com/deepseek-ai/DeepSeek-Coder-V2 (2024-06-17)
+  - { match: '(?<![a-z0-9])deepseek[-_ ]coder[-_ ]v2', release: 2024-06, display: DeepSeek-Coder-V2 }
+  # month from the id: https://huggingface.co/deepseek-ai/DeepSeek-V2-Chat-0628
+  - { match: '(?<![a-z0-9])deepseek-v2-api-0628', release: 2024-06, display: DeepSeek-V2 }
+  # https://api-docs.deepseek.com/news/news0905
+  - { match: '(?<![a-z0-9])deepseek[-_ ]v2\.5(?![-_ ]?1210)', release: 2024-09, display: DeepSeek-V2.5 }
+  # https://api-docs.deepseek.com/news/news1226 ; …/news250325 ; …/news250821 ; …/news250929 ; …/news251201
+  - { match: '(?<![a-z0-9])deepseek[-_ ]v3.*(?:0324|mar 2025)', release: 2025-03, display: DeepSeek-V3-0324 }
+  - { match: '(?<![a-z0-9])deepseek[-_ ]v3\.1', release: 2025-08, display: DeepSeek-V3.1 }
+  - { match: '(?<![a-z0-9])deepseek[-_ ]v3\.2[-_ ]exp', release: 2025-09, display: DeepSeek-V3.2-Exp }
+  - { match: '(?<![a-z0-9])deepseek[-_ ]v3\.2', release: 2025-12, display: DeepSeek-V3.2 }
+  - { match: '(?<![a-z0-9])deepseek[-_ ]v3(?![.\d])', release: 2024-12, display: DeepSeek-V3 }
+  # https://api-docs.deepseek.com/news/news250120 ; …/news250528
+  - { match: '(?<![a-z0-9])deepseek[-_ ]r1.*0528', release: 2025-05, display: DeepSeek-R1-0528 }
+  - { match: '(?<![a-z0-9])deepseek[-_ ]r1(?![-_ ]distill)', release: 2025-01, display: DeepSeek-R1 }
+  # https://api-docs.deepseek.com/news/news260424/ (preview 2026-04-24; V4-Pro GA 2026-08-13)
+  - { match: '(?<![a-z0-9])deepseek[-_ ]v4[-_ ]pro.*0813', release: 2026-08, display: DeepSeek V4 Pro }
+  - { match: '(?<![a-z0-9])deepseek[-_ ]v4(?![.\d])', release: 2026-04, display: DeepSeek V4 }
+
+  # ── Alibaba ──
+  # https://github.com/QwenLM/Qwen (Qwen-14B, 2023-09-25)
+  - { match: '(?<![a-z0-9])qwen-14b', release: 2023-09, display: Qwen-14B }
+  # https://qwenlm.github.io/blog/qwen1.5-32b/ (04-02), …/qwen1.5-110b/ (04-25), …/qwen1.5/ (02-04)
+  - { match: '(?<![a-z0-9])qwen1\.5-(?:32|110)b', release: 2024-04, display: Qwen1.5 }
+  - { match: '(?<![a-z0-9])qwen1\.5', release: 2024-02, display: Qwen1.5 }
+  # https://qwenlm.github.io/blog/qwen2/
+  - { match: '(?<![a-z0-9])qwen-?2(?![.\d])', release: 2024-06, display: Qwen2 }
+  # https://qwenlm.github.io/blog/qwen2.5-max/
+  - { match: '(?<![a-z0-9])qwen-?2\.5-max', release: 2025-01, display: Qwen2.5-Max }
+  # https://qwenlm.github.io/blog/qwen2.5/ (2024-09-19)
+  - { match: '(?<![a-z0-9])qwen-?2\.5(?![-_ ]?(?:coder|vl|max|plus|omni))', release: 2024-09, display: Qwen2.5 }
+  # https://qwenlm.github.io/blog/qwq-32b/ (2025-03-06; QwQ-32B-Preview 2024-11)
+  - { match: '(?<![a-z0-9])qwq-32b-preview', release: 2024-11, display: QwQ-32B-Preview }
+  - { match: '(?<![a-z0-9])qwq-32b', release: 2025-03, display: QwQ-32B }
+  # https://qwenlm.github.io/blog/qwen3-coder/ (2025-07-22)
+  - { match: '(?<![a-z0-9])qwen-?3[-_ ]coder', release: 2025-07, display: Qwen3-Coder }
+  # https://www.alibabacloud.com/blog/602560 (preview 2025-09-05, official 09-24)
+  - { match: '(?<![a-z0-9])qwen-?3[-_ ]max', release: 2025-09, display: Qwen3-Max }
+  # Qwen3-235B-A22B-Instruct-2507 / -Thinking-2507 (2025-07-21 / 07-25): https://huggingface.co/Qwen/Qwen3-235B-A22B-Thinking-2507
+  - { match: '(?<![a-z0-9])qwen-?3[-_ ].*(?:2507|jul 2025)', release: 2025-07, display: Qwen3-2507 }
+  # https://qwenlm.github.io/blog/qwen3/ (2025-04-29)
+  - { match: '(?<![a-z0-9])qwen-?3(?![.\d])(?![-_ ](?:coder|max|next|vl|omni)|.*2507)', release: 2025-04, display: Qwen3 }
+  # https://www.alibabacloud.com/blog/qwen3-5-towards-native-multimodal-agents_602894 (2026-02-16)
+  - { match: '(?<![a-z0-9])qwen-?3\.5(?![-_ ]?omni)', release: 2026-02, display: Qwen3.5 }
+
+  # ── Meta ──
+  # https://ai.meta.com/blog/large-language-model-llama-meta-ai/ (2023-02-24)
+  - { match: '(?<![a-z0-9])llama-(?:7|13|33|65)b', release: 2023-02, display: LLaMA }
+  # https://ai.meta.com/blog/code-llama-large-language-model-coding/ (2023-08-24; 70B update 2024-01-29)
+  - { match: '(?<![a-z0-9])codellama-70b', release: 2024-01, display: Code Llama 70B }
+  - { match: '(?<![a-z0-9])codellama', release: 2023-08, display: Code Llama }
+  # https://about.fb.com/news/2023/07/llama-2/
+  - { match: '(?<![a-z0-9])llama[-_ ]?2(?![.\d])', release: 2023-07, display: Llama 2 }
+  # https://github.com/meta-llama/llama-models/blob/main/models/llama3_3/MODEL_CARD.md (2024-12-06)
+  - { match: '(?<![a-z0-9])llama[-_ ]?3\.3', release: 2024-12, display: Llama 3.3 }
+  # https://ai.meta.com/blog/llama-3-2-connect-2024-vision-edge-mobile-devices/
+  - { match: '(?<![a-z0-9])llama[-_ ]?3\.2', release: 2024-09, display: Llama 3.2 }
+  # https://ai.meta.com/blog/meta-llama-3-1/
+  - { match: '(?<![a-z0-9])llama[-_ ]?3\.1[-_ ]405b', release: 2024-07, display: Llama 3.1 405B }
+  - { match: '(?<![a-z0-9])llama[-_ ]?3\.1', release: 2024-07, display: Llama 3.1 }
+  # https://ai.meta.com/blog/meta-llama-3/
+  - { match: '(?<![a-z0-9])llama[-_ ]?3(?![.\d])', release: 2024-04, display: Llama 3 }
+  # https://ai.meta.com/blog/llama-4-multimodal-intelligence/ (2025-04-05)
+  - { match: '(?<![a-z0-9])llama[-_ ]?4[-_ ]maverick', release: 2025-04, display: Llama 4 Maverick }
+  - { match: '(?<![a-z0-9])llama[-_ ]?4[-_ ]scout', release: 2025-04, display: Llama 4 Scout }
+  # https://about.fb.com/news/2026/04/introducing-muse-spark-meta-superintelligence-labs/ (2026-04-08)
+  - { match: '(?<![a-z0-9])muse[-_ ]spark(?![-_ .]?\d)', release: 2026-04, display: Muse Spark }
+
+  # ── Mistral ── (https://mistral.ai/news/…)
+  # announcing-mistral-7b (2023-09-27); la-plateforme (v0.2 and mistral-medium, 2023-12-11)
+  - { match: '(?<![a-z0-9])mistral[-_ ]7b[-_ ]instruct[-_ ]v0\.2', release: 2023-12, display: Mistral 7B }
+  - { match: '(?<![a-z0-9])mistral[-_ ]7b', release: 2023-09, display: Mistral 7B }
+  # mixtral-of-experts (2023-12-11), mixtral-8x22b (2024-04-17)
+  - { match: '(?<![a-z0-9])mixtral[-_ ]8x7b', release: 2023-12, display: Mixtral 8x7B }
+  - { match: '(?<![a-z0-9])mixtral[-_ ]8x22b', release: 2024-04, display: Mixtral 8x22B }
+  - { match: '(?<![a-z0-9])mistral-medium(?![-_ ]?\d)', release: 2023-12, display: Mistral Medium }
+  # mistral-large (2024-02-26); Arena-only prototype mistral-next (2024-02, voicebot.ai report)
+  - { match: '(?<![a-z0-9])mistral-large-2402', release: 2024-02, display: Mistral Large }
+  - { match: '(?<![a-z0-9])mistral-next', release: 2024-02, display: Mistral Next }
+  # mistral-large-2407 (2024-07-24); pixtral-large (Mistral Large 24.11, 2024-11-18)
+  - { match: '(?<![a-z0-9])mistral[-_ ]large[-_ ](?:2[-_ ]\()?2407', release: 2024-07, display: Mistral Large 2 }
+  - { match: '(?<![a-z0-9])mistral[-_ ]large.*(?:2411|nov 2024)', release: 2024-11, display: Mistral Large 24.11 }
+  # codestral (2024-05-29)
+  - { match: '(?<![a-z0-9])codestral-2405', release: 2024-05, display: Codestral }
+  # mistral-medium-3 (2025-05-07), magistral (2025-06-10), mistral-3 (Mistral Large 3, 2025-12-02)
+  - { match: '(?<![a-z0-9])mistral[-_ ]medium[-_ ](?:2505|3(?![.\d]))', release: 2025-05, display: Mistral Medium 3 }
+  - { match: '(?<![a-z0-9])magistral', release: 2025-06, display: Magistral }
+  - { match: '(?<![a-z0-9])mistral[-_ ]large[-_ ]3', release: 2025-12, display: Mistral Large 3 }
+  # devstral (2025-05-21)
+  - { match: '(?<![a-z0-9])devstral[-_ ]small[-_ ]2505', release: 2025-05, display: Devstral }
+
+  # ── others in first snapshots (no unit) ──
+  # https://lmsys.org/blog/2023-03-30-vicuna/ ; 7B weights 2023-04-06 (https://huggingface.co/lmsys/vicuna-7b-delta-v0)
+  - { match: '(?<![a-z0-9])vicuna-13b', release: 2023-03 }
+  - { match: '(?<![a-z0-9])vicuna-7b', release: 2023-04 }
+  # https://bair.berkeley.edu/blog/2023/04/03/koala/
+  - { match: '(?<![a-z0-9])koala-13b', release: 2023-04 }
+  # https://crfm.stanford.edu/2023/03/13/alpaca.html
+  - { match: '(?<![a-z0-9])alpaca-13b', release: 2023-03 }
+  # https://huggingface.co/OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5
+  - { match: '(?<![a-z0-9])oasst-pythia-12b', release: 2023-04 }
+  # https://github.com/THUDM/ChatGLM-6B
+  - { match: '(?<![a-z0-9])chatglm-6b', release: 2023-03 }
+  # https://huggingface.co/lmsys/fastchat-t5-3b-v1.0
+  - { match: '(?<![a-z0-9])fastchat-t5-3b', release: 2023-04 }
+  # https://stability.ai/news-updates/stability-ai-launches-the-first-of-its-stablelm-suite-of-language-models
+  - { match: '(?<![a-z0-9])stablelm-tuned-alpha-7b', release: 2023-04 }
+  # https://www.databricks.com/blog/2023/04/12/dolly-first-open-commercially-viable-instruction-tuned-llm
+  - { match: '(?<![a-z0-9])dolly-v2-12b', release: 2023-04 }
+  # https://www.databricks.com/blog/mpt-7b
+  - { match: '(?<![a-z0-9])mpt-7b-chat', release: 2023-05 }
+  # https://huggingface.co/BlinkDL/rwkv-4-raven
+  - { match: '(?<![a-z0-9])rwkv-4-raven-14b', release: 2023-04 }
+  # https://z.ai/blog/glm-4.6 (2025-09-30) ; https://www.minimax.io/news/minimax-m2 (2025-10-27)
+  - { match: '(?<![a-z0-9])glm-4\.6', release: 2025-09, display: GLM-4.6 }
+  - { match: '(?<![a-z0-9])minimax-m2(?![.\d])', release: 2025-10, display: MiniMax-M2 }

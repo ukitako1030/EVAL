@@ -1,0 +1,7 @@
+# Curated event texts (spec §6.4). `overrides` rewrite or hide auto-detected events; `custom` adds events.
+overrides: []
+custom:
+  - month: 2022-11
+    front: general
+    unit: gpt
+    text: { ja: 'ChatGPT 公開 — 開戦', en: 'ChatGPT launches — the war begins' }
