@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { FRONT_IDS, type FrontId, type Observation, type SignalObs } from '../core/types';
+import { FRONT_IDS, SIGNAL_IDS, type FrontId, type Observation, type SignalObs } from '../core/types';
 import { monthRange, toMonth, type Month } from '../core/months';
 import { round1 } from '../core/math';
 import { parseAnnouncements, parseEvents, parseMethod, parseReleases, parseUnits, readText } from '../config/load';
@@ -26,6 +26,47 @@ export interface ComputeOpts {
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+const VALUE_KINDS: ReadonlySet<unknown> = new Set(['elo', 'percent', 'minutes', 'eci']);
+const DATE_KINDS: ReadonlySet<unknown> = new Set(['snapshot', 'release']);
+const SIGNAL_SET: ReadonlySet<unknown> = new Set(SIGNAL_IDS);
+const MONTH_RE = /^\d{4}-\d{2}$/;
+const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null;
+
+/** Raw files are untrusted JSON: a strength item must look like an Observation. */
+function isObservation(x: unknown): x is Observation {
+  return (
+    isRecord(x) &&
+    typeof x.series === 'string' &&
+    typeof x.model === 'string' &&
+    typeof x.date === 'string' &&
+    VALUE_KINDS.has(x.kind) &&
+    DATE_KINDS.has(x.dateKind) &&
+    typeof x.value === 'number' &&
+    Number.isFinite(x.value)
+  );
+}
+
+/** ...and a scale item must look like a SignalObs (positive values only: 0 / negatives carry no information). */
+function isSignalObs(x: unknown): x is SignalObs {
+  return (
+    isRecord(x) &&
+    SIGNAL_SET.has(x.signal) &&
+    typeof x.key === 'string' &&
+    typeof x.month === 'string' &&
+    MONTH_RE.test(x.month) &&
+    typeof x.value === 'number' &&
+    Number.isFinite(x.value) &&
+    x.value > 0
+  );
+}
+
+/** Keeps the last occurrence of each (signal, key, month): accumulate sources append dated files in ascending order, so the latest fetch wins. */
+function latestWins(obs: SignalObs[]): SignalObs[] {
+  const last = new Map<string, SignalObs>();
+  for (const o of obs) last.set(`${o.signal}\u0000${o.key}\u0000${o.month}`, o);
+  return [...last.values()];
+}
+
 export function computeWorld(opts: ComputeOpts): World {
   const method = parseMethod(readText(opts.methodPath));
   const units = parseUnits(readText(join(opts.curatedDir, 'units.yaml')));
@@ -38,17 +79,20 @@ export function computeWorld(opts: ComputeOpts): World {
   const strengthObs = new Map<string, Observation[]>();
   const signalObs: SignalObs[] = [];
   for (const mod of opts.modules) {
-    let items: (Observation | SignalObs)[];
+    let items: unknown[];
     try {
-      items = loadSource<Observation | SignalObs>(opts.rawDir, mod.id, mod.history);
+      items = loadSource<unknown>(opts.rawDir, mod.id, mod.history);
       if (!Array.isArray(items)) throw new Error('snapshot has no items array');
     } catch (e) {
       warn(`source "${mod.id}": cannot read raw data (${errMsg(e)}); skipped`);
       continue;
     }
-    if (mod.role === 'strength') strengthObs.set(mod.id, items as Observation[]);
-    else signalObs.push(...(items as SignalObs[]));
+    const valid = mod.role === 'strength' ? items.filter(isObservation) : items.filter(isSignalObs);
+    if (valid.length < items.length) warn(`source "${mod.id}": dropped ${items.length - valid.length} of ${items.length} raw items that are not valid ${mod.role === 'strength' ? 'observations' : 'signal observations'}`);
+    if (mod.role === 'strength') strengthObs.set(mod.id, valid as Observation[]);
+    else for (const o of valid as SignalObs[]) signalObs.push(o); // not push(...valid): scale sources can hold 100k+ rows
   }
+  const scaleObs = latestWins(signalObs);
 
   const world: World = {
     generatedAt: opts.now.toISOString(),
@@ -114,7 +158,7 @@ export function computeWorld(opts: ComputeOpts): World {
     const eventGroup = Object.entries(weights).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
 
     // scale
-    const signals = buildSignalTable(fUnits, signalObs);
+    const signals = buildSignalTable(fUnits, scaleObs);
     const ann = new Map<string, Map<Month, number>>();
     for (const u of fUnits) {
       const key = u.scale.announcements;
