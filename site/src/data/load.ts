@@ -9,7 +9,11 @@ export function parseWorld(json: unknown): World {
   if (w.schemaVersion !== SUPPORTED_SCHEMA_VERSION) throw new Error(`world.json: unsupported schema version ${w.schemaVersion}`);
   for (const f of FRONT_IDS) {
     if (!w.series?.[f] || !w.units?.[f]) throw new Error(`world.json: missing front ${f}`);
+    for (const u of Object.keys(w.units[f])) {
+      if (!Object.hasOwn(w.series[f], u)) throw new Error(`world.json: units/series mismatch for ${f}.${u}`);
+    }
     for (const [u, arr] of Object.entries(w.series[f])) {
+      if (!Object.hasOwn(w.units[f], u)) throw new Error(`world.json: units/series mismatch for ${f}.${u}`);
       if (arr.length !== w.months.length) throw new Error(`world.json: months/series length mismatch for ${f}.${u}`);
     }
   }
