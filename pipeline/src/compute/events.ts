@@ -121,26 +121,32 @@ export function detectEvents(args: {
     }
   });
 
+  // overrides first, so that a hidden event does not take up one of the per-month slots
+  const used = new Set<number>();
+  const overridden = raw.flatMap((e) => {
+    const hits = args.overrides.map((o, k) => ({ o, k })).filter(({ o }) => o.month === e.month && o.front === e.front && o.unit === e.unit && o.type === e.type);
+    if (!hits.length) return [e];
+    for (const h of hits) used.add(h.k);
+    if (hits.some(({ o }) => o.hide)) return [];
+    const text = hits.find(({ o }) => o.text)?.o.text;
+    return [text ? { ...e, text } : e];
+  });
+  args.overrides.forEach((o, k) => {
+    if (!used.has(k)) console.warn(`events.yaml override matched no detected event: ${o.month} ${o.front} ${o.unit} ${o.type}`);
+  });
+
   // cap per month by priority (stable within a priority)
   const byMonth = new Map<Month, WorldEvent[]>();
-  for (const e of raw) {
+  for (const e of overridden) {
     if (!byMonth.has(e.month)) byMonth.set(e.month, []);
     byMonth.get(e.month)!.push(e);
   }
-  let out: WorldEvent[] = [];
+  const out: WorldEvent[] = [];
   for (const m of months) {
     const list = (byMonth.get(m) ?? []).map((e, k) => ({ e, k }));
     list.sort((a, b) => PRIORITY[a.e.type] - PRIORITY[b.e.type] || a.k - b.k);
     out.push(...list.slice(0, params.maxPerFrontMonth).map((x) => x.e));
   }
-
-  // overrides
-  out = out.flatMap((e) => {
-    const o = args.overrides.find((x) => x.month === e.month && x.front === e.front && x.unit === e.unit && x.type === e.type);
-    if (!o) return [e];
-    if (o.hide) return [];
-    return [o.text ? { ...e, text: o.text } : e];
-  });
   for (const c of args.custom.filter((c) => c.front === front.id)) {
     out.push({ month: c.month, front: c.front, unit: c.unit, type: 'custom', text: c.text });
   }

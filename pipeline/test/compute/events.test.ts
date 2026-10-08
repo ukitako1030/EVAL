@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { detectEvents, prettyModel, type FrontCells } from '../../src/compute/events';
 
 const params = { newModelMinDelta: 3, surgeStrength: 5, surgeScale: 5, leadHysteresis: 1, maxPerFrontMonth: 3 };
@@ -106,6 +106,46 @@ describe('detectEvents', () => {
     });
     const e = detectEvents({ front, months, cells: back, unitNames: { a: 'A', b: 'B' }, params, releases: [], overrides: [], custom: [] });
     expect(e.filter((x) => x.type === 'new_unit').map((x) => `${x.month}:${x.unit}`)).toEqual(['2024-02:b']);
+  });
+  describe('overrides vs the per-month cap', () => {
+    // 2024-02: b, c, d, e all surge (+10) while a keeps the lead → 4 candidate events in one month
+    const surgeCells = cells({
+      a: [[100, 50, null], [100, 50, null]],
+      b: [[50, 10, null], [60, 10, null]],
+      c: [[50, 10, null], [60, 10, null]],
+      d: [[50, 10, null], [60, 10, null]],
+      e: [[50, 10, null], [60, 10, null]],
+    });
+    const run = (overrides: Parameters<typeof detectEvents>[0]['overrides']) =>
+      detectEvents({ front, months: ['2024-01', '2024-02'], cells: surgeCells, unitNames: {}, params: { ...params, maxPerFrontMonth: 3 }, releases: [], overrides, custom: [] });
+
+    it('hidden events do not consume slots', () => {
+      expect(run([]).map((e) => e.unit)).toEqual(['b', 'c', 'd']);
+      const shown = run([{ month: '2024-02', front: 'general', unit: 'b', type: 'surge', hide: true }]);
+      expect(shown.map((e) => e.unit)).toEqual(['c', 'd', 'e']);
+    });
+    it('warns about overrides that match no detected event', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        run([
+          { month: '2024-02', front: 'general', unit: 'b', type: 'surge', hide: true },
+          { month: '2024-02', front: 'general', unit: 'zzz', type: 'surge', hide: true },
+        ]);
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(String(warn.mock.calls[0][0])).toContain('zzz');
+      } finally {
+        warn.mockRestore();
+      }
+    });
+    it('does not warn when every override matches', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        run([{ month: '2024-02', front: 'general', unit: 'b', type: 'surge', hide: true }]);
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
+        warn.mockRestore();
+      }
+    });
   });
   it('caps events per front-month', () => {
     const ev3 = detectEvents({ front, months, cells: c, unitNames: names, params: { ...params, maxPerFrontMonth: 1 }, releases: [], overrides: [], custom: [] });
