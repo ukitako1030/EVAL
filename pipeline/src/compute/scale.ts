@@ -1,6 +1,7 @@
 import { addMonths, type Month } from '../core/months';
 import { sum, trailingMean } from '../core/math';
 import type { Method } from '../config/schemas';
+import type { SignalId } from '../core/types';
 import type { SignalTable } from './signals';
 
 export type ScaleMethod = Method['scale'];
@@ -22,6 +23,19 @@ export interface ScaleCell {
   c: number;
   /** number of components with data for this unit this month */
   components: number;
+  /**
+   * Per component (method order): its implied share 0–100 for the unit, smoothed and normalised exactly like `c` (so `c` is
+   * their weighted mean by component weight), and the signals that covered the unit this month (none: the base share was used).
+   */
+  byComponent: { component: string; share: number; signals: SignalId[] }[];
+}
+
+/** One month's unsmoothed result for a unit (shares 0–1). */
+export interface ScaleMonthCell {
+  share: number;
+  components: number;
+  /** per component (method order): its implied share 0–1 and the signals that covered the unit */
+  byComponent: { component: string; implied: number; signals: SignalId[] }[];
 }
 
 function normalise(m: Map<string, number>): Map<string, number> {
@@ -119,7 +133,7 @@ export function scaleMonth(
   m: Month,
   signals: SignalTable,
   method: ScaleMethod,
-): Map<string, { share: number; components: number }> {
+): Map<string, ScaleMonthCell> {
   // signal shares among the present units that have the signal
   const sigShare = new Map<string, Map<string, number>>();
   for (const [sig, byUnit] of signals) {
@@ -150,16 +164,22 @@ export function scaleMonth(
   }
   // each component: every signal spreads the base mass of the units it covers; signals are averaged; components are weighted
   const combined = new Map(present.map((u) => [u, 0]));
-  for (const c of Object.values(method.components)) {
+  const impliedBy = new Map<string, Map<string, number>>();
+  for (const [name, c] of Object.entries(method.components)) {
     const maps = c.signals.filter((s) => sigShare.has(s)).map((s) => implied(base, sigShare.get(s)));
     const impliedC = maps.length ? meanMaps(maps, present) : base;
+    impliedBy.set(name, impliedC);
     for (const u of present) combined.set(u, combined.get(u)! + c.weight * impliedC.get(u)!);
   }
   const shares = normalise(combined);
-  const out = new Map<string, { share: number; components: number }>();
+  const out = new Map<string, ScaleMonthCell>();
   for (const u of present) {
-    const components = Object.values(method.components).filter((c) => c.signals.some((s) => sigShare.get(s)?.has(u))).length;
-    out.set(u, { share: shares.get(u)!, components });
+    const byComponent = Object.entries(method.components).map(([name, c]) => ({
+      component: name,
+      implied: impliedBy.get(name)!.get(u)!,
+      signals: c.signals.filter((s) => sigShare.get(s)?.has(u)),
+    }));
+    out.set(u, { share: shares.get(u)!, components: byComponent.filter((p) => p.signals.length > 0).length, byComponent });
   }
   return out;
 }
@@ -173,18 +193,36 @@ export function computeScale(args: {
 }): Map<string, Map<Month, ScaleCell | null>> {
   const raw = args.months.map((m) => {
     const present = args.unitIds.filter((u) => args.exists(u, m));
-    return present.length ? scaleMonth(present, m, args.signals, args.method) : new Map<string, { share: number; components: number }>();
+    return present.length ? scaleMonth(present, m, args.signals, args.method) : new Map<string, ScaleMonthCell>();
   });
+  const window = args.method.smoothingMonths;
+  const componentNames = Object.keys(args.method.components);
   const smoothed = new Map<string, (number | null)[]>();
+  /** unit → component → smoothed implied share per month (the same trailing mean as the share, so c stays their weighted mean) */
+  const smoothedBy = new Map<string, Map<string, (number | null)[]>>();
   for (const u of args.unitIds) {
-    smoothed.set(u, trailingMean(raw.map((r) => r.get(u)?.share ?? null), args.method.smoothingMonths));
+    smoothed.set(u, trailingMean(raw.map((r) => r.get(u)?.share ?? null), window));
+    smoothedBy.set(
+      u,
+      new Map(componentNames.map((name, k) => [name, trailingMean(raw.map((r) => r.get(u)?.byComponent[k].implied ?? null), window)])),
+    );
   }
   const out = new Map<string, Map<Month, ScaleCell | null>>(args.unitIds.map((u) => [u, new Map()]));
   args.months.forEach((m, i) => {
     const tot = sum(args.unitIds.map((u) => smoothed.get(u)![i] ?? 0));
+    const pct = (v: number) => (tot > 0 ? (100 * v) / tot : 0);
     for (const u of args.unitIds) {
       const v = smoothed.get(u)![i];
-      out.get(u)!.set(m, v == null ? null : { c: tot > 0 ? (100 * v) / tot : 0, components: raw[i].get(u)!.components });
+      if (v == null) {
+        out.get(u)!.set(m, null);
+        continue;
+      }
+      const cell = raw[i].get(u)!;
+      out.get(u)!.set(m, {
+        c: pct(v),
+        components: cell.components,
+        byComponent: cell.byComponent.map((p) => ({ component: p.component, share: pct(smoothedBy.get(u)!.get(p.component)![i]!), signals: p.signals })),
+      });
     }
   });
   return out;

@@ -104,6 +104,7 @@ export function computeWorld(opts: ComputeOpts): World {
     units: {},
     series: {},
     breakdown: {},
+    scaleBreakdown: {},
     events: [],
     sources: opts.modules.map((m) => ({
       id: m.id,
@@ -178,6 +179,7 @@ export function computeWorld(opts: ComputeOpts): World {
     // assemble series + breakdown
     world.series[front] = {};
     world.breakdown[front] = {};
+    world.scaleBreakdown[front] = {};
     const cells: FrontCells = new Map();
     for (const u of ids) {
       const arr = months.map((m) => {
@@ -220,6 +222,12 @@ export function computeWorld(opts: ComputeOpts): World {
         }
       }
       world.breakdown[front][u] = bd;
+      const sbd: World['scaleBreakdown'][string][string] = {};
+      for (const m of months) {
+        const sc = scale.get(u)!.get(m);
+        if (sc) sbd[m] = sc.byComponent.map((p) => ({ component: p.component, share: round1(p.share), signals: p.signals }));
+      }
+      world.scaleBreakdown[front][u] = sbd;
     }
 
     const ev: WorldEvent[] = detectEvents({

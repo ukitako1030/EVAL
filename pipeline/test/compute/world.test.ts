@@ -11,6 +11,7 @@ const minimal: World = {
   units: { general: { gpt: { org: 'openai', name: 'GPT', since: '2022-11' } } },
   series: { general: { gpt: [null, { s: 100, c: 100, q: 'medium', qs: 'high', qc: 'medium' }] } },
   breakdown: { general: { gpt: { '2026-10': [{ source: 'arena-text', value: 100, weight: 0.5, kind: 'measured', model: 'gpt-5', share: 1 }] } } },
+  scaleBreakdown: { general: { gpt: { '2026-10': [{ component: 'consumer', share: 100, signals: ['crux', 'tranco'] }] } } },
   events: [{ month: '2026-10', front: 'general', unit: 'gpt', type: 'new_unit', text: { ja: 'a', en: 'a' }, major: false }],
   sources: [{ id: 'arena-text', group: 'arena-text', name: 'Arena', url: 'https://arena.ai', license: 'CC BY 4.0', credit: 'Arena', asOf: '2026-10-07' }],
 };
@@ -69,17 +70,24 @@ describe('WorldSchema', () => {
           w.units.bogus = {};
           w.series.bogus = {};
           w.breakdown.bogus = {};
+          w.scaleBreakdown.bogus = {};
         }),
-      ).toEqual(['units.bogus', 'series.bogus', 'breakdown.bogus']);
+      ).toEqual(['units.bogus', 'series.bogus', 'breakdown.bogus', 'scaleBreakdown.bogus']);
     });
-    it('every front must be present in units, series and breakdown (a front with no units is {})', () => {
-      expect(paths((w) => w.fronts.push({ id: 'image', name: { ja: '画像', en: 'Image' } }))).toEqual(['units.image', 'series.image', 'breakdown.image']);
+    it('every front must be present in units, series, breakdown and scaleBreakdown (a front with no units is {})', () => {
+      expect(paths((w) => w.fronts.push({ id: 'image', name: { ja: '画像', en: 'Image' } }))).toEqual([
+        'units.image',
+        'series.image',
+        'breakdown.image',
+        'scaleBreakdown.image',
+      ]);
       expect(
         paths((w) => {
           w.fronts.push({ id: 'image', name: { ja: '画像', en: 'Image' } });
           w.units.image = {};
           w.series.image = {};
           w.breakdown.image = {};
+          w.scaleBreakdown.image = {};
         }),
       ).toEqual([]);
     });
@@ -141,6 +149,17 @@ describe('WorldSchema', () => {
           w.sources[0].group = 'arena-text';
         }),
       ).toEqual([]);
+    });
+  });
+
+  describe('scaleBreakdown', () => {
+    it('unit must exist and month keys must be months', () => {
+      expect(paths((w) => (w.scaleBreakdown.general.ghost = {}))).toEqual(['scaleBreakdown.general.ghost']);
+      expect(paths((w) => (w.scaleBreakdown.general.gpt['2020-01'] = []))).toEqual(['scaleBreakdown.general.gpt.2020-01']);
+    });
+    it('share is 0–100 and signals are signal ids', () => {
+      expect(paths((w) => (w.scaleBreakdown.general.gpt['2026-10'][0].share = 101))).toEqual(['scaleBreakdown.general.gpt.2026-10.0.share']);
+      expect(paths((w) => (w.scaleBreakdown.general.gpt['2026-10'][0].signals = ['nope' as never]))).toEqual(['scaleBreakdown.general.gpt.2026-10.0.signals.0']);
     });
   });
 

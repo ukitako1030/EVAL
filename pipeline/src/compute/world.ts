@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FrontIdSchema, LocalizedSchema, MonthStr, EventTypeSchema } from '../config/schemas';
+import { FrontIdSchema, LocalizedSchema, MonthStr, EventTypeSchema, SignalIdSchema } from '../config/schemas';
 
 const ConfidenceSchema = z.enum(['high', 'medium', 'reconstructed', 'estimated']);
 
@@ -69,6 +69,25 @@ export const WorldSchema = z
         ),
       ),
     ),
+    /** front → unit → month (only months where the unit exists) → per scale component */
+    scaleBreakdown: z.record(
+      z.string(),
+      z.record(
+        z.string(),
+        z.record(
+          z.string(),
+          z.array(
+            z.object({
+              component: z.string(),
+              /** the component's implied share 0–100 for the unit (smoothed like c; c is their mean weighted by component weight) */
+              share: z.number().min(0).max(100),
+              /** signals that covered the unit this month (empty: the component fell back to the base share) */
+              signals: z.array(SignalIdSchema),
+            }),
+          ),
+        ),
+      ),
+    ),
     events: z.array(
       z.object({
         month: MonthStr,
@@ -106,6 +125,7 @@ export const WorldSchema = z
       ['units', w.units],
       ['series', w.series],
       ['breakdown', w.breakdown],
+      ['scaleBreakdown', w.scaleBreakdown],
     ];
     for (const [label, table] of perFront) {
       for (const key of Object.keys(table)) if (!frontIds.has(key)) bad([label, key], `${label} key "${key}" is not a front id`);
@@ -143,6 +163,17 @@ export const WorldSchema = z
           rows.forEach((row, k) => {
             if (!groups.has(row.source)) bad(['breakdown', f, u, m, k, 'source'], `breakdown source "${row.source}" matches no sources[].group`);
           });
+        }
+      }
+    }
+
+    // scaleBreakdown
+    for (const [f, units] of Object.entries(w.scaleBreakdown)) {
+      if (!frontIds.has(f)) continue; // already reported above
+      for (const [u, byMonth] of Object.entries(units)) {
+        if (!has(w.units[f], u)) bad(['scaleBreakdown', f, u], `scaleBreakdown.${f}.${u} has no unit definition`);
+        for (const m of Object.keys(byMonth)) {
+          if (!months.has(m)) bad(['scaleBreakdown', f, u, m], `scaleBreakdown month ${m} is not one of the months`);
         }
       }
     }

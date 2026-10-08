@@ -157,6 +157,23 @@ describe('computeWorld', () => {
     ]);
     expect(0.6 / (0.6 + eciWeight)).toBeCloseTo(0.677, 3);
   });
+  it('explains each unit-month\'s scale by component (implied share 0–100, covering signals), only while the unit exists', () => {
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena, wiki],
+      now: new Date('2023-06-15T00:00:00Z'),
+    });
+    // 2023-05: Wikipedia ChatGPT 900 vs Claude 100; no user counts yet, so the users component keeps the base share
+    expect(w.scaleBreakdown.general.gpt['2023-05']).toEqual([
+      { component: 'users', share: 90, signals: [] },
+      { component: 'attention', share: 90, signals: ['wikipedia'] },
+    ]);
+    expect(Object.keys(w.scaleBreakdown.general.gpt)).toEqual(w.months);
+    expect(Object.keys(w.scaleBreakdown.general.claude)).toEqual(['2023-03', '2023-04', '2023-05', '2023-06']);
+    expect(w.scaleBreakdown.code).toEqual({});
+  });
   it('describes each unit with its org, name, first month and announcements series', () => {
     const w = computeWorld({
       rawDir: join(dir, 'raw'),

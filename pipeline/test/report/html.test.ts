@@ -12,6 +12,7 @@ const w: World = {
   units: { general: { gpt: { org: 'openai', name: 'GPT', since: '2022-11' } } },
   series: { general: { gpt: [{ s: 90, c: 100, q: 'high', qs: 'high', qc: 'high' }, { s: 100, c: 100, q: 'medium', qs: 'high', qc: 'medium' }] } },
   breakdown: { general: { gpt: {} } },
+  scaleBreakdown: { general: { gpt: {} } },
   events: [{ month: '2026-10', front: 'general', unit: 'gpt', type: 'lead_change', text: { ja: '首位交代', en: 'Lead' }, major: true }],
   sources: [],
 };
