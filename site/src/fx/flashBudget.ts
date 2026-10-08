@@ -23,3 +23,5 @@ export function createFlashBudget(opts: { maxPerSecond: number; maxIntensity: nu
     },
   };
 }
+
+export type FlashBudget = ReturnType<typeof createFlashBudget>;
