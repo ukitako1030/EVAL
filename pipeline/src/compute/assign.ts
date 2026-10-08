@@ -23,7 +23,12 @@ export interface AssignParams {
   releaseActiveMonths: number;
 }
 
-export function matchUnit(units: CompiledUnit[], obs: { model: string; org?: string }): CompiledUnit | null {
+/**
+ * The first unit whose model regex (and org regex, when the source reports an org) matches, or null.
+ * A model matching any `exclude` regex (units.yaml `exclude`: third-party fine-tunes, multi-model rows) is never assigned.
+ */
+export function matchUnit(units: CompiledUnit[], obs: { model: string; org?: string }, exclude: RegExp[] = []): CompiledUnit | null {
+  if (exclude.some((r) => r.test(obs.model))) return null;
   for (const u of units) {
     // orgMatch only applies when the source tells us the org (several sources don't; Arena has '' for legacy rows)
     if (u.orgRegex && obs.org && !u.orgRegex.test(obs.org)) continue;
@@ -55,6 +60,8 @@ export function assignSeries(args: {
   months: Month[];
   releases: CompiledRelease[];
   params: AssignParams;
+  /** units.yaml `exclude`: models matching any of these are assigned to no unit (default none) */
+  exclude?: RegExp[];
 }): SeriesTable {
   if (!args.observations.length) throw new Error('assignSeries: empty observations');
   const finite = args.observations.filter((o) => Number.isFinite(o.value));
@@ -87,7 +94,7 @@ export function assignSeries(args: {
   const unitById = new Map(args.units.map((u) => [u.id, u]));
   const byUnit = new Map<string, Observation[]>();
   for (const o of obs) {
-    const u = matchUnit(args.units, o);
+    const u = matchUnit(args.units, o, args.exclude ?? []);
     if (!u) continue;
     if (!byUnit.has(u.id)) byUnit.set(u.id, []);
     byUnit.get(u.id)!.push(o);

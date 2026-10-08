@@ -36,6 +36,19 @@ describe('matchUnit', () => {
     expect(matchUnit(withOrg, { model: 'm' })?.id).toBe('x'); // source without org info → model regex only
     expect(matchUnit(withOrg, { model: 'm', org: '' })?.id).toBe('x'); // empty org string counts as unknown
   });
+  it('returns null when an exclude regex matches the model, even if a unit would match', () => {
+    const exclude = [/nemotron/i, / \+ /];
+    expect(matchUnit(UNITS, { model: 'gpt-4' }, exclude)?.id).toBe('gpt');
+    expect(matchUnit(UNITS, { model: 'gpt-oss-nemotron' }, exclude)).toBeNull();
+    expect(matchUnit(UNITS, { model: 'Claude-3-NEMOTRON' }, exclude)).toBeNull(); // case-insensitive regexes stay case-insensitive
+    expect(matchUnit(UNITS, { model: 'claude-3-5-sonnet + gpt-4o' }, exclude)).toBeNull();
+    // default: no exclusions
+    expect(matchUnit(UNITS, { model: 'gpt-oss-nemotron' })?.id).toBe('gpt');
+    expect(matchUnit(UNITS, { model: 'gpt-oss-nemotron' }, [])?.id).toBe('gpt');
+  });
+  it('tests exclusions against the model only, not the org', () => {
+    expect(matchUnit(UNITS, { model: 'gpt-4', org: 'nemotron' }, [/nemotron/i])?.id).toBe('gpt');
+  });
 });
 
 describe('assignSeries — release type', () => {
@@ -186,5 +199,53 @@ describe('assignSeries — input hygiene', () => {
     expect(() => run([ob({}), ob({ series: 'other' })])).toThrow(/mixed series\/kind\/dateKind/);
     expect(() => run([ob({}), ob({ kind: 'percent' })])).toThrow(/mixed series\/kind\/dateKind/);
     expect(() => run([ob({}), ob({ dateKind: 'release' })])).toThrow(/mixed series\/kind\/dateKind/);
+  });
+});
+
+describe('assignSeries — exclude', () => {
+  const exclude = [/nemotron/i, / \+ /];
+  const run = (observations: Observation[], ex?: RegExp[]) =>
+    assignSeries({
+      front: 'general',
+      group: 'g',
+      priority: 1,
+      observations,
+      units: UNITS,
+      months: monthRange('2023-01', '2024-10'),
+      releases: [],
+      params,
+      ...(ex ? { exclude: ex } : {}),
+    });
+
+  it('does not assign an excluded fine-tune or combined row (snapshot series)', () => {
+    const obs = [
+      ob({ model: 'gpt-4o', value: 1250 }),
+      ob({ model: 'gpt-4o-nemotron-ft', value: 1400 }), // would otherwise be the best gpt model
+      ob({ model: 'claude-3-5-sonnet + gpt-4o', value: 1500 }), // would otherwise be the best claude model
+      ob({ model: 'claude-3', value: 1240 }),
+    ];
+    const t = run(obs, exclude);
+    expect(t.points.get('gpt')?.get('2023-05')).toEqual({ value: 1250, model: 'gpt-4o', reconstructed: false });
+    expect(t.points.get('claude')?.get('2023-05')).toEqual({ value: 1240, model: 'claude-3', reconstructed: false });
+  });
+
+  it('does not assign an excluded fine-tune (release series)', () => {
+    const obs = [
+      ob({ model: 'gpt-4o', date: '2024-05-13', value: 70, kind: 'percent', dateKind: 'release' }),
+      ob({ model: 'gpt-4o-nemotron', date: '2024-06-01', value: 90, kind: 'percent', dateKind: 'release' }),
+    ];
+    const t = run(obs, exclude);
+    expect(t.points.get('gpt')?.get('2024-07')).toEqual({ value: 70, model: 'gpt-4o', reconstructed: false });
+  });
+
+  it('leaves a unit with no point when all of its models are excluded', () => {
+    const t = run([ob({ model: 'gpt-nemotron', value: 1400 }), ob({ model: 'claude-3', value: 1240 })], exclude);
+    expect(t.points.has('gpt')).toBe(false);
+    expect(t.points.get('claude')?.get('2023-05')?.value).toBe(1240);
+  });
+
+  it('assigns everything when no exclude is given', () => {
+    const t = run([ob({ model: 'gpt-4o', value: 1250 }), ob({ model: 'gpt-4o-nemotron-ft', value: 1400 })]);
+    expect(t.points.get('gpt')?.get('2023-05')?.model).toBe('gpt-4o-nemotron-ft');
   });
 });

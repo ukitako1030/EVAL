@@ -146,6 +146,7 @@ export function computeWorld(opts: ComputeOpts): World {
               months,
               releases,
               params: method.strength,
+              exclude: units.exclude,
             }),
           );
         } catch (e) {

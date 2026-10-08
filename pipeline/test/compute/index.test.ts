@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { computeWorld } from '../../src/compute/index';
@@ -178,6 +178,29 @@ describe('computeWorld', () => {
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('fake-wiki');
     expect(warnings[0]).toContain(String(bad.length));
+  });
+  it("passes units.yaml's top-level exclude to the unit matching", () => {
+    const curated = join(dir, 'curated-exclude');
+    mkdirSync(curated);
+    for (const f of ['announcements.yaml', 'events.yaml', 'releases.yaml']) writeFileSync(join(curated, f), readFileSync(join(dir, 'curated', f)));
+    const unitsYaml = readFileSync(join(dir, 'curated', 'units.yaml'), 'utf8');
+    writeFileSync(join(curated, 'units.yaml'), `exclude:\n  - 'ft$'\n${unitsYaml}`);
+    const withFineTune: Observation[] = [
+      { series: 'fake-arena', kind: 'elo', model: 'gpt-4', date: '2023-05-31', dateKind: 'snapshot', value: 1250 },
+      { series: 'fake-arena', kind: 'elo', model: 'claude-1', date: '2023-05-31', dateKind: 'snapshot', value: 1150 },
+      { series: 'fake-arena', kind: 'elo', model: 'claude-1-super-ft', date: '2023-05-31', dateKind: 'snapshot', value: 1400 }, // third-party fine-tune
+    ];
+    const raw = join(dir, 'raw-exclude');
+    saveSnapshot(raw, 'fake-arena', '2026-10-05', withFineTune, 'full');
+    const base = { methodPath: join(dir, 'config', 'method.yaml'), now: new Date('2023-06-15T00:00:00Z'), modules: [arena] };
+    const excluded = computeWorld({ ...base, rawDir: raw, curatedDir: curated });
+    // the same data without the exclude rule would put Claude ahead of GPT
+    const notExcluded = computeWorld({ ...base, rawDir: raw, curatedDir: join(dir, 'curated') });
+    expect(notExcluded.series.general.claude[6]!.s).toBe(100);
+    // with it, the world is exactly the one built from the data without the fine-tune
+    const clean = computeWorld({ ...base, rawDir: join(dir, 'raw'), curatedDir: join(dir, 'curated') });
+    expect(excluded.series).toEqual(clean.series);
+    expect(excluded.breakdown).toEqual(clean.breakdown);
   });
   it('does not warn when every item is valid', () => {
     const warnings: string[] = [];

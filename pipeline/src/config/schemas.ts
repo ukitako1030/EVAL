@@ -39,6 +39,8 @@ export const UnitSchema = z
   });
 
 export const UnitsFileSchema = z.object({
+  /** Case-insensitive regexes: a model matching any of them is assigned to no unit (third-party fine-tunes, multi-model rows). */
+  exclude: z.array(z.string()).default([]),
   orgs: z.record(z.string(), z.object({ name: z.string(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/) })),
   fronts: z.record(z.string(), z.object({ name: LocalizedSchema, units: z.record(z.string(), UnitSchema).default({}) })),
 });

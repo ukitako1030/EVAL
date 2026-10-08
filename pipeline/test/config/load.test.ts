@@ -92,6 +92,23 @@ describe('config loaders', () => {
     );
     expect(() => parseUnits(twoFronts)).not.toThrow();
   });
+  it('compiles the top-level exclude list to case-insensitive regexes, defaulting to none', () => {
+    expect(parseUnits(UNITS).exclude).toEqual([]);
+    const u = parseUnits(`exclude:\n  - 'llama-3\\.1-nemotron'\n  - ' \\+ '\n${UNITS}`);
+    expect(u.exclude).toHaveLength(2);
+    expect(u.exclude.every((r) => r instanceof RegExp)).toBe(true);
+    expect(u.exclude[0].test('Llama-3.1-Nemotron-70B')).toBe(true);
+    expect(u.exclude[0].test('llama-3-1-nemotron')).toBe(false);
+    expect(u.exclude[1].test('DeepSeek R1 + claude-3-5-sonnet')).toBe(true);
+    expect(u.exclude[1].test('c++')).toBe(false);
+    // the units themselves are unaffected
+    expect(u.units.general[0].id).toBe('gpt');
+  });
+  it('rejects an invalid exclude regex or a non-list exclude', () => {
+    expect(() => parseUnits(`exclude: ['(unclosed']\n${UNITS}`)).toThrow(/exclude.*invalid regex "\(unclosed"/);
+    expect(() => parseUnits(`exclude: not-a-list\n${UNITS}`)).toThrow(/units\.yaml: exclude/);
+    expect(() => parseUnits(`exclude: [1]\n${UNITS}`)).toThrow(/units\.yaml: exclude/);
+  });
   it('rejects a missing front', () => {
     expect(() => parseUnits(UNITS.replace(/  music:[\s\S]*$/, ''))).toThrow(/music/);
   });

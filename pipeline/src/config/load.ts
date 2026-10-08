@@ -27,6 +27,8 @@ export interface CompiledUnit {
 }
 
 export interface UnitsConfig {
+  /** A model matching any of these is assigned to no unit (see matchUnit). */
+  exclude: RegExp[];
   orgs: Record<string, { name: string; color: string }>;
   fronts: Record<FrontId, { name: Localized }>;
   units: Record<FrontId, CompiledUnit[]>;
@@ -98,7 +100,7 @@ export function parseUnits(text: string): UnitsConfig {
     });
     rejectSharedScaleKeys(f, units[f]);
   }
-  return { orgs: raw.orgs, fronts, units };
+  return { exclude: raw.exclude.map((m) => compileRegex(m, 'units.yaml: exclude')), orgs: raw.orgs, fronts, units };
 }
 
 export function parseMethod(text: string): Method {
