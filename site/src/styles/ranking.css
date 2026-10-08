@@ -248,6 +248,8 @@
   padding-top: 8px;
   overflow: auto;
   border-top: 1px solid var(--line);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(61, 232, 255, 0.45) transparent;
 }
 
 .deploy-table {
@@ -306,6 +308,7 @@
 }
 
 .deploy-count {
+  white-space: nowrap;
   text-align: right;
   font: 400 11px var(--f-mono);
   color: var(--c, var(--text-dim));

@@ -62,9 +62,9 @@ export function strengthBlock(world: World, front: FrontId, unit: string, month:
     return h('tr', { class: 'bd-row', attrs: { 'data-source': r.source } }, [
       h('th', { attrs: { scope: 'row' } }, [
         sourceNames(world, r.source),
+        r.model ? h('span', { class: 'bd-model' }, [r.model]) : null,
         through ? h('small', { class: 'bd-through' }, [`${tr('dataThrough', lang)} ${through}`]) : null,
       ]),
-      h('td', { class: 'bd-model' }, [r.model]),
       h('td', { class: 'bd-value' }, [fmt1(r.value)]),
       h('td', { class: 'bd-share' }, [fmtShare(r.share)]),
       h('td', {}, [h('span', { class: `bd-tag ${r.kind}` }, [tr(r.kind, lang)])]),
@@ -72,7 +72,7 @@ export function strengthBlock(world: World, front: FrontId, unit: string, month:
   }));
   sec.append(
     h('table', { class: 'bd-table' }, [
-      h('thead', {}, [h('tr', {}, [th(tr('source', lang)), th(tr('model', lang)), th(tr('value', lang)), th(tr('contribution', lang)), th(tr('kind', lang))])]),
+      h('thead', {}, [h('tr', {}, [th(`${tr('source', lang)} / ${tr('model', lang)}`), th(tr('value', lang)), th(tr('contribution', lang)), th(tr('kind', lang))])]),
       body,
     ]),
   );
@@ -82,7 +82,7 @@ export function strengthBlock(world: World, front: FrontId, unit: string, month:
 const componentLabel = (id: string, lang: Lang) => (Object.hasOwn(SCALE_COMPONENT_KEY, id) ? tr(SCALE_COMPONENT_KEY[id], lang) : id);
 
 function signalList(world: World, signals: string[], lang: Lang): HTMLElement {
-  const wrap = h('span', { class: 'sbd-signals' });
+  const wrap = h('span', { class: 'sbd-signals', attrs: { title: tr('signals', lang) } });
   if (!signals.length) {
     wrap.append(tr('baseShare', lang));
     return wrap;
@@ -101,12 +101,11 @@ export function scaleBlock(world: World, front: FrontId, unit: string, month: st
   if (items.length) {
     sec.append(
       h('table', { class: 'bd-table sbd-table' }, [
-        h('thead', {}, [h('tr', {}, [th(tr('component', lang)), th(tr('impliedShare', lang)), th(tr('signals', lang))])]),
+        h('thead', {}, [h('tr', {}, [th(`${tr('component', lang)} / ${tr('signals', lang)}`), th(tr('impliedShare', lang))])]),
         h('tbody', {}, items.map((c) =>
           h('tr', { class: 'sbd-row', attrs: { 'data-component': c.component } }, [
-            h('th', { attrs: { scope: 'row' } }, [componentLabel(c.component, lang)]),
+            h('th', { attrs: { scope: 'row' } }, [h('span', { class: 'sbd-label' }, [componentLabel(c.component, lang)]), signalList(world, c.signals, lang)]),
             h('td', { class: 'bd-value' }, [`${fmt1(c.share)}%`]),
-            h('td', {}, [signalList(world, c.signals, lang)]),
           ]),
         )),
       ]),

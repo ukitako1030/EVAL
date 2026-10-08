@@ -138,7 +138,7 @@ describe('unit detail panel', () => {
       w.announcements.chatgpt = { metric: 'WAU', points: [{ date: '2024-12-04', value: 3e8, url: annUrl }, { date: '2025-02-20', value: 4e8, url: 'ftp://x' }] };
     });
     const rows = [...panel.querySelectorAll('.bd-scale .sbd-row')];
-    expect(rows.map((r) => r.querySelector('th')?.textContent)).toEqual(['利用者数（公式発表）', '一般向けの浸透度', '企業・開発者の利用', 'mystery']);
+    expect(rows.map((r) => r.querySelector('.sbd-label')?.textContent)).toEqual(['利用者数（公式発表）', '一般向けの浸透度', '企業・開発者の利用', 'mystery']);
     expect(rows.map((r) => r.querySelector('.bd-value')?.textContent)).toEqual(['54.3%', '60.0%', '40.0%', '1.0%']);
     expect(rows[0].querySelector('.sbd-signals')?.textContent).toBe('公式発表');
     expect(rows[1].querySelector('.sbd-signals a')?.getAttribute('href')).toBe('https://github.com/zakird/crux-top-lists');

@@ -2,9 +2,17 @@
 .hud-banners {
   position: absolute;
   left: 40%;
-  bottom: 130px;
+  bottom: 156px; /* above the legend */
   width: min(520px, calc(100vw - 32px));
   transform: translateX(-50%);
+}
+
+/* with the detail panel open, centre the news in the space between it and the right panel */
+@media (min-width: 768px) {
+  .hud-root:has(.detail:not([hidden])) .hud-banners {
+    left: calc(452px + (100vw - 452px - 348px) / 2);
+    width: min(520px, calc(100vw - 452px - 348px - 32px));
+  }
 }
 
 .banners {

@@ -1,13 +1,14 @@
 /* Unit detail panel (side panel on desktop, bottom sheet on narrow screens) */
 .detail {
   position: absolute;
-  top: 120px;
+  top: 112px;
   left: 16px;
-  width: 400px;
-  max-height: calc(100vh - 240px);
-  overflow: auto;
-  padding: 14px 16px 16px;
+  width: 420px;
+  max-height: calc(100vh - 112px - 168px); /* stays clear of the legend and the timeline */
+  display: flex;
+  flex-direction: column;
   pointer-events: auto;
+  background: rgba(4, 11, 26, 0.94); /* text over the galaxy and the news must stay readable */
   border-left: 3px solid var(--c, var(--cyan));
   animation: detailIn 0.35s cubic-bezier(0.2, 0.9, 0.2, 1) both;
 }
@@ -23,10 +24,21 @@
   animation: none;
 }
 
+/* the frame stays put (corner brackets included); only the body scrolls */
+.detail-body {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 14px 16px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(61, 232, 255, 0.45) transparent;
+}
+
 .detail-close {
   position: absolute;
+  z-index: 1;
   top: 8px;
-  right: 8px;
+  right: 14px;
   width: 30px;
   height: 30px;
   cursor: pointer;
@@ -235,8 +247,10 @@
 }
 
 .bd-model {
-  font-family: var(--f-mono);
-  word-break: break-word;
+  display: block;
+  font: 400 10.5px var(--f-mono);
+  color: #e8f8ff;
+  overflow-wrap: anywhere;
 }
 
 .bd-through {
@@ -271,9 +285,16 @@
   color: var(--amber);
 }
 
+.sbd-label {
+  display: block;
+}
+
 .sbd-signals {
-  font-size: 10.5px;
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
   color: var(--text-dim);
+  overflow-wrap: anywhere;
 }
 
 .ann-list {
@@ -302,6 +323,7 @@
     max-height: 72vh;
     border-left: 1px solid var(--line);
     border-top: 3px solid var(--c, var(--cyan));
+    background: rgba(4, 11, 26, 0.98);
     animation-name: sheetIn;
     z-index: 30;
   }
