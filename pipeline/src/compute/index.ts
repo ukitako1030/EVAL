@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { FRONT_IDS, SIGNAL_IDS, minConfidence, type FrontId, type Observation, type SignalObs } from '../core/types';
 import { monthRange, toMonth, type Month } from '../core/months';
-import { round1 } from '../core/math';
+import { round1, round3 } from '../core/math';
 import { parseAnnouncements, parseEvents, parseMethod, parseReleases, parseUnits, readText } from '../config/load';
 import { latestSnapshotDate, loadSource } from '../raw/store';
 import type { SourceModule, StrengthModule } from '../sources/types';
@@ -208,7 +208,15 @@ export function computeWorld(opts: ComputeOpts): World {
       for (const m of months) {
         const st = strength.get(u)!.get(m);
         if (st && st.breakdown.length) {
-          bd[m] = st.breakdown.map((g) => ({ source: g.group, value: round1(g.score), weight: g.weight, kind: g.reconstructed ? 'reconstructed' : 'measured' }));
+          const total = st.breakdown.reduce((a, g) => a + g.weight, 0);
+          bd[m] = st.breakdown.map((g) => ({
+            source: g.group,
+            value: round1(g.score),
+            weight: round3(g.weight),
+            kind: g.reconstructed ? 'reconstructed' : 'measured',
+            model: g.model,
+            share: round3(g.weight / total),
+          }));
         }
       }
       world.breakdown[front][u] = bd;

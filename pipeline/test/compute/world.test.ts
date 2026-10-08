@@ -10,7 +10,7 @@ const minimal: World = {
   fronts: [{ id: 'general', name: { ja: '総合戦線', en: 'General Front' } }],
   units: { general: { gpt: { org: 'openai', name: 'GPT', since: '2022-11' } } },
   series: { general: { gpt: [null, { s: 100, c: 100, q: 'medium', qs: 'high', qc: 'medium' }] } },
-  breakdown: { general: { gpt: { '2026-10': [{ source: 'arena-text', value: 100, weight: 0.5, kind: 'measured' }] } } },
+  breakdown: { general: { gpt: { '2026-10': [{ source: 'arena-text', value: 100, weight: 0.5, kind: 'measured', model: 'gpt-5', share: 1 }] } } },
   events: [{ month: '2026-10', front: 'general', unit: 'gpt', type: 'new_unit', text: { ja: 'a', en: 'a' }, major: false }],
   sources: [{ id: 'arena-text', group: 'arena-text', name: 'Arena', url: 'https://arena.ai', license: 'CC BY 4.0', credit: 'Arena', asOf: '2026-10-07' }],
 };
@@ -120,6 +120,12 @@ describe('WorldSchema', () => {
   });
 
   describe('breakdown', () => {
+    it('rows name the model and carry a share between 0 and 1', () => {
+      type Row = World['breakdown'][string][string][string][number];
+      expect(paths((w) => delete (w.breakdown.general.gpt['2026-10'][0] as Partial<Row>).model)).toEqual(['breakdown.general.gpt.2026-10.0.model']);
+      expect(paths((w) => delete (w.breakdown.general.gpt['2026-10'][0] as Partial<Row>).share)).toEqual(['breakdown.general.gpt.2026-10.0.share']);
+      expect(paths((w) => (w.breakdown.general.gpt['2026-10'][0].share = 1.2))).toEqual(['breakdown.general.gpt.2026-10.0.share']);
+    });
     it('month keys must be one of the months', () => {
       expect(paths((w) => (w.breakdown.general.gpt['2020-01'] = []))).toEqual(['breakdown.general.gpt.2020-01']);
     });

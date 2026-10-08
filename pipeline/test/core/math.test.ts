@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { clamp, sigmoid, logit, weightedMean, mean, sum, trailingMean, logInterp, round1 } from '../../src/core/math';
+import { clamp, sigmoid, logit, weightedMean, mean, sum, trailingMean, logInterp, round1, round3 } from '../../src/core/math';
 
 describe('math', () => {
   it('clamp/sigmoid/logit', () => {
@@ -28,5 +28,10 @@ describe('math', () => {
   it('round1', () => {
     expect(round1(12.345)).toBe(12.3);
     expect(round1(12.35)).toBe(12.4);
+  });
+  it('round3', () => {
+    expect(round3(0.2857142857)).toBe(0.286);
+    expect(round3(0.6774193548)).toBe(0.677);
+    expect(round3(1)).toBe(1);
   });
 });

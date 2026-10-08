@@ -12,6 +12,9 @@ const meta = { name: 'Fake', url: 'https://fake', license: 'CC BY 4.0', credit: 
 const arena: SourceModule = { id: 'fake-arena', role: 'strength', group: 'arena-text', history: 'full', meta, fetch: async () => null, parse: () => [] };
 const wiki: SourceModule = { id: 'fake-wiki', role: 'scale', history: 'full', meta, fetch: async () => null, parse: () => [] };
 
+const readItems = (rawDir: string, id: string): unknown[] =>
+  JSON.parse(readFileSync(join(rawDir, id, '2026-10-05.json'), 'utf8')).items;
+
 let dir: string;
 beforeAll(() => {
   dir = mkdtempSync(join(tmpdir(), 'world-'));
@@ -112,12 +115,47 @@ describe('computeWorld', () => {
     expect(claude[6]!.s).toBeCloseTo(200 / (1 + 10 ** 0.25), 1);
     expect(gpt[6]!.c).toBeCloseTo(90, 1);
     expect(gpt[6]).toMatchObject({ q: 'medium', qs: 'medium', qc: 'medium' });
-    expect(w.breakdown.general.gpt['2023-05'][0]).toMatchObject({ source: 'arena-text', weight: 1, kind: 'measured' });
+    expect(w.breakdown.general.gpt['2023-05']).toEqual([{ source: 'arena-text', value: 100, weight: 1, kind: 'measured', model: 'gpt-4', share: 1 }]);
     expect(w.events.find((e) => e.type === 'new_unit' && e.unit === 'claude')?.month).toBe('2023-03');
     expect(w.events.find((e) => e.type === 'custom')?.text.ja).toBe('開戦');
     expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki']);
     expect(w.sources[0].asOf).toBe('2026-10-05');
     expect(w.fronts).toHaveLength(7);
+  });
+  it('lists per month each source group with its model, effective weight and share of the unit\'s total weight', () => {
+    // a second group whose only release (2022-12) is fading in 2023-05: 2 months past its active window (2023-03)
+    writeFileSync(
+      join(dir, 'config', 'method-two.yaml'),
+      readFileSync(join(dir, 'config', 'method.yaml'), 'utf8')
+        .replace('general: { arena-text: 1 }', 'general: { arena-text: 0.6, epoch-eci: 0.4 }')
+        .replace('releaseActiveMonths: 3', 'releaseActiveMonths: 3\n  fadeMonths: 6'),
+    );
+    const eci: SourceModule = { ...arena, id: 'fake-eci', group: 'epoch-eci' };
+    const raw = join(dir, 'raw-two');
+    saveSnapshot(raw, 'fake-arena', '2026-10-05', readItems(join(dir, 'raw'), 'fake-arena'), 'full');
+    saveSnapshot(
+      raw,
+      'fake-eci',
+      '2026-10-05',
+      [
+        { series: 'fake-eci', kind: 'eci', model: 'gpt-4-0613', date: '2022-12-10', dateKind: 'release', value: 130 },
+        { series: 'fake-eci', kind: 'eci', model: 'claude-1', date: '2022-12-20', dateKind: 'release', value: 120 },
+      ] satisfies Observation[],
+      'full',
+    );
+    const w = computeWorld({
+      rawDir: raw,
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method-two.yaml'),
+      modules: [arena, eci],
+      now: new Date('2023-06-15T00:00:00Z'),
+    });
+    const eciWeight = 0.4 * (5 / 7);
+    expect(w.breakdown.general.gpt['2023-05']).toEqual([
+      { source: 'arena-text', value: 100, weight: 0.6, kind: 'measured', model: 'gpt-4', share: 0.677 },
+      { source: 'epoch-eci', value: 100, weight: 0.286, kind: 'measured', model: 'gpt-4-0613', share: 0.323 },
+    ]);
+    expect(0.6 / (0.6 + eciWeight)).toBeCloseTo(0.677, 3);
   });
   it('describes each unit with its org, name, first month and announcements series', () => {
     const w = computeWorld({

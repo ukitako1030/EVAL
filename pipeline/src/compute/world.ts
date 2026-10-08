@@ -51,7 +51,21 @@ export const WorldSchema = z
         z.string(),
         z.record(
           z.string(),
-          z.array(z.object({ source: z.string(), value: z.number(), weight: z.number(), kind: z.enum(['measured', 'reconstructed']) })),
+          z.array(
+            z.object({
+              /** strength source group (matches sources[].group) */
+              source: z.string(),
+              /** score 0–100 against the group's leader */
+              value: z.number(),
+              /** effective weight: configured weight × freshness */
+              weight: z.number(),
+              kind: z.enum(['measured', 'reconstructed']),
+              /** the source's model name that produced the value */
+              model: z.string(),
+              /** weight / sum of the unit-month's weights */
+              share: z.number().min(0).max(1),
+            }),
+          ),
         ),
       ),
     ),
