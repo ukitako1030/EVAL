@@ -1,0 +1,42 @@
+/* PixiJS stage and screen treatment (render shell, Task 9) */
+/* PixiJS stage: one full-window canvas behind the HUD */
+canvas.stage {
+  position: fixed;
+  inset: 0;
+  display: block;
+  z-index: 0;
+}
+
+/* screen treatment over the stage (mockup A): edge vignette + faint scanlines, and a slow light sweep.
+   HUD panels sit above (z-index >= 2). */
+#app::before,
+#app::after {
+  content: '';
+  position: fixed;
+  pointer-events: none;
+  z-index: 1;
+}
+#app::before {
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 50%, transparent 52%, rgba(0, 0, 4, 0.62) 100%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.09) 0 1px, transparent 1px 3px);
+}
+#app::after {
+  left: 0;
+  right: 0;
+  top: -140px;
+  height: 140px;
+  background: linear-gradient(180deg, transparent, rgba(120, 220, 255, 0.045), transparent);
+  animation: stage-sweep 6.5s linear infinite;
+}
+@keyframes stage-sweep {
+  to {
+    transform: translateY(calc(100vh + 140px));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app::after {
+    display: none;
+  }
+}

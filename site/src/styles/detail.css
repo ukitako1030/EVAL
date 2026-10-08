@@ -1,0 +1,337 @@
+/* Unit detail panel (side panel on desktop, bottom sheet on narrow screens) */
+.detail {
+  position: absolute;
+  top: 112px;
+  left: 16px;
+  width: 420px;
+  max-height: calc(100vh - 112px - 168px); /* stays clear of the legend and the timeline */
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  background: rgba(4, 11, 26, 0.94); /* text over the galaxy and the news must stay readable */
+  border-left: 3px solid var(--c, var(--cyan));
+  animation: detailIn 0.35s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+@keyframes detailIn {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+}
+
+.detail.reduced-motion {
+  animation: none;
+}
+
+/* the frame stays put (corner brackets included); only the body scrolls */
+.detail-body {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 14px 16px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(61, 232, 255, 0.45) transparent;
+}
+
+.detail-close {
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  color: #dffaff;
+  background: rgba(61, 232, 255, 0.09);
+  border: 1px solid rgba(61, 232, 255, 0.55);
+}
+
+.detail-close:hover {
+  background: rgba(61, 232, 255, 0.24);
+}
+
+.detail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 36px;
+}
+
+.detail-chip {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 38px;
+  background: var(--c);
+  box-shadow: 0 0 8px var(--c);
+}
+
+.detail-name {
+  margin: 0;
+  font: 700 22px/1.1 var(--f-ui);
+  color: #fff;
+}
+
+.detail-name:focus {
+  outline: none;
+}
+
+.detail-org {
+  margin: 3px 0 0;
+  font: 600 11px var(--f-jp);
+  color: var(--text-dim);
+}
+
+.detail-month {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 6px;
+  font: 700 14px var(--f-disp);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0;
+}
+
+.detail-stat dt {
+  font: 500 10px var(--f-jp);
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
+.detail-stat dd {
+  margin: 2px 0 0;
+}
+
+.detail-v {
+  display: block;
+  font: 700 24px var(--f-disp);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-q {
+  display: block;
+  margin-top: 2px;
+  font: 500 10px var(--f-jp);
+  color: var(--text-dim);
+}
+
+.detail-q.q-estimated,
+.detail-q.q-reconstructed {
+  color: var(--amber);
+}
+
+.detail-note {
+  margin: 8px 0 0;
+  font: 500 12px var(--f-jp);
+  color: var(--amber);
+}
+
+.detail-history,
+.detail-breakdown {
+  margin-top: 14px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.spark {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 6px;
+  overflow: visible;
+}
+
+.spark path {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.spark-s {
+  stroke: var(--c, var(--cyan));
+}
+
+.spark-c {
+  stroke: rgba(200, 230, 255, 0.6);
+  stroke-dasharray: 4 3;
+}
+
+.spark-grid {
+  stroke: rgba(120, 200, 255, 0.12);
+}
+
+.spark-now {
+  stroke: rgba(255, 255, 255, 0.6);
+  stroke-dasharray: 2 2;
+}
+
+.spark-dot-s {
+  fill: var(--c, var(--cyan));
+}
+
+.spark-dot-c {
+  fill: rgba(200, 230, 255, 0.85);
+}
+
+.spark-keys {
+  display: flex;
+  gap: 14px;
+  margin: 4px 0 0;
+  font: 500 10px var(--f-jp);
+  color: var(--text-dim);
+}
+
+.spark-key-s::before,
+.spark-key-c::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  margin-right: 5px;
+  vertical-align: middle;
+  border-top: 2px solid var(--c, var(--cyan));
+}
+
+.spark-key-c::before {
+  border-top: 2px dashed rgba(200, 230, 255, 0.6);
+}
+
+.bd {
+  margin-top: 8px;
+}
+
+.bd-h {
+  margin: 8px 0 4px;
+  font: 700 11px var(--f-jp);
+  color: #e8f8ff;
+}
+
+.bd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 500 11px var(--f-jp);
+}
+
+.bd-table th,
+.bd-table td {
+  padding: 4px 4px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(90, 210, 255, 0.1);
+}
+
+.bd-table thead th {
+  font-weight: 500;
+  font-size: 9.5px;
+  color: var(--text-dim);
+}
+
+.bd-table tbody th {
+  font-weight: 600;
+}
+
+.bd-value,
+.bd-share {
+  text-align: right;
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bd-model {
+  display: block;
+  font: 400 10.5px var(--f-mono);
+  color: #e8f8ff;
+  overflow-wrap: anywhere;
+}
+
+.bd-through {
+  display: block;
+  font: 400 9.5px var(--f-mono);
+  color: var(--text-dim);
+}
+
+.bd-tag {
+  padding: 0 5px;
+  font-size: 9.5px;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+}
+
+.bd-tag.measured {
+  color: var(--up);
+}
+
+.bd-tag.reconstructed {
+  color: var(--amber);
+}
+
+.bd-empty,
+.bd-estimated {
+  margin: 4px 0;
+  font: 500 12px/1.5 var(--f-jp);
+  color: var(--text-dim);
+}
+
+.bd-estimated b {
+  color: var(--amber);
+}
+
+.sbd-label {
+  display: block;
+}
+
+.sbd-signals {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-dim);
+  overflow-wrap: anywhere;
+}
+
+.ann-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 500 11px var(--f-jp);
+}
+
+.ann-point {
+  padding: 2px 0;
+}
+
+.ann-point time {
+  font-family: var(--f-mono);
+  color: var(--text-dim);
+}
+
+@media (max-width: 767px) {
+  .detail {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 72vh;
+    border-left: 1px solid var(--line);
+    border-top: 3px solid var(--c, var(--cyan));
+    background: rgba(4, 11, 26, 0.98);
+    animation-name: sheetIn;
+    z-index: 30;
+  }
+}
+
+@keyframes sheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+}

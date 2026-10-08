@@ -1,48 +1,9 @@
-html,
-body {
-  margin: 0;
-  background: #050816;
-  color: #cfe7ff;
-}
-
-/* PixiJS stage: one full-window canvas behind the HUD */
-canvas.stage {
-  position: fixed;
-  inset: 0;
-  display: block;
-  z-index: 0;
-}
-
-/* screen treatment over the stage (mockup A): edge vignette + faint scanlines, and a slow light sweep.
-   HUD panels sit above (z-index >= 2). */
-#app::before,
-#app::after {
-  content: '';
-  position: fixed;
-  pointer-events: none;
-  z-index: 1;
-}
-#app::before {
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 50% 50%, transparent 52%, rgba(0, 0, 4, 0.62) 100%),
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.09) 0 1px, transparent 1px 3px);
-}
-#app::after {
-  left: 0;
-  right: 0;
-  top: -140px;
-  height: 140px;
-  background: linear-gradient(180deg, transparent, rgba(120, 220, 255, 0.045), transparent);
-  animation: stage-sweep 6.5s linear infinite;
-}
-@keyframes stage-sweep {
-  to {
-    transform: translateY(calc(100vh + 140px));
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  #app::after {
-    display: none;
-  }
-}
+/* AI WAR — entry stylesheet (Vite inlines the imports). Tokens and the shared HUD frame first, then one file per component. */
+@import './styles/base.css';
+@import './styles/stage.css';
+@import './styles/hud.css';
+@import './styles/ranking.css';
+@import './styles/timeline.css';
+@import './styles/banners.css';
+@import './styles/detail.css';
+@import './styles/methods.css';
