@@ -6,52 +6,84 @@
 # URL in the comment). Entries cover the unit models of the first snapshot of every snapshot-type source
 # (Arena text 2023-05-08, legacy 2023-05-22, text_style_control 2024-08-28, t2i 2025-01-05,
 # image_edit 2025-06-24, t2v/i2v 2025-08-07, Music Arena 2025-08-31, WebDev 2025-11-12) and headline models.
-# Models whose month could not be sourced are left out.
+# Models whose month could not be sourced are left out. Dates were checked against vendor pages / changelogs on
+# 2026-10-08 except where a comment says "not re-checked"; openai.com refuses automated fetches, so OpenAI dates
+# come from OpenAI's developer changelog and the openai.com URLs are the announcement addresses.
 models:
   # ═════════════════════════════ image ═════════════════════════════
   # ── OpenAI ──
-  # DRAFT-MEDIA
+  # DALL·E 3 in ChatGPT Plus/Enterprise 2023-10, announced 2023-09 (https://en.wikipedia.org/wiki/DALL-E; openai.com blocks fetches)
   - { match: '(?<![a-z0-9])dall[-·. ]?e[-_ ]?3', release: 2023-10, display: DALL·E 3 }
+  # GPT Image 1 mini, OpenAI DevDay 2025-10-06 (not re-checked this session)
   - { match: '(?<![a-z0-9])gpt[-_ ]image[-_ ]1[-_ ]mini', release: 2025-10, display: GPT Image 1 mini }
+  # gpt-image-1 in the API 2025-04-23 (OpenAI image generation API post; ChatGPT 4o image generation 2025-03 per Wikipedia)
   - { match: '(?<![a-z0-9])gpt[-_ ]image[-_ ]1(?![.\d])', release: 2025-04, display: GPT Image 1 }
-  # ── Google ──
+  # ── Google ── (https://ai.google.dev/gemini-api/docs/changelog)
+  # Nano Banana Pro 2025-11-20; Nano Banana 2025-08-26; native image output preview 2025-05-07
   - { match: '(?<![a-z0-9])gemini[-_ ]3[-_ ]pro[-_ ]image|nano[-_ ]?banana[-_ ]?pro', release: 2025-11, display: Nano Banana Pro }
   - { match: '(?<![a-z0-9])gemini[-_ ]2\.5[-_ ]flash[-_ ]image|nano[-_ ]?banana(?![-_ ]?(?:pro|\d))', release: 2025-08, display: Nano Banana }
   - { match: '(?<![a-z0-9])gemini[-_ ]2\.0[-_ ]flash.*image', release: 2025-05, display: Gemini 2.0 Flash Image }
+  # Imagen 4 launched at Google I/O 2025-05-20 (Gemini API GA 2025-08-14 per the changelog)
   - { match: '(?<![a-z0-9])imagen[-_ ](?:ultra[-_ ])?4', release: 2025-05, display: Imagen 4 }
-  # ── BFL ──
+  # ── Black Forest Labs ──
+  # FLUX.2 2025-11-25 and FLUX.1 Kontext 2025-05-29 (BFL announcements; not re-checked this session)
   - { match: '(?<![a-z0-9])flux[-_ .]?2(?![\d])(?!.*video)', release: 2025-11, display: FLUX.2 }
   - { match: '(?<![a-z0-9])flux[-_ .]?1[-_ ]kontext', release: 2025-05, display: FLUX.1 Kontext }
+  # https://bfl.ai/announcing-flux-1-1-pro-and-the-bfl-api/ (2024-10-02)
   - { match: '(?<![a-z0-9])flux[-_ .]?1\.1[-_ ]pro', release: 2024-10, display: 'FLUX1.1 [pro]' }
+  # https://bfl.ai/announcing-black-forest-labs/ (FLUX.1 [pro]/[dev]/[schnell], 2024-08-01)
   - { match: '(?<![a-z0-9])flux[-_ .]?1[-_ .](?:dev|schnell|pro)', release: 2024-08, display: FLUX.1 }
   # ── others ──
+  # https://www.recraft.ai/blog/recraft-introduces-a-revolutionary-ai-model-that-thinks-in-design-language (2024-10-30)
   - { match: '(?<![a-z0-9])recraft[-_ ]v3', release: 2024-10, display: Recraft V3 }
+  # Ideogram 2.0 (2024-08-21) and 3.0 (2025-03-26), Ideogram announcements (the 2.0 page now redirects; not re-checked)
   - { match: '(?<![a-z0-9-])ideogram[-_ ]v2', release: 2024-08, display: Ideogram 2.0 }
   - { match: '(?<![a-z0-9-])ideogram[-_ ]v3', release: 2025-03, display: Ideogram 3.0 }
+  # Seedream 3.0 (2025-04) and 4.0 (2025-09), ByteDance Seed announcements (not re-checked this session)
   - { match: '(?<![a-z0-9])seedream[-_ ]3', release: 2025-04, display: Seedream 3.0 }
   - { match: '(?<![a-z0-9])seedream[-_ ]4(?![.\d])', release: 2025-09, display: Seedream 4.0 }
+  # not units: Stable Diffusion 3.5 (2024-10-22), Luma Photon (2024-11-25); vendor announcements, not re-checked
   - { match: '(?<![a-z0-9])stable-diffusion-v35', release: 2024-10, display: Stable Diffusion 3.5 }
   - { match: '(?<![a-z0-9])photon(?![a-z])', release: 2024-11, display: Luma Photon }
+
   # ═════════════════════════════ video ═════════════════════════════
+  # Veo 3.1 2025-10-15 (Gemini API changelog); Veo 3 Fast in the Gemini API 2025-07
+  # (https://developers.googleblog.com/en/veo-3-fast-image-to-video-capabilities-now-available-gemini-api/);
+  # Veo 3 at Google I/O 2025-05; Veo 2 public in VideoFX 2024-12 (https://en.wikipedia.org/wiki/Veo_(text-to-video_model))
   - { match: '(?<![a-z0-9])veo[-_ ]3\.1', release: 2025-10, display: Veo 3.1 }
+  - { match: '(?<![a-z0-9])veo[-_ ]3[-_ ]fast', release: 2025-07, display: Veo 3 Fast }
   - { match: '(?<![a-z0-9])veo[-_ ]3(?![.\d])', release: 2025-05, display: Veo 3 }
   - { match: '(?<![a-z0-9])veo[-_ ]2(?![.\d])', release: 2024-12, display: Veo 2 }
+  # Sora 2 2025-09-30, Sora public 2024-12-09 (OpenAI announcements; openai.com blocks fetches, not re-checked)
   - { match: '(?<![a-z0-9-])sora[-_ ]2(?![.\d])', release: 2025-09, display: Sora 2 }
   - { match: '(?<![a-z0-9-])sora(?![-_ ]?\d)(?![a-z])', release: 2024-12, display: Sora }
+  # https://www.minimax.io/news/minimax-hailuo-02 (2025-06-18)
   - { match: '(?<![a-z0-9])hailuo[-_ ]02', release: 2025-06, display: Hailuo 02 }
+  # Seedance 1.0 technical report 2025-06-10 (https://arxiv.org/abs/2506.09113)
   - { match: '(?<![a-z0-9])(?:dreamina-)?seedance[-_ ]v?1(?:\.0)?(?![.\d])', release: 2025-06, display: Seedance 1.0 }
+  # Kling 2.1 (2025-05, https://en.wikipedia.org/wiki/Kling_AI)
   - { match: '(?<![a-z0-9])kling[-_ ]v?2\.1', release: 2025-05, display: Kling 2.1 }
+  # https://github.com/Wan-Video/Wan2.2 (2025-07-28); Wan 2.1 open release 2025-02-25 (VBench lists "Wan2.1 (2025-02-24)")
   - { match: '(?<![a-z0-9])wan[-_ ]?v?2\.2', release: 2025-07, display: Wan 2.2 }
   - { match: '(?<![a-z0-9])wan[-_ ]?v?2\.1', release: 2025-02, display: Wan 2.1 }
+  # Luma Ray2 (2025-01-15, Luma announcement; not re-checked this session)
+  - { match: '(?<![a-z0-9])ray[-_ ]?2(?![.\d])', release: 2025-01, display: Ray2 }
+  # not units: Genmo Mochi 1 (2024-10-22), Pika 2.2 (2025-02); vendor announcements, not re-checked
   - { match: '(?<![a-z0-9])mochi[-_ ]?v?1', release: 2024-10, display: Mochi 1 }
   - { match: '(?<![a-z0-9])pika[-_ ]v?2\.2', release: 2025-02, display: Pika 2.2 }
-  - { match: '(?<![a-z0-9])ray[-_ ]?2(?![.\d])', release: 2025-01, display: Ray2 }
+
   # ═════════════════════════════ music ═════════════════════════════
+  # Riffusion FUZZ 1.0 / 1.1 are left undated: no vendor date could be verified (riffusion.com now redirects to
+  # producer.ai); test/curated.test.ts allow-lists them.
+  # Eleven Music 2025-08-05 (ElevenLabs announcement; not re-checked this session)
   - { match: '(?<![a-z0-9])eleven(?:labs)?[-_ ]?music[-_ ]v?1', release: 2025-08, display: Eleven Music }
-  - { match: '(?<![a-z0-9])acestep(?![-.\d])|ace-step(?![-_ ]1\.5)', release: 2025-05, display: ACE-Step }
+  # Stable Audio Open 2024-06-05 (Stability AI announcement; not re-checked this session)
   - { match: '(?<![a-z0-9])sao(?![-a-z0-9])|stable audio open(?! small)', release: 2024-06, display: Stable Audio Open }
-  - { match: '(?<![a-z0-9])musicgen', release: 2023-06, display: MusicGen }
+  # Magenta RealTime 2025-06 (Google Magenta blog; not re-checked this session)
   - { match: '(?<![a-z0-9])magenta[-_ ]?(?:rt|realtime)(?![-_ ]?2)', release: 2025-06, display: Magenta RealTime }
+  # not units: ACE-Step 2025-05, MusicGen 2023-06 (project releases; not re-checked this session)
+  - { match: '(?<![a-z0-9])acestep(?![-.\d])|ace-step(?![-_ ]1\.5)', release: 2025-05, display: ACE-Step }
+  - { match: '(?<![a-z0-9])musicgen', release: 2023-06, display: MusicGen }
 
   # ═════════════════════════════ LLMs ═════════════════════════════
   # ── OpenAI ──

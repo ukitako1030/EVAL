@@ -304,7 +304,7 @@ fronts:
       gptimage:
         org: openai
         name: GPT Image
-        since: 2022-07 # DALL·E 2 beta (2022-07-20)
+        since: 2022-09 # DALL·E 2 open to everyone 2022-09-28 (invite-only beta from 2022-07-20; https://en.wikipedia.org/wiki/DALL-E)
         match:
           # dall-e-3, "DALL·E 3", gpt-image-1…2.5, "GPT Image 1.5", chatgpt-image-latest
           - '(?<![a-z0-9])(?:dall[-·. ]?e|(?:chat)?gpt[-_ ]image)(?![a-z])'
@@ -312,7 +312,7 @@ fronts:
       nanobanana:
         org: google
         name: Nano Banana
-        since: 2023-12 # Imagen 2 generally available on Vertex AI (2023-12-13)
+        since: 2023-12 # Imagen 2 generally available on Vertex AI (2023-12-13; not re-checked this session)
         match:
           - '(?<![a-z0-9])imagen(?![a-z])'
           # gemini-2.0-flash-preview-image-generation, gemini-2.5-flash-image-preview (nano-banana), gemini-3-pro-image…
@@ -326,7 +326,7 @@ fronts:
       midjourney:
         org: midjourney
         name: Midjourney
-        since: 2022-07 # open beta (2022-07-12)
+        since: 2022-07 # Midjourney open beta (2022-07-12; not re-checked this session)
         match:
           - '(?<![a-z0-9])midjourney(?![a-z])'
         scale:
@@ -337,7 +337,7 @@ fronts:
       flux:
         org: bfl
         name: FLUX
-        since: 2024-08 # FLUX.1 (2024-08-01)
+        since: 2024-08 # FLUX.1 (2024-08-01, https://bfl.ai/announcing-black-forest-labs/)
         match:
           # flux-1.1-pro, FLUX.1-dev, flux-1-kontext-*, flux-2-*, GenAI-Arena "FluxTimestep"; not flux-3-video
           - '(?<![a-z0-9])flux(?![a-z])(?!.*video)'
@@ -349,7 +349,7 @@ fronts:
       seedream:
         org: bytedance
         name: Seedream
-        since: 2025-04 # TODO verify (first public Seedream release)
+        since: 2025-04 # Seedream 3.0 (2025-04); earlier Seedream versions only inside Doubao/Jimeng (not re-checked)
         match:
           # seedream-3, seedream-4-2k, "Seedream 4.0", seededit-3.0 (not bagel, a separate research model)
           - '(?<![a-z0-9])seed(?:ream|edit)(?![a-z])'
@@ -357,7 +357,7 @@ fronts:
       ideogram:
         org: ideogram
         name: Ideogram
-        since: 2023-08 # Ideogram launch (2023-08-22)
+        since: 2023-08 # Ideogram launch (2023-08-22; not re-checked this session)
         match:
           # look-behind also rejects "-" so Pruna's `p-image-ideogram (…)` is not Ideogram
           - '(?<![a-z0-9-])ideogram(?![a-z])'
@@ -368,7 +368,7 @@ fronts:
       recraft:
         org: recraft
         name: Recraft
-        since: 2024-10 # TODO verify
+        since: 2024-10 # Recraft V3 (2024-10-30), the first Recraft model in our sources; earlier Recraft models not dated
         match:
           - '(?<![a-z0-9])recraft(?![a-z])'
         scale:
@@ -382,7 +382,7 @@ fronts:
       veo:
         org: google
         name: Veo
-        since: 2024-05 # TODO verify
+        since: 2024-12 # first public Veo: Veo 2 in VideoFX (2024-12; Veo 1 was announced 2024-05 behind a waitlist)
         match:
           - '(?<![a-z0-9])veo(?![a-z])'
           # Google's Gemini Omni video models (top Google video entries since 2026-06)
@@ -394,7 +394,7 @@ fronts:
       sora:
         org: openai
         name: Sora
-        since: 2024-12 # TODO verify
+        since: 2024-12 # Sora public launch (2024-12-09)
         match:
           # sora, sora-2, sora-2-pro, "Sora 2"; look-behind rejects "-" so Open-Sora is not Sora
           - '(?<![a-z0-9-])sora(?![a-z])'
@@ -406,7 +406,7 @@ fronts:
       kling:
         org: kuaishou
         name: Kling
-        since: 2024-06 # TODO verify
+        since: 2024-06 # Kling beta (2024-06, https://en.wikipedia.org/wiki/Kling_AI)
         match:
           # kling-v2.1-master, kling-2.6-pro, kling-o1-pro, "Kling 1.6"; not the kling-image-o1 image model
           - '(?<![a-z0-9])kling(?![a-z])(?!.*image)'
@@ -418,7 +418,7 @@ fronts:
       runway:
         org: runway
         name: Runway
-        since: 2023-06 # TODO verify
+        since: 2023-06 # Gen-2 opened to all users (2023-06; announced 2023-03; not re-checked this session)
         match:
           # runway-gen4-turbo, runway-gen-4.5 (not runway-gen4, Runway's text-to-image model)
           - '(?<![a-z0-9])runway(?![a-z])(?!-gen-?4(?![-.\d]))'
@@ -432,7 +432,7 @@ fronts:
       hailuo:
         org: minimax
         name: Hailuo
-        since: 2024-09 # TODO verify
+        since: 2024-09 # MiniMax video-01 / Hailuo AI video (2024-09; not re-checked this session)
         match:
           - '(?<![a-z0-9])hailuo(?![a-z])'
           # minimax-h3, "MiniMax-Video-01", "MiniMax Hailuo 02" (not MiniMax LLMs or speech)
@@ -443,14 +443,14 @@ fronts:
       seedance:
         org: bytedance
         name: Seedance
-        since: 2025-06 # TODO verify
+        since: 2025-06 # Seedance 1.0 (2025-06, https://arxiv.org/abs/2506.09113)
         match:
           - '(?<![a-z0-9])seedance(?![a-z])'
         scale: {}
       luma:
         org: luma
         name: Luma Ray
-        since: 2024-06 # TODO verify
+        since: 2024-06 # Dream Machine launch (2024-06-12; not re-checked this session)
         match:
           - '(?<![a-z0-9])ray[-_ ]?\d'
           # VBench "Luma" (not Luma's Photon / UNI image models)
@@ -462,7 +462,7 @@ fronts:
       wan:
         org: alibaba
         name: Wan
-        since: 2025-02 # TODO verify
+        since: 2025-02 # Wan 2.1 open release (2025-02-25; VBench lists "Wan2.1 (2025-02-24)")
         match:
           # wan-v2.2-a14b, wan2.5-t2v-preview, wan3.0, "Wan2.1-T2V-14B"; not wan image models
           - '(?<![a-z0-9])wan[-_ ]?v?\d(?!.*(?:t2i|i2i|image))'
@@ -477,7 +477,7 @@ fronts:
       elevenlabs:
         org: elevenlabs
         name: ElevenLabs
-        since: 2023-01 # TODO verify
+        since: 2023-01 # ElevenLabs public beta (2023-01; not re-checked this session)
         match:
           # eleven-v3, eleven-flash-v2.5, "Eleven Multilingual v2", elevenlabs/eleven_v3 (not Eleven Music)
           - '(?<![a-z0-9])eleven(?:labs)?(?![a-z])(?!.*music)'
@@ -489,7 +489,7 @@ fronts:
       openaitts:
         org: openai
         name: OpenAI TTS
-        since: 2023-11 # TODO verify
+        since: 2023-11 # tts-1 / tts-1-hd at OpenAI DevDay (2023-11-06)
         match:
           - '(?<![a-z0-9])(?:tts-1(?:-hd)?|gpt-4o(?:-mini)?-(?:tts|realtime)|gpt[-_ ]realtime)(?![a-z])'
           # Design Arena: "OpenAI GPT-4o Mini TTS", "OpenAI GPT Realtime 2"
@@ -498,7 +498,7 @@ fronts:
       geminitts:
         org: google
         name: Gemini TTS
-        since: 2025-05 # TODO verify
+        since: 2025-05 # Gemini 2.5 Flash/Pro TTS preview (2025-05-20, https://ai.google.dev/gemini-api/docs/changelog)
         match:
           # gemini-2.5-flash-preview-tts, "Google Gemini 3.8 Flash TTS"
           - '(?<![a-z0-9])gemini(?![a-z]).*tts'
@@ -506,7 +506,7 @@ fronts:
       minimax:
         org: minimax
         name: MiniMax Speech
-        since: 2024-01 # TODO verify
+        since: 2025-08 # first month in our sources (TTS Arena V2 captures from 2025-08); MiniMax's T2A line is older but undated here
         match:
           # minimax-speech-2.8-hd, "MiniMax Speech 02 HD", "MiniMax Speech-02-Turbo"
           - '(?<![a-z0-9])minimax[-_ ]?speech'
@@ -516,7 +516,7 @@ fronts:
       cartesia:
         org: cartesia
         name: Cartesia
-        since: 2024-05 # TODO verify
+        since: 2024-05 # Cartesia Sonic launch (2024-05; not re-checked this session)
         match:
           - '(?<![a-z0-9])cartesia(?![a-z])'
         scale:
@@ -524,7 +524,7 @@ fronts:
       hume:
         org: hume
         name: Hume
-        since: 2024-03 # TODO verify
+        since: 2025-02 # Octave, Hume's TTS model (2025-02; not re-checked this session)
         match:
           - '(?<![a-z0-9])hume(?![a-z])'
           - '(?<![a-z0-9])octave(?![a-z])'
@@ -540,7 +540,7 @@ fronts:
       suno:
         org: suno
         name: Suno
-        since: 2023-12 # TODO verify
+        since: 2023-09 # first month in our sources (CrUX lists https://www.suno.ai from 2023-09)
         match:
           - '(?<![a-z0-9])suno(?![a-z])'
         scale:
@@ -553,7 +553,7 @@ fronts:
       udio:
         org: udio
         name: Udio
-        since: 2024-04 # TODO verify
+        since: 2024-04 # Udio public launch (2024-04-10; not re-checked this session)
         match:
           - '(?<![a-z0-9])udio(?![a-z])'
         scale:
@@ -564,7 +564,7 @@ fronts:
       lyria:
         org: google
         name: Lyria
-        since: 2023-11 # TODO verify
+        since: 2023-11 # Lyria announced with YouTube Dream Track (2023-11-16, limited; not re-checked this session)
         match:
           - '(?<![a-z0-9])lyria(?![a-z])'
           # Magenta RealTime: Google DeepMind's open-weights sibling of Lyria RealTime
@@ -573,7 +573,7 @@ fronts:
       elevenmusic:
         org: elevenlabs
         name: Eleven Music
-        since: 2025-08 # TODO verify
+        since: 2025-08 # Eleven Music launch (2025-08-05; not re-checked this session)
         match:
           # elevenlabs-music-v1, "ElevenLabs Music v1", "Eleven Music"
           - '(?<![a-z0-9])eleven(?:labs)?[-_ ]?music'
@@ -582,7 +582,7 @@ fronts:
       stableaudio:
         org: stability
         name: Stable Audio
-        since: 2023-09 # TODO verify
+        since: 2023-09 # Stable Audio launch (2023-09-13; not re-checked this session)
         match:
           # "Stable Audio Open", "Stable Audio 3 (Medium)", Music Arena keys sao, sao-small, sa3-medium, sa2
           - '(?<![a-z0-9])stable[-_ ]?audio'
@@ -593,7 +593,7 @@ fronts:
       riffusion:
         org: producer
         name: Riffusion
-        since: 2025-01 # TODO verify
+        since: 2022-12 # original Riffusion release (2022-12-15, https://en.wikipedia.org/wiki/Riffusion); FUZZ models from 2025
         match:
           - '(?<![a-z0-9])riffusion(?![a-z])'
           - '(?<![a-z0-9])fuzz[-_ ]?v?\d'

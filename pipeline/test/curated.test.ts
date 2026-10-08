@@ -311,6 +311,12 @@ describe('releases.yaml', () => {
   const releaseOf = (model: string) => releases.find((r) => r.regex.test(model)) ?? null;
   const isUnitModel = (n: Name) => FRONT_IDS.some((f) => candidates(f, n).length > 0);
 
+  /** First-snapshot unit models without a sourced release month, with the reason. */
+  const UNDATED: Record<string, string> = {
+    'riffusion-fuzz-1-0': 'no verifiable vendor date (riffusion.com now redirects to producer.ai)',
+    'riffusion-fuzz-1-1': 'no verifiable vendor date (riffusion.com now redirects to producer.ai)',
+  };
+
   it('dates every unit model of the first snapshot of each snapshot series', () => {
     const bySeries = new Map<string, Name[]>();
     for (const n of names) {
@@ -321,9 +327,12 @@ describe('releases.yaml', () => {
     const undated: string[] = [];
     for (const [source, list] of bySeries) {
       const first = list.map((n) => n.snapshot!).sort()[0];
-      for (const n of list) if (n.snapshot === first && isUnitModel(n) && !releaseOf(n.model)) undated.push(`${source} ${first}: ${n.model}`);
+      for (const n of list) {
+        if (n.snapshot === first && isUnitModel(n) && !releaseOf(n.model) && !(n.model in UNDATED)) undated.push(`${source} ${first}: ${n.model}`);
+      }
     }
     expect([...new Set(undated)]).toEqual([]);
+    for (const m of Object.keys(UNDATED)) expect(releaseOf(m), `${m} is dated now: drop it from UNDATED`).toBeNull();
   });
 
   it('never dates a model after a snapshot it already appears in', () => {
