@@ -7,7 +7,8 @@
     "typecheck": "tsc --noEmit",
     "fetch": "tsx src/cli/fetch.ts",
     "compute": "tsx src/cli/compute.ts",
-    "report": "tsx src/cli/report.ts"
+    "report": "tsx src/cli/report.ts",
+    "summary": "tsx src/cli/summary.ts"
   },
   "dependencies": {
     "csv-parse": "^7.0.3",
