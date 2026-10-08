@@ -8,7 +8,7 @@ import { createBattle } from './render/battle';
 import { STRINGS } from './i18n/strings';
 import { loadWorld } from './data/load';
 import { frontFrame, type UnitFrame } from './data/timeline';
-import type { FrontId, World } from './data/types';
+import type { FrontId, Lang, World } from './data/types';
 import { createStore, defaultState } from './state/store';
 import { decodeUrl } from './state/url';
 
@@ -53,7 +53,7 @@ async function boot(mount: HTMLElement) {
     });
 
     // ── Task 13: planet zoom battle — temporary wiring, Task 15 replaces this block ──────────────────
-    const battle = createBattle(renderer, galaxy, { world, store, flashes });
+    const battle = createBattle(renderer, galaxy, { store, flashes });
     void fonts.then(() => battle.refreshText());
     renderer.onFrame((dt) => battle.update(dt)); // registered after the galaxy's callback, so it runs after galaxy.update
     window.addEventListener('keydown', (e) => {
@@ -66,7 +66,7 @@ async function boot(mount: HTMLElement) {
       'position:fixed;left:16px;top:16px;z-index:5;padding:7px 14px;font:700 13px "Noto Sans JP",sans-serif;letter-spacing:.08em;color:#bff4ff;background:rgba(4,12,26,.78);border:1px solid rgba(95,232,255,.55);cursor:pointer';
     back.addEventListener('click', () => store.set({ front: null }));
     document.body.appendChild(back);
-    const showBack = (s: { front: FrontId | null; lang: 'ja' | 'en' }) => {
+    const showBack = (s: { front: FrontId | null; lang: Lang }) => {
       back.hidden = !s.front;
       back.textContent = `◀ ${STRINGS.backToGalaxy[s.lang]}`;
     };

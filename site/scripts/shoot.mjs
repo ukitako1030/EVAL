@@ -20,6 +20,7 @@ const HELP = `usage: node scripts/shoot.mjs [options]
   --eval-at <ms>     when to run --eval (default 1000)
   --eval-file <path> like --eval, with the JS read from a file (scripted runs, e.g. a playback with banners)
   --eval-timeout <ms> how long an (awaited) --eval may run (default 30000)
+  --cpu-throttle <n> slow the CPU down n× (DevTools CPU throttling) — e.g. 4 for a mid-range phone
   --console          also print the page's console.log / console.info lines (e.g. the ?debugFlash log)
   --resize <WxH@ms>  resize the viewport to WxH at ms (checks the page follows a window resize)
   --chrome <path>    Chrome executable (default: $CHROME_PATH or the usual install location)
@@ -217,6 +218,7 @@ async function main() {
       });
       await send('Emulation.setTouchEmulationEnabled', { enabled: mobile, maxTouchPoints: mobile ? 5 : 1 });
       await send('Emulation.setUserAgentOverride', { userAgent: mobile ? mobileUA : desktopUA });
+      await send('Emulation.setCPUThrottlingRate', { rate: Math.max(1, Number(o['cpu-throttle'] ?? 1) || 1) });
       current = [];
       warnings.length = 0;
       const t0 = Date.now();

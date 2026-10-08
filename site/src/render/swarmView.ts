@@ -4,7 +4,9 @@
  * full-screen white), elite particles and raiders get a soft glow, each swarm sits on a faint nebula of
  * its colour, and clashes throw sparks in both sides' colours. Pixel sizes are converted with `px`
  * (world units per screen pixel); positions are planet-local world units (normalised × R).
- * Fixed pools on ParticleContainers, typed arrays for the sparks: nothing is allocated per frame.
+ * Fixed pools of particles; each frame the visible ones are packed to the front of their ParticleContainer and its
+ * child list is trimmed to them, so only what is on screen is uploaded. Sparks live in typed arrays. Nothing is
+ * allocated per frame.
  */
 import { Container, Particle, ParticleContainer, Sprite, type Texture } from 'pixi.js';
 import { MAX_UNITS, ALIVE, FADING, mulberry32, type Swarm } from './swarm';
@@ -78,6 +80,7 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
   const sl = new Float32Array(MAX_SPARKS);
   const sml = new Float32Array(MAX_SPARKS);
   const sw = new Float32Array(MAX_SPARKS);
+  const stint = new Uint32Array(MAX_SPARKS);
   const sparks: Particle[] = [];
   for (let i = 0; i < MAX_SPARKS; i++) {
     const p = new Particle({ texture: tex.streak, anchorX: 1, anchorY: 0.5, alpha: 0, scaleX: 0, scaleY: 0 });
@@ -108,7 +111,18 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
     svy[k] = vy;
     sl[k] = sml[k] = life;
     sw[k] = w;
-    sparks[k].tint = color;
+    stint[k] = color;
+  }
+
+  /** draw only the first `used` particles of the pool (the visible ones were packed to the front) */
+  function fit(pc: ParticleContainer, pool: Particle[], used: number) {
+    const arr = pc.particleChildren;
+    if (arr.length === used) return;
+    if (arr.length > used) arr.length = used;
+    else {
+      for (let j = arr.length; j < used; j++) arr.push(pool[j]);
+      pc.update();
+    }
   }
 
   function burst(x: number, y: number, color: number, n: number, speedPx: number, life: number) {
@@ -166,19 +180,14 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
         }
       }
 
-      // particles
-      const n = sim.capacity;
+      // particles (packed: parts[k] draws the k-th visible one)
+      const n = Math.min(sim.capacity, parts.length);
       glowUsed = 0;
-      for (let i = 0; i < n; i++) {
-        const p = parts[i];
+      let k = 0;
+      for (let i = 0; i < n && vis > 0.001; i++) {
         const st = sim.state[i];
-        if ((st !== ALIVE && st !== FADING) || vis <= 0.001) {
-          if (p.alpha !== 0) {
-            p.alpha = 0;
-            p.scaleX = p.scaleY = 0;
-          }
-          continue;
-        }
+        if (st !== ALIVE && st !== FADING) continue;
+        const p = parts[k++];
         const s = sim.owner[i];
         const vx = sim.vx[i];
         const vy = sim.vy[i];
@@ -204,12 +213,8 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
           g.alpha = a * bright * (raid ? 0.7 : 0.42);
         }
       }
-      for (let k = glowUsed; k < glowN; k++) {
-        const g = glowParts[k];
-        if (g.alpha === 0) break; // the tail of the pool is already hidden
-        g.alpha = 0;
-        g.scaleX = g.scaleY = 0;
-      }
+      fit(streaks, parts, k);
+      fit(glows, glowParts, glowUsed);
 
       // nebula: a faint cloud of the unit's colour around each swarm
       for (let s = 0; s < MAX_UNITS; s++) {
@@ -227,43 +232,43 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
         c.alpha = (0.1 + 0.14 * u.sN[s]) * (1 - 0.5 * u.fog[s]) * gain[s] * vis;
       }
 
-      // sparks
+      // sparks (packed like the particles)
       const drag = Math.exp(-2.8 * dt);
+      let used = 0;
       if (sparkLive > 0) {
         sparkLive = 0;
-        for (let k = 0; k < MAX_SPARKS; k++) {
-          const p = sparks[k];
-          if (sl[k] <= 0) continue;
-          sl[k] -= dt;
-          if (sl[k] <= 0 || vis <= 0.001) {
-            sl[k] = 0;
-            p.alpha = 0;
-            p.scaleX = p.scaleY = 0;
+        for (let q = 0; q < MAX_SPARKS; q++) {
+          if (sl[q] <= 0) continue;
+          sl[q] -= dt;
+          if (sl[q] <= 0 || vis <= 0.001) {
+            sl[q] = 0;
             continue;
           }
           sparkLive++;
-          sx[k] += svx[k] * dt;
-          sy[k] += svy[k] * dt;
-          svx[k] *= drag;
-          svy[k] *= drag;
-          const f = sl[k] / sml[k];
-          const v = Math.sqrt(svx[k] * svx[k] + svy[k] * svy[k]) * R;
-          p.x = sx[k] * R;
-          p.y = sy[k] * R;
-          p.rotation = Math.atan2(svy[k], svx[k]);
+          sx[q] += svx[q] * dt;
+          sy[q] += svy[q] * dt;
+          svx[q] *= drag;
+          svy[q] *= drag;
+          const f = sl[q] / sml[q];
+          const v = Math.sqrt(svx[q] * svx[q] + svy[q] * svy[q]) * R;
+          const p = sparks[used++];
+          p.x = sx[q] * R;
+          p.y = sy[q] * R;
+          p.rotation = Math.atan2(svy[q], svx[q]);
           p.scaleX = Math.max(1.5 * px, v * 0.035) / STREAK_W;
-          p.scaleY = (sw[k] * (0.5 + 0.5 * f) * px) / STREAK_H;
+          p.scaleY = (sw[q] * (0.5 + 0.5 * f) * px) / STREAK_H;
+          p.tint = stint[q];
           p.alpha = (f > 0.55 ? 0.8 : 0.5 + 0.55 * f) * f * vis;
         }
       }
+      fit(sparkPc, sparks, used);
     },
     clear() {
-      for (let k = 0; k < MAX_SPARKS; k++) {
-        sl[k] = 0;
-        sparks[k].alpha = 0;
-        sparks[k].scaleX = sparks[k].scaleY = 0;
-      }
+      sl.fill(0);
       sparkLive = 0;
+      fit(streaks, parts, 0);
+      fit(glows, glowParts, 0);
+      fit(sparkPc, sparks, 0);
       for (const c of clouds) c.visible = false;
     },
     destroy() {

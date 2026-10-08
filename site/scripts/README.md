@@ -40,6 +40,7 @@ npm run shoot -- --url "http://localhost:5173/" --fps
 | `--eval <js>` / `--eval-at <ms>` | — / `1000` | run JS in the page (awaited) at that time, e.g. `"__renderer.focus({kind:'planet',x:356,y:-168,r:66})"` (dev server only) |
 | `--eval-file <path>` | — | like `--eval`, the JS read from a file (scripted runs, e.g. a playback with battle-news shockwaves) |
 | `--eval-timeout <ms>` | `30000` | how long an awaited `--eval` may run |
+| `--cpu-throttle <n>` | `1` | DevTools CPU throttling (`4` ≈ a mid-range phone) — fps under a slow CPU |
 | `--console` | off | also print the page's `console.log` / `console.info` lines (e.g. the `?debugFlash` log) |
 | `--resize <WxH@ms>` | — | resize the viewport mid-run; later shots are named `…-to<W>x<H>-…` |
 | `--chrome <path>` | `$CHROME_PATH` or the usual install path | Chrome executable |

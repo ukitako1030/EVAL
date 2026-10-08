@@ -8,7 +8,7 @@
  * flash budget first (no white, nothing full-screen). Clicking a swarm selects its unit.
  */
 import { CanvasSource, Circle, Container, Graphics, Texture, type FederatedPointerEvent } from 'pixi.js';
-import type { FrontId, World } from '../data/types';
+import type { FrontId } from '../data/types';
 import type { AppState, Store } from '../state/store';
 import type { FlashBudget } from '../fx/flashBudget';
 import type { Renderer } from './app';
@@ -24,7 +24,6 @@ import { createBattleFx } from './battleFx';
 import { createBattleLabels, type SwarmLabel } from './battleLabels';
 
 export interface BattleOptions {
-  world: World;
   store: Store<AppState>;
   /** the app-wide flash limiter (shockwaves and warp-ins ask it first); null = never flash */
   flashes?: FlashBudget | null;
@@ -288,7 +287,8 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
       // switching planets: fade the old battle out first
       const target = want !== shown ? 0 : pinned ? 1 : smoothstep(0.45, 0.95, arrival(shown));
       vis = st.reducedMotion ? target : vis + (target - vis) * Math.min(1, dt * (target < vis ? 10 : 6));
-      if (vis < 0.01 && target === 0) {
+      if (vis < 0.01 && want !== shown) {
+        // faded out after leaving (or switching) the front: tear down, start the next one fresh
         deactivate();
         if (want) activate(want);
         return;
