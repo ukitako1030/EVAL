@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { SOURCES } from '../sources/index';
 import { computeWorld } from '../compute/index';
 import { runDate } from './runDate';
+import { writeWarnings } from './outputs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const warnings: string[] = [];
@@ -29,8 +30,9 @@ for (const f of world.fronts) {
   console.log(`${f.name.ja}: ${Object.keys(world.units[f.id]).length} units, leader ${top ? world.units[f.id][top[0]].name : '—'}`);
 }
 console.log(`events: ${world.events.length}; generatedAt ${world.generatedAt}; wrote site/public/data/world.json`);
-if (warnings.length) {
-  const unique = [...new Set(warnings)];
+// machine-readable copy for the weekly pull request summary (pipeline/out/warnings.json; [] when there are none)
+const unique = writeWarnings(join(root, 'out'), warnings);
+if (unique.length) {
   console.log('');
   console.log(`warnings (${unique.length}):`);
   for (const w of unique) console.log(`  - ${w}`);
