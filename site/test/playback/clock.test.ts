@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createPlayback, BASE_SECONDS_PER_MONTH, HOLD_SECONDS } from '../../src/playback/clock';
+import { createPlayback, cappedHoldCount, BASE_SECONDS_PER_MONTH, HOLD_SECONDS, MAX_HOLD_SECONDS } from '../../src/playback/clock';
 
 const run = (pb: ReturnType<typeof createPlayback>, st: { t: number; playing: boolean; speed: 1 | 2 | 4 }, seconds: number, dt = 0.05) => {
   let s = { ...st };
@@ -112,5 +112,36 @@ describe('playback clock', () => {
     expect(r.s.t).toBe(1);
     r = run(pb, r.s, 0.3);
     expect(r.s.t).toBeGreaterThan(1);
+  });
+  it('caps a month with many banners at maxHoldSeconds by clamping the banner count', () => {
+    expect(MAX_HOLD_SECONDS).toBe(6);
+    expect(cappedHoldCount(5, 1, 6)).toBe(3); // 3 × 2 s = 6 s
+    expect(cappedHoldCount(5, 2, 6)).toBe(4); // 4 × 1.5 s = 6 s
+    expect(cappedHoldCount(10, 4, 6)).toBe(7); // 7 × 0.8 s = 5.6 s
+    expect(cappedHoldCount(2, 1, 6)).toBe(2);
+    expect(cappedHoldCount(0, 1, 6)).toBe(0);
+    expect(cappedHoldCount(4, 1)).toBe(4); // no cap
+    expect(cappedHoldCount(3, 1, 0.5)).toBe(1); // a month with news always pauses at least one banner long
+    const pb = createPlayback({ lastIndex: 40, eventMonths: new Map([[2, 9]]), maxHoldSeconds: MAX_HOLD_SECONDS });
+    let r = run(pb, { t: 0, playing: true, speed: 1 }, 2.8);
+    expect(r.s.t).toBe(2);
+    r = run(pb, r.s, 5.9);
+    expect(r.s.t).toBe(2);
+    r = run(pb, r.s, 0.2);
+    expect(r.s.t).toBeGreaterThan(2); // 6 s, not 18 s
+  });
+  it('holdAt starts a hold on a month playback did not cross (the intro on month 0)', () => {
+    const pb = createPlayback({ lastIndex: 40, eventMonths: new Map([[0, 1], [3, 1]]), maxHoldSeconds: MAX_HOLD_SECONDS });
+    pb.holdAt(0, 1);
+    let r = run(pb, { t: 0, playing: true, speed: 1 }, 1.9);
+    expect(r.s.t).toBe(0);
+    r = run(pb, r.s, 0.2);
+    expect(r.s.t).toBeGreaterThan(0);
+    // months without banners and the last month never hold
+    const pb2 = createPlayback({ lastIndex: 3, eventMonths: new Map([[3, 1]]) });
+    pb2.holdAt(1, 1);
+    expect(pb2.tick(0.05, { t: 1, playing: true, speed: 1 }).t).toBeGreaterThan(1);
+    pb2.holdAt(3, 1);
+    expect(pb2.tick(0.05, { t: 3, playing: true, speed: 1 }).holding).toBe(false);
   });
 });

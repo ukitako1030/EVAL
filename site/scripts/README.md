@@ -54,16 +54,23 @@ Notes:
 - The first line of each size block prints the WebGL renderer (`gpu: …`). Headless Chrome uses
   the real GPU when one is available; fps measured on a software renderer (SwiftShader) is not
   representative.
-- Dev-only debug hooks in `main.ts`: `?quality=0..3` pins the render quality level and
-  `?hover=<org>` pins the org highlight, e.g. `?hover=google` (both work in preview too);
-  `window.__renderer`, `__galaxy`, `__store`, `__world`, `__fleets` and `__highlight` expose the
-  renderer, the galaxy overview, the app store, the loaded data, the fleets and the org highlight
-  (dev server only), e.g. `--eval "__store.set({ front: 'image' })"` zooms into a planet and
-  `--eval "__fleets.count"` prints how many ships are flying; `__battle` is the zoomed swarm battle
-  (`__battle.shockwave('gpt')`).
-- `scripts/flash-run.js` (page-side, for `--eval-file`): plays the timeline at 4× with the real playback clock and
-  banner queue from the page's month to 2025-12, fires `__battle.shockwave(unit)` on every banner of the focused front,
-  then a burst of 12 shockwaves; prints a summary. E.g.
-  `node scripts/shoot.mjs --url "http://localhost:5173/?front=general&t=2025-01&debugFlash" --sizes 1440x900 --eval-file scripts/flash-run.js --eval-at 3500 --at 4000 --fps --fps-ms 36000 --console`
-- `?debugFlash` logs the flashes the flash budget granted per second to the console (`--console` prints them)
-  and keeps running totals on `window.__flashStats` (`maxPerSecond` = most grants in any 1 s window).
+- Debug query parameters read by `main.ts` (they work in the preview build too):
+  `?quality=0..3` pins the render quality level (otherwise the fps governor steps it down on slow
+  machines), `?hover=<org>` pins the org highlight, e.g. `?hover=google`, and `?debugFlash` logs the
+  flashes the flash budget granted per second to the console (`--console` prints them) and keeps
+  running totals on `window.__flashStats` (`maxPerSecond` = most grants in any 1 s window).
+- App state from the URL: `?t=YYYY-MM` opens paused at that month (a shared link: no intro),
+  `?front=<id>` zooms into a front, `?lang=ja|en`. Without `t`, a fresh browser profile — which is
+  what every harness run gets — plays the first-visit intro (title card, then the war from 2022-11 at 1×).
+  Unit detail without dev handles: `--eval "document.querySelector('.rank-name[data-unit=gpt]').click()"`.
+- Dev-server-only handles (`import.meta.env.DEV`): `window.__renderer`, `__galaxy`, `__store`,
+  `__world`, `__fleets`, `__highlight` and `__battle` expose the renderer, the galaxy overview, the
+  app store, the loaded data, the fleets, the org highlight and the zoomed swarm battle, e.g.
+  `--eval "__store.set({ front: 'image' })"` zooms into a planet, `--eval "__fleets.count"` prints
+  how many ships are flying and `__battle.shockwave('gpt')` fires a shockwave.
+- `scripts/flash-run.js` (page-side, for `--eval-file`, page opened with `?debugFlash`): presses the app's
+  own speed (→ 4×) and play buttons, so the real playback (holds on news months), banner queue and battle
+  shockwaves run until playback stops at the last month (or `window.FLASH_RUN_TO`, e.g. `'2025-12'`, is
+  reached); logs every banner and a summary (`window.__flashRun`). On the dev server it then fires a burst
+  of 12 shockwaves in ~1.1 s. Works against the preview build too. E.g.
+  `node scripts/shoot.mjs --url "http://localhost:4173/?front=general&t=2022-11&debugFlash" --sizes 1440x900 --eval-file scripts/flash-run.js --eval-at 3500 --at 4000 --fps --fps-ms 70000 --console`

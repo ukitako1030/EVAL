@@ -1,5 +1,5 @@
 import type { Lang, World } from '../data/types';
-import { orgDeployment, type OrgDeployment } from '../data/timeline';
+import { orgDeployment, orgDeploymentFrom, type FrameSource, type OrgDeployment } from '../data/timeline';
 import { FRONT_SHORT, tr } from '../i18n/strings';
 import type { AppState, Store } from '../state/store';
 import { frontName, h, setAccent, setAttr, setText, srOnly, uid } from './dom';
@@ -16,8 +16,10 @@ const signature = (ds: OrgDeployment[]): string => ds.map((d) => `${d.org}:${d.f
 /**
  * Deployment matrix: one row per org (from `orgDeployment(world, t)`), one column per front, a filled cell where the org
  * has a unit. Hovering a row → `hoverOrg` (keyboard users get the same highlight from the ranking rows).
+ * `opts.frames` shares the app's per-frame `frontFrame`s (main.ts); without it the matrix computes its own.
  */
-export function createDeployment(root: HTMLElement, world: World, store: Store<AppState>): Deployment {
+export function createDeployment(root: HTMLElement, world: World, store: Store<AppState>, opts: { frames?: FrameSource } = {}): Deployment {
+  const deploymentAt = (s: AppState): OrgDeployment[] => (opts.frames ? orgDeploymentFrom(world, opts.frames(s.t, s.sortBy)) : orgDeployment(world, s.t));
   const titleId = uid('deploy-title');
   const titleEl = h('h2', { id: titleId, class: 'hud-h' });
   const headOrg = h('th', { class: 'deploy-org', attrs: { scope: 'col' } });
@@ -72,7 +74,7 @@ export function createDeployment(root: HTMLElement, world: World, store: Store<A
   }
 
   function update(state: AppState): void {
-    const ds = orgDeployment(world, state.t);
+    const ds = deploymentAt(state);
     const s = signature(ds);
     if (state.lang !== lang || s !== sig) {
       if (state.lang !== lang) relabel(state.lang);
