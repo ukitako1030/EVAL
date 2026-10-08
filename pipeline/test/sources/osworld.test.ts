@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { utils, write } from 'xlsx';
-import { osworld, parseOsworld, readOsworldXlsx } from '../../src/sources/osworld';
+import { OSWORLD_XLSX_URL, osworld, parseOsworld, readOsworldXlsx } from '../../src/sources/osworld';
 import type { FetchCtx } from '../../src/sources/types';
 
 type Row = Record<string, unknown>;
@@ -103,11 +103,16 @@ describe('osworld fetch', () => {
       },
     } as unknown as FetchCtx;
     const raw = await osworld.fetch(ctx);
-    expect(seen).toEqual(['https://os-world.github.io/static/data/osworld_verified_results.xlsx']);
+    expect(seen).toEqual([OSWORLD_XLSX_URL]);
     expect(osworld.parse(raw, { now: new Date('2026-10-08T00:00:00Z') }).map((o) => [o.model, o.date, o.value])).toEqual([
       ['claude-sonnet-4-6', '2026-03-08', 72.11],
       ['Kimi K2.5', '2026-01-31', 63.3],
     ]);
+  });
+
+  it('downloads from the HTTPS host directly (os-world.github.io 301-redirects to plain http)', () => {
+    expect(OSWORLD_XLSX_URL).toBe('https://osworld-v1.xlang.ai/static/data/osworld_verified_results.xlsx');
+    expect(new URL(OSWORLD_XLSX_URL).protocol).toBe('https:');
   });
 
   it('declares the module contract', () => {

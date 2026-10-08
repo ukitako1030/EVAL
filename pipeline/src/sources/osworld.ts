@@ -3,7 +3,12 @@ import type { Observation } from '../core/types';
 import { isoDate, toNumber } from './lib/values';
 import type { FetchCtx, StrengthModule } from './types';
 
-const XLSX_URL = 'https://os-world.github.io/static/data/osworld_verified_results.xlsx';
+/**
+ * Served directly over HTTPS by the site host (byte-identical to the OS-World/OS-World.github.io raw copy, checked 2026-10-08).
+ * Do not use `https://os-world.github.io/static/data/…`: it answers 301 to `http://osworld-v1.xlang.ai/…`, a cleartext download.
+ * `http.ts` additionally refuses any https request that ends on an http URL.
+ */
+export const OSWORLD_XLSX_URL = 'https://osworld-v1.xlang.ai/static/data/osworld_verified_results.xlsx';
 
 type Row = Record<string, unknown>;
 
@@ -63,7 +68,7 @@ export const osworld: StrengthModule = {
     credit: 'OSWorld-Verified leaderboard (xlang.ai / os-world.github.io), CC BY-SA 4.0',
   },
   async fetch(ctx: FetchCtx) {
-    return readOsworldXlsx(await ctx.fetchBytes(XLSX_URL));
+    return readOsworldXlsx(await ctx.fetchBytes(OSWORLD_XLSX_URL));
   },
   parse: (raw) => parseOsworld(raw),
 };
