@@ -18,8 +18,12 @@ function isHttpUrl(s: string): boolean {
   }
 }
 
+/** Bumped whenever the shape of world.json changes in a way the website must know about. */
+export const SCHEMA_VERSION = 2;
+
 export const WorldSchema = z
   .object({
+    schemaVersion: z.literal(SCHEMA_VERSION),
     generatedAt: z.string(),
     months: z.array(MonthStr).min(1),
     partialMonth: MonthStr,

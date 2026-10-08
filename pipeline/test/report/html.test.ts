@@ -3,6 +3,7 @@ import { renderReport } from '../../src/report/html';
 import type { World } from '../../src/compute/world';
 
 const w: World = {
+  schemaVersion: 2,
   generatedAt: '2026-10-12T00:00:00.000Z',
   months: ['2026-09', '2026-10'],
   partialMonth: '2026-10',

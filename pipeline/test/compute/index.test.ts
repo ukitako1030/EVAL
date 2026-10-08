@@ -86,6 +86,8 @@ describe('computeWorld', () => {
       modules: [arena, wiki],
       now: new Date('2023-06-15T00:00:00Z'),
     });
+    expect(w.schemaVersion).toBe(2);
+    expect(w.generatedAt).toBe('2023-06-15T00:00:00.000Z');
     expect(w.months).toEqual(['2022-11', '2022-12', '2023-01', '2023-02', '2023-03', '2023-04', '2023-05', '2023-06']);
     expect(w.partialMonth).toBe('2023-06');
     const gpt = w.series.general.gpt;

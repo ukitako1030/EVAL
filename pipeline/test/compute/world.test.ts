@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { WorldSchema, validateWorld, type World } from '../../src/compute/world';
 
 const minimal: World = {
+  schemaVersion: 2,
   generatedAt: '2026-10-12T00:00:00.000Z',
   months: ['2026-09', '2026-10'],
   partialMonth: '2026-10',
@@ -25,6 +26,10 @@ function paths(mutate: (w: World) => void): string[] {
 describe('WorldSchema', () => {
   it('accepts a minimal world', () => {
     expect(WorldSchema.safeParse(minimal).success).toBe(true);
+  });
+  it('requires schemaVersion 2', () => {
+    expect(paths((w) => ((w as { schemaVersion: number }).schemaVersion = 1))).toEqual(['schemaVersion']);
+    expect(paths((w) => delete (w as Partial<World>).schemaVersion)).toEqual(['schemaVersion']);
   });
   it('rejects series whose length differs from months', () => {
     const bad = structuredClone(minimal);

@@ -12,7 +12,7 @@ import { buildSignalTable } from './signals';
 import { computeScale } from './scale';
 import { unitConfidence } from './confidence';
 import { detectEvents, type FrontCells, type WorldEvent } from './events';
-import { validateWorld, type World } from './world';
+import { SCHEMA_VERSION, validateWorld, type World } from './world';
 
 export interface ComputeOpts {
   rawDir: string;
@@ -95,6 +95,7 @@ export function computeWorld(opts: ComputeOpts): World {
   const scaleObs = latestWins(signalObs);
 
   const world: World = {
+    schemaVersion: SCHEMA_VERSION,
     generatedAt: opts.now.toISOString(),
     months,
     partialMonth: months[months.length - 1],
