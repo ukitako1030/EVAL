@@ -106,6 +106,16 @@ describe('vbench module', () => {
     expect(findMainTable(slim)?.data[0][2]).toBe('Team (<redacted>)');
   });
 
+  it('slimConfig never returns an unexpected shape unscrubbed', () => {
+    const odd = { version: '5', layout: { note: 'mail team@vbench.example.org' }, components: 'not a list', list: ['a@b.co', 1, null] };
+    const out = slimConfig(odd);
+    expect(JSON.stringify(out)).not.toContain('@');
+    expect(out).toEqual({ version: '5', layout: { note: 'mail <redacted>' }, components: 'not a list', list: ['<redacted>', 1, null] });
+    expect(slimConfig('contact: a@b.co')).toBe('contact: <redacted>');
+    expect(slimConfig(null)).toBeNull();
+    expect(odd.layout.note).toContain('@'); // input is not mutated
+  });
+
   it('declares the module contract', () => {
     expect(vbench).toMatchObject({ id: 'vbench', role: 'strength', group: 'vbench', history: 'full' });
     expect(vbench.meta.credit).toBe('VBench leaderboard (Vchitect), cited; no explicit data licence');

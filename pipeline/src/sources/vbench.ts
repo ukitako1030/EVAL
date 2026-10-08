@@ -106,9 +106,10 @@ function redactEmails(v: unknown): unknown {
 /**
  * Keeps only what `parseVbench` reads (the dataframes' tables, the tab labels and the layout tree) and scrubs any e-mail address.
  * The page prose in `/config` includes the VBench team's contact address, which has no place in our data.
+ * Whatever the shape, the result never contains an e-mail address.
  */
 export function slimConfig(cfg: unknown): unknown {
-  if (!isObject(cfg) || !Array.isArray(cfg['components'])) return cfg;
+  if (!isObject(cfg) || !Array.isArray(cfg['components'])) return redactEmails(cfg); // unexpected shape: nothing to slim, but still scrub
   const components = (cfg['components'] as unknown[]).flatMap((c): Json[] => {
     if (!isObject(c) || typeof c['id'] !== 'number') return [];
     const props = isObject(c['props']) ? c['props'] : {};
