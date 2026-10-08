@@ -1,0 +1,172 @@
+/* "Data & method" page (methods.html): a plain scrolling document in the HUD style */
+#methods {
+  min-height: 100vh;
+  padding: 24px 16px 48px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(40, 90, 255, 0.12), transparent 60%), var(--bg);
+}
+
+.mt-page {
+  max-width: 920px;
+  margin: 0 auto;
+  font: 400 15px/1.75 var(--f-jp);
+  color: var(--text);
+}
+
+.mt-header {
+  padding: 18px 22px 16px;
+}
+
+.mt-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mt-lang {
+  display: flex;
+}
+
+.mt-lang .hud-btn + .hud-btn {
+  border-left: 0;
+}
+
+.mt-lang .hud-btn[aria-current='true'] {
+  color: #02030a;
+  background: var(--cyan);
+}
+
+.mt-brand {
+  margin: 14px 0 0;
+  font: 700 12px var(--f-disp);
+  letter-spacing: 0.2em;
+  color: rgba(61, 232, 255, 0.8);
+}
+
+.mt-title {
+  margin: 4px 0 0;
+  font: 800 30px/1.2 var(--f-jp);
+  color: #fff;
+  text-shadow: 0 0 14px rgba(61, 232, 255, 0.5);
+}
+
+.mt-lead {
+  margin: 6px 0 0;
+  color: #c4f2ff;
+}
+
+.mt-updated,
+.mt-footer {
+  margin: 6px 0 0;
+  font: 400 12px var(--f-mono);
+  color: var(--text-dim);
+}
+
+.mt-section {
+  margin-top: 28px;
+}
+
+.mt-h {
+  margin: 0 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  font: 700 18px var(--f-jp);
+  letter-spacing: 0.08em;
+  color: var(--cyan);
+}
+
+.mt-section p {
+  margin: 0 0 10px;
+}
+
+.mt-list {
+  margin: 0;
+  padding-left: 1.4em;
+}
+
+.mt-list li {
+  margin: 4px 0;
+}
+
+.mt-levels {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.mt-levels dt {
+  font-weight: 700;
+  color: #fff;
+}
+
+.mt-levels dd {
+  margin: 0;
+}
+
+.mt-q.q-reconstructed,
+.mt-q.q-estimated {
+  color: var(--amber);
+}
+
+.mt-table-wrap {
+  overflow-x: auto;
+}
+
+.mt-sources {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.mt-sources th,
+.mt-sources td {
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(90, 210, 255, 0.12);
+}
+
+.mt-sources thead th {
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.mt-sources tbody th {
+  min-width: 180px;
+  font-weight: 600;
+}
+
+.mt-asof {
+  font-family: var(--f-mono);
+  white-space: nowrap;
+}
+
+.mt-credits {
+  font-size: 13px;
+}
+
+.mt-error {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--amber);
+}
+
+.mt-footer {
+  margin-top: 36px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 767px) {
+  .mt-page {
+    font-size: 14px;
+  }
+  .mt-title {
+    font-size: 24px;
+  }
+  .mt-levels {
+    grid-template-columns: 1fr;
+  }
+}
