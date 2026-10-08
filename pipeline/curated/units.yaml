@@ -19,8 +19,8 @@
 # - statcounter: column labels; openrouter: model-slug prefixes; wikipedia: en.wikipedia titles incl. former
 #   titles (the API does not follow redirects); itunes: US App Store ids; announcements: series id in
 #   announcements.yaml.
-# - cloudflare: service names as written in Cloudflare's Year-in-Review posts — UNVERIFIED (no token during
-#   recon); confirm the exact strings with the first real API call.
+# - cloudflare: Radar "Generative AI" service names exactly as the API returns them (checked 2026-10-09, e.g.
+#   'ChatGPT / OpenAI', 'Suno AI', 'Runway ml'); the fetch log lists them on every run.
 # - ramp: none (Ramp does not license its data; see sources-scale.md).
 # A key may appear in several fronts but never twice within one front (load.ts rejects that).
 
@@ -186,6 +186,7 @@ fronts:
           announcements: meta-ai
           crux: [meta.ai]
           tranco: [meta.ai, www.meta.ai]
+          cloudflare: ['Meta AI']
           openrouter: [meta/, meta-llama/]
           wikipedia: [Llama_(language_model), LLaMA, Muse_(AI_agent)]
           # no itunes: 1558240027 is the renamed Meta View glasses app (ratings predate Meta AI)
@@ -199,6 +200,7 @@ fronts:
         scale:
           crux: [chat.mistral.ai]
           tranco: [chat.mistral.ai]
+          cloudflare: ['Mistral AI']
           openrouter: [mistralai/]
           wikipedia: [Mistral_AI, Mistral_Vibe, Le_Chat_(AI), Le_Chat_(chatbot)]
           itunes: ['6740410176'] # "Vibe by Mistral" (ex-Le Chat)
@@ -433,6 +435,7 @@ fronts:
         scale:
           crux: [runwayml.com, app.runwayml.com, runway.com]
           tranco: [runwayml.com, app.runwayml.com, runway.com]
+          cloudflare: ['Runway ml']
           wikipedia: [Runway_(company)]
           itunes: ['1665024375']
       hailuo:
@@ -492,6 +495,7 @@ fronts:
         scale:
           crux: [elevenlabs.io]
           tranco: [elevenlabs.io]
+          cloudflare: [ElevenLabs]
           wikipedia: [ElevenLabs]
           itunes: ['6743162587', '6479373050'] # ElevenLabs, ElevenReader
       openaitts:
@@ -555,6 +559,7 @@ fronts:
           # suno.ai also covers https://www.suno.ai (pre-2024-04 host)
           crux: [suno.com, suno.ai, app.suno.ai]
           tranco: [suno.com, suno.ai]
+          cloudflare: ['Suno AI']
           # plain `Suno` was a disambiguation page before 2026-08-14 (small pre-move noise accepted)
           wikipedia: [Suno, Suno_AI, Suno_(platform)]
           itunes: ['6480136315']
