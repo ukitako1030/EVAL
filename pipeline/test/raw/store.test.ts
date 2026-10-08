@@ -25,6 +25,12 @@ describe('raw store', () => {
     expect(readdirSync(join(dir, 'full-src'))).toEqual(['2026-10-05.json']);
     expect(loadSource(dir, 'full-src', 'full')).toEqual([{ v: 2 }]);
   });
+  it('full history keeps the old snapshot when the new write fails', () => {
+    saveSnapshot(dir, 'safe', '2026-09-28', [{ v: 1 }], 'full');
+    expect(() => saveSnapshot(dir, 'safe', '2026-10-05', [{ v: 1n }], 'full')).toThrow();
+    expect(listSnapshotDates(dir, 'safe')).toEqual(['2026-09-28']);
+    expect(loadSource(dir, 'safe', 'full')).toEqual([{ v: 1 }]);
+  });
   it('accumulate merges all files and de-duplicates identical items', () => {
     saveSnapshot(dir, 'acc', '2026-09-28', [{ k: 'x', m: '2026-09' }], 'accumulate');
     saveSnapshot(dir, 'acc', '2026-10-05', [{ k: 'x', m: '2026-09' }, { k: 'x', m: '2026-10' }], 'accumulate');

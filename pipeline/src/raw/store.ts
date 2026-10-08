@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 export type HistoryMode = 'full' | 'accumulate';
 
+const DATED_JSON = /^\d{4}-\d{2}-\d{2}\.json$/;
+
 interface SnapshotFile<T> {
   sourceId: string;
   date: string;
@@ -16,13 +18,14 @@ interface SnapshotFile<T> {
 export function saveSnapshot<T>(rawDir: string, sourceId: string, date: string, items: T[], mode: HistoryMode): string {
   const dir = join(rawDir, sourceId);
   mkdirSync(dir, { recursive: true });
-  if (mode === 'full') {
-    for (const f of readdirSync(dir)) if (f.endsWith('.json') && f !== `${date}.json`) rmSync(join(dir, f));
-  }
   const body = items.map((it) => JSON.stringify(it)).join(',\n');
   const text = `{"sourceId":${JSON.stringify(sourceId)},"date":${JSON.stringify(date)},"items":[\n${body}\n]}\n`;
   const path = join(dir, `${date}.json`);
   writeFileSync(path, text);
+  if (mode === 'full') {
+    // delete older snapshots only after the new one is safely on disk
+    for (const f of readdirSync(dir)) if (DATED_JSON.test(f) && f !== `${date}.json`) rmSync(join(dir, f));
+  }
   return path;
 }
 
@@ -30,7 +33,7 @@ export function listSnapshotDates(rawDir: string, sourceId: string): string[] {
   const dir = join(rawDir, sourceId);
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
-    .filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
+    .filter((f) => DATED_JSON.test(f))
     .map((f) => f.slice(0, 10))
     .sort();
 }
