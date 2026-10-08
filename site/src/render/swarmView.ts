@@ -39,6 +39,14 @@ const GLOW_SHARE = 0.3;
 /** tails are drawn this much longer than the mockup's (speed × trail) — reads better at planet scale */
 const TAIL = 1.3;
 
+/** 0xRRGGBB → 0xBBGGRR (a particle's tint as PixiJS stores it) */
+const bgr = (c: number) => ((c & 0xff) << 16) | (c & 0xff00) | ((c >> 16) & 0xff);
+/**
+ * A particle's packed colour from a BGR tint and an alpha — exactly what `Particle.tint` / `.alpha` compute, without
+ * the tint setter's per-call Color normalisation (thousands of particles a frame). The view writes only `color`.
+ */
+const abgr = (bgrTint: number, alpha: number) => bgrTint + ((((alpha <= 0 ? 0 : alpha >= 1 ? 1 : alpha) * 255) | 0) << 24);
+
 export function createSwarmView(capacity: number, tex: { streak: Texture; glow: Texture }): SwarmView {
   const container = new Container({ label: 'swarm' });
   container.eventMode = 'none';
@@ -89,11 +97,15 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
   }
   let head = 0;
   let sparkLive = 0;
+  // last tint written per cloud sprite: PixiJS's tint setters normalise a Color on every write
+  const cloudTint = new Float64Array(MAX_UNITS).fill(-1);
   const rnd = mulberry32(0x5a4c);
-  // per-slot cached colours (lit streak / pale spark head), recomputed only when the colour or strength moves
+  // per-slot cached colours (lit streak / pale spark head), recomputed only when the colour or strength moves;
+  // particles take theirs as BGR, written straight into `Particle.color` (see `abgr`)
   const litKey = new Float32Array(MAX_UNITS).fill(-1);
-  const litCol = new Uint32Array(MAX_UNITS);
-  const raidCol = new Uint32Array(MAX_UNITS);
+  const litBgr = new Uint32Array(MAX_UNITS);
+  const raidBgr = new Uint32Array(MAX_UNITS);
+  const colBgr = new Uint32Array(MAX_UNITS);
   const paleCol = new Uint32Array(MAX_UNITS);
   /** pale org colours (xAI, Luma…) would read as white: their particles are drawn fainter */
   const gain = new Float32Array(MAX_UNITS).fill(1);
@@ -111,7 +123,7 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
     svy[k] = vy;
     sl[k] = sml[k] = life;
     sw[k] = w;
-    stint[k] = color;
+    stint[k] = bgr(color);
   }
 
   /** draw only the first `used` particles of the pool (the visible ones were packed to the front) */
@@ -146,8 +158,9 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
       litKey[s] = key;
       colKey[s] = c;
       const sN = u.sN[s];
-      litCol[s] = mixColor(c, 0xffffff, 0.12 + 0.3 * sN * sN);
-      raidCol[s] = mixColor(c, 0xffffff, 0.45);
+      litBgr[s] = bgr(mixColor(c, 0xffffff, 0.12 + 0.3 * sN * sN));
+      raidBgr[s] = bgr(mixColor(c, 0xffffff, 0.45));
+      colBgr[s] = bgr(c);
       paleCol[s] = mixColor(c, 0xffffff, 0.4);
       gain[s] = colorGain(c);
     }
@@ -201,16 +214,14 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
         p.rotation = Math.atan2(vy, vx);
         p.scaleX = Math.max(minLen, v * u.trail[s] * TAIL * (raid ? 2.4 : 1) * R) / STREAK_W;
         p.scaleY = (lw * (raid ? 1.4 : 1) * px) / STREAK_H;
-        p.tint = raid ? raidCol[s] : litCol[s];
-        p.alpha = Math.min(1, (raid ? 1.25 : 1.05) * bright) * a;
+        p.color = abgr(raid ? raidBgr[s] : litBgr[s], Math.min(1, (raid ? 1.25 : 1.05) * bright) * a);
         // elites and raiders glow (mockup: seed < 9 %)
         if ((raid || sim.seed[i] < 0.09) && glowUsed < glowN) {
           const g = glowParts[glowUsed++];
           g.x = p.x;
           g.y = p.y;
           g.scaleX = g.scaleY = (2 * lw * (raid ? 5.5 : 3.5 + 5 * u.sN[s]) * px) / GLOW;
-          g.tint = look.color[s];
-          g.alpha = a * bright * (raid ? 0.7 : 0.42);
+          g.color = abgr(colBgr[s], a * bright * (raid ? 0.7 : 0.42));
         }
       }
       fit(streaks, parts, k);
@@ -228,7 +239,10 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
         c.position.set(u.cx[s] * R, u.cy[s] * R);
         const spread = Math.min(0.75, 0.16 + Math.sqrt(alive / Math.max(1, sim.visible)) * 0.62);
         c.width = c.height = spread * R * 2.4;
-        c.tint = look.color[s];
+        if (cloudTint[s] !== look.color[s]) {
+          cloudTint[s] = look.color[s];
+          c.tint = look.color[s];
+        }
         c.alpha = (0.1 + 0.14 * u.sN[s]) * (1 - 0.5 * u.fog[s]) * gain[s] * vis;
       }
 
@@ -257,8 +271,7 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
           p.rotation = Math.atan2(svy[q], svx[q]);
           p.scaleX = Math.max(1.5 * px, v * 0.035) / STREAK_W;
           p.scaleY = (sw[q] * (0.5 + 0.5 * f) * px) / STREAK_H;
-          p.tint = stint[q];
-          p.alpha = (f > 0.55 ? 0.8 : 0.5 + 0.55 * f) * f * vis;
+          p.color = abgr(stint[q], (f > 0.55 ? 0.8 : 0.5 + 0.55 * f) * f * vis);
         }
       }
       fit(sparkPc, sparks, used);
