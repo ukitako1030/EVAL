@@ -57,13 +57,22 @@ export async function fetchCloudflare(ctx: FetchCtx): Promise<RadarResponse[]> {
   const token = ctx.env.CLOUDFLARE_API_TOKEN;
   if (!token) throw new Error('missing env: CLOUDFLARE_API_TOKEN');
   const windows = ctx.backfill ? backfillWindows(BACKFILL_START, ctx.now) : [recentWindow(ctx.now)];
-  const requests = windows.map(([dateStart, dateEnd]) => rankingUrl({ dateStart, dateEnd }));
   const out: RadarResponse[] = [];
-  for (const u of requests) {
-    const body = await ctx.fetchJson<RadarResponse & { success?: boolean }>(u, { headers: { Authorization: `Bearer ${token}` } });
-    if (body?.success === false || !body?.result?.serie_0) throw new Error('cloudflare: response has no result.serie_0 (token scope or format change?)');
-    out.push({ result: { serie_0: body.result.serie_0 } });
+  let lastError = '';
+  // a failed window only loses its own months (an accumulate source can fill them on a later run), so skip it and keep the rest
+  for (const [dateStart, dateEnd] of windows) {
+    try {
+      const body = await ctx.fetchJson<RadarResponse & { success?: boolean }>(rankingUrl({ dateStart, dateEnd }), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (body?.success === false || !body?.result?.serie_0) throw new Error('response has no result.serie_0 (token scope or format change?)');
+      out.push({ result: { serie_0: body.result.serie_0 } });
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : String(e);
+      ctx.log(`cloudflare ${dateStart.slice(0, 10)}..${dateEnd.slice(0, 10)}: skipped (${lastError})`);
+    }
   }
+  if (!out.length) throw new Error(`cloudflare: no window succeeded (${lastError})`);
   // the exact service names go into units.yaml, so make them visible on the first real run
   const names = new Set<string>();
   for (const r of out) for (const k of Object.keys(r.result?.serie_0 ?? {})) if (k !== 'timestamps') names.add(k);

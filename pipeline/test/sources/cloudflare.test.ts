@@ -166,6 +166,43 @@ describe('fetchCloudflare', () => {
     expect(raw).toHaveLength(2);
   });
 
+  it('backfill skips a window that fails (logged) and keeps the others', async () => {
+    const { ctx, logs } = stub({ backfill: true });
+    const ok = ctx.fetchJson;
+    let n = 0;
+    ctx.fetchJson = async <T>(url: string, init?: RequestInit) => {
+      if (n++ === 0) throw new Error(`HTTP 503 for ${url}`);
+      return ok<T>(url, init);
+    };
+    const raw = await fetchCloudflare(ctx);
+    expect(raw).toHaveLength(1);
+    const skipped = logs.filter((l) => l.includes('skipped'));
+    expect(skipped).toHaveLength(1);
+    expect(skipped[0]).toContain('2025-01-26..2026-01-25'); // the first window, by its dates
+    expect(skipped[0]).toContain('HTTP 503');
+    expect(skipped[0]).not.toContain('cf-test-token');
+    expect(cloudflare.parse(raw, { now })).toHaveLength(2); // the second window's data still comes through
+  });
+
+  it('backfill also skips a window whose response has no series', async () => {
+    const { ctx, logs } = stub({ backfill: true });
+    const ok = ctx.fetchJson;
+    let n = 0;
+    ctx.fetchJson = async <T>(url: string, init?: RequestInit) => (n++ === 1 ? ({ success: false, result: null } as T) : ok<T>(url, init));
+    const raw = await fetchCloudflare(ctx);
+    expect(raw).toHaveLength(1);
+    expect(logs.some((l) => l.includes('skipped') && l.includes('2026-01-25..2026-10-08') && l.includes('serie_0'))).toBe(true);
+  });
+
+  it('throws only when no window succeeds, with the cause in the message', async () => {
+    const { ctx, logs } = stub({ backfill: true });
+    ctx.fetchJson = async <T>(url: string) => {
+      throw new Error(`HTTP 403 for ${url}`) as T;
+    };
+    await expect(fetchCloudflare(ctx)).rejects.toThrow(/no window succeeded.*HTTP 403/);
+    expect(logs.filter((l) => l.includes('skipped'))).toHaveLength(2);
+  });
+
   it('fails without a token or when the response has no series (e.g. wrong token scope)', async () => {
     await expect(fetchCloudflare(stub({ env: {} }).ctx)).rejects.toThrow(/CLOUDFLARE_API_TOKEN/);
     await expect(fetchCloudflare(stub({ reply: { success: false, errors: [{ code: 10000 }], result: null } }).ctx)).rejects.toThrow(/serie_0/);
