@@ -21,13 +21,50 @@ export type FrontCells = Map<string, ({ s: number; c: number; bestModel: string 
 
 const PRIORITY: Record<EventType, number> = { lead_change: 0, new_unit: 1, new_model: 2, scale_lead_change: 3, surge: 4, custom: 5 };
 
+const MM = '(?:0[1-9]|1[0-2])';
+const DD = '(?:0[1-9]|[12]\\d|3[01])';
+const END = '(?=[-_ (]|$)'; // a date token must end at a separator, a parenthesis or the end of the string
+const DATE_ISO = new RegExp(`[-_ ](?:19|20)\\d{2}-${MM}-${DD}${END}`, 'g'); // -2024-05-13
+const DATE_COMPACT = new RegExp(`[-_ ](?:19|20)\\d{2}${MM}${DD}${END}`, 'g'); // -20240620
+const DATE_MM_DD = new RegExp(`[-_ ]${MM}-${DD}${END}`, 'g'); // -03-25 (the year is gone, e.g. gemini-2.5-pro-exp-03-25)
+const DATE_TOKEN_4 = new RegExp(`^(?:${MM}${DD}|\\d{2}${MM})$`); // trailing -MMDD (0613) or -YYMM (2411)
+const NOISE_TOKEN = /^(?:preview|exp|latest|thinking|\d+k)$/i;
+
+function caseToken(t: string): string {
+  if (/^gpt$/i.test(t)) return 'GPT';
+  if (/^o\d+$/.test(t)) return t; // o1, o3, o4 stay lowercase
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/** Display name for a model id. Release display names win; otherwise strip dates/suffixes and title-case. */
 export function prettyModel(model: string, releases: CompiledRelease[]): string {
   const r = releaseOf(releases, model);
   if (r?.display) return r.display;
-  return model
-    .replace(/[-_](\d{8}|\d{4}-\d{2}-\d{2}|\d{4})$/, '')
-    .replace(/[-_]+/g, ' ')
-    .replace(/\b([a-z])/g, (ch) => ch.toUpperCase());
+
+  // the parenthesised part is kept as written (only title-cased); everything before it is cleaned up
+  const open = model.indexOf('(');
+  const head = (open < 0 ? model : model.slice(0, open)).replace(DATE_ISO, '').replace(DATE_COMPACT, '').replace(DATE_MM_DD, '');
+  const tail = open < 0 ? '' : model.slice(open);
+
+  let tokens = head.split(/[\s_-]+/).filter(Boolean);
+  while (tokens.length > 1 && (NOISE_TOKEN.test(tokens[tokens.length - 1]) || DATE_TOKEN_4.test(tokens[tokens.length - 1]))) tokens.pop();
+
+  // claude-3-5-sonnet → 3.5: two single-digit tokens in a row are a split version number
+  const joined: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    if (/^\d$/.test(tokens[i]) && /^\d$/.test(tokens[i + 1] ?? '')) {
+      joined.push(`${tokens[i]}.${tokens[i + 1]}`);
+      i++;
+    } else joined.push(tokens[i]);
+  }
+  tokens = joined;
+
+  const main = tokens.map(caseToken).join(' ');
+  return [main, tail ? titleParen(tail) : ''].filter(Boolean).join(' ') || model;
+}
+
+function titleParen(tail: string): string {
+  return tail.replace(/[-_]+/g, ' ').replace(/[^\s()]+/g, (w) => caseToken(w));
 }
 
 function text(type: EventType, front: { name: Localized }, unit: string, extra: { model?: string; from?: string; down?: boolean }): Localized {

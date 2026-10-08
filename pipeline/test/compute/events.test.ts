@@ -20,6 +20,46 @@ describe('prettyModel', () => {
   });
 });
 
+describe('prettyModel fallback', () => {
+  const pm = (m: string) => prettyModel(m, []);
+  it.each([
+    ['claude-3-5-sonnet-20240620', 'Claude 3.5 Sonnet'],
+    ['gpt-4o-2024-05-13', 'GPT 4o'],
+    ['gemini-2.5-pro-exp-03-25', 'Gemini 2.5 Pro'],
+    ['claude-3-7-sonnet-20250219-thinking-32k', 'Claude 3.7 Sonnet'],
+    ['o1-preview', 'o1'],
+    ['gemini-3-pro-image-preview-2k (nano-banana-pro)', 'Gemini 3 Pro Image (Nano Banana Pro)'],
+    ['Claude Opus 4.5', 'Claude Opus 4.5'],
+  ])('%s -> %s', (input, expected) => {
+    expect(pm(input)).toBe(expected);
+  });
+  it('joins split version digits', () => {
+    expect(pm('claude-opus-4-1')).toBe('Claude Opus 4.1');
+    expect(pm('claude-3-5-haiku')).toBe('Claude 3.5 Haiku');
+  });
+  it('removes dates anywhere and trailing 4-digit date tokens', () => {
+    expect(pm('claude-opus-4-20250514-thinking')).toBe('Claude Opus 4');
+    expect(pm('gpt-4-0125-preview')).toBe('GPT 4');
+    expect(pm('mistral-large-2411')).toBe('Mistral Large');
+    expect(pm('gpt-4-turbo-2024-04-09')).toBe('GPT 4 Turbo');
+    expect(pm('gemini-2.5-pro-preview-03-25')).toBe('Gemini 2.5 Pro');
+  });
+  it('keeps o-series lowercase and uppercases gpt', () => {
+    expect(pm('o3-mini')).toBe('o3 Mini');
+    expect(pm('o4-mini-2025-04-16')).toBe('o4 Mini');
+    expect(pm('gpt-5')).toBe('GPT 5');
+  });
+  it('drops repeated trailing noise only outside parentheses and keeps a non-empty name', () => {
+    expect(pm('foo-latest-exp')).toBe('Foo');
+    expect(pm('foo (bar-preview)')).toBe('Foo (Bar Preview)');
+    expect(pm('preview')).toBe('Preview');
+  });
+  it('lets release display names take precedence', () => {
+    expect(pm('claude-3-5-sonnet-20240620')).toBe('Claude 3.5 Sonnet');
+    expect(prettyModel('claude-3-5-sonnet-20240620', [{ regex: /^claude-3-5-sonnet/i, release: '2024-06', display: 'Sonnet 3.5 (June)' }])).toBe('Sonnet 3.5 (June)');
+  });
+});
+
 describe('detectEvents', () => {
   const months = ['2024-01', '2024-02', '2024-03', '2024-04'];
   const names = { gpt: 'GPT', claude: 'Claude' };
