@@ -37,8 +37,13 @@ export interface Galaxy {
   planet(front: FrontId): Planet | null;
   /** camera target for the overview (null) or a planet */
   cameraTarget(front: FrontId | null): CameraTarget;
-  /** point `u` (0 = at the front's planet … 1 = at the hub) along a data stream; null for the hub itself */
-  streamPoint(front: FrontId, u: number): { x: number; y: number } | null;
+  /**
+   * point `u` (0 = at the front's planet … 1 = at the hub) along a data stream; null for the hub itself (and before
+   * the first `update`). Pass `out` to have it filled instead of allocating (fleets call this per ship per frame).
+   */
+  streamPoint(front: FrontId, u: number, out?: { x: number; y: number }): { x: number; y: number } | null;
+  /** the galaxy's animation clock (s) — also the `now` its flash-budget requests use, so share it with other effects */
+  readonly time: number;
   /** per-org territory brightness multiplier (org highlight); null = everyone at 1 */
   setEmphasis(fn: ((org: string) => number) | null): void;
   /** which front is the big centre planet in the portrait layout (default general) */
@@ -289,6 +294,9 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
     get layout() {
       return layout;
     },
+    get time() {
+      return time;
+    },
     update(dt, frames) {
       time += dt;
       const st = store.get();
@@ -340,11 +348,24 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
       const s = id ? layout.planets.find((p) => p.id === id) : null;
       return s ? { kind: 'planet', x: s.x, y: s.y, r: s.r } : { kind: 'galaxy', extent: layout.extent };
     },
-    streamPoint(id, u) {
-      const s = streams.find((x) => x.front === id);
-      if (!s || id === layout.hub) return null;
-      const [x, y] = bez(s.p, clamp(u, 0, 1));
-      return { x, y };
+    streamPoint(id, u, out) {
+      if (id === layout.hub) return null;
+      for (let i = 0; i < streams.length; i++) {
+        const s = streams[i];
+        if (s.front !== id) continue;
+        const q = s.p;
+        const t = clamp(u, 0, 1);
+        const v = 1 - t;
+        const a = v * v * v;
+        const b = 3 * v * v * t;
+        const c = 3 * v * t * t;
+        const d = t * t * t;
+        const o = out ?? { x: 0, y: 0 };
+        o.x = a * q[0] + b * q[2] + c * q[4] + d * q[6];
+        o.y = a * q[1] + b * q[3] + c * q[5] + d * q[7];
+        return o;
+      }
+      return null;
     },
     setEmphasis(fn) {
       emphasis = fn;
