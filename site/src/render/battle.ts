@@ -57,7 +57,7 @@ const CAP_DESKTOP = 2500;
 const CAP_MOBILE = 900;
 const VEIL = 0x02050f;
 /** dark veil over the territories under the swarms: dims them enough for the particles to read, keeps their colours */
-const VEIL_ALPHA = 0.6;
+const VEIL_ALPHA = 0.5;
 /** the planet's fog thins by this share while zoomed in (the fogged swarms are dimmer already) */
 const FOG_ZOOM_FADE = 0.45;
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);

@@ -197,6 +197,12 @@
   font: 600 9.5px var(--f-disp);
   letter-spacing: 0.12em;
   color: rgba(150, 220, 255, 0.65);
+  transition: opacity 0.2s;
+}
+
+/* under the thumb's month badge (ui/timelineBar.ts) */
+.tl-years span.covered {
+  opacity: 0;
 }
 
 .reduced-motion .tl-marker {
