@@ -46,6 +46,11 @@ import { createErrorLog } from './util/errorLog';
 const BANNER_SECONDS = 4;
 /** The mobile layout never renders above this quality level (1 = no bloom); the fps governor may still go lower. */
 const MOBILE_QUALITY: QualityLevel = 1;
+/**
+ * Debug switches (`?quality`, `?hover`, `?debugFlash`) and the `window.__*` handles: the dev server, or a build made
+ * with `VITE_DEBUG_HOOKS=1` (site/scripts/README.md). A production build ignores them and drops them from the address.
+ */
+const DEBUG = import.meta.env.DEV || import.meta.env.VITE_DEBUG_HOOKS === '1';
 /** Camera glide when the framed area moves (a bottom sheet opens / closes), ms. */
 const REFRAME_MS = 600;
 
@@ -68,8 +73,9 @@ async function boot(mount: HTMLElement) {
     });
     motion.addEventListener('change', (e) => store.set({ reducedMotion: e.matches }));
 
-    // debug: ?quality=0..3 pins the quality level (screenshot / fps harness); otherwise the governor steps it down
-    const q = params.get('quality');
+    // debug (dev server / debug build only): ?quality=0..3 pins the quality level (screenshot / fps harness);
+    // otherwise the governor steps it down
+    const q = DEBUG ? params.get('quality') : null;
     const pinnedQuality = q === '0' || q === '1' || q === '2' || q === '3';
     if (pinnedQuality) renderer.setQuality(Number(q) as QualityLevel);
     const compact = layoutMode(window.innerWidth, window.innerHeight) === 'mobile';
@@ -78,7 +84,7 @@ async function boot(mount: HTMLElement) {
 
     // every light flash goes through this budget; debug: ?debugFlash logs grants per second (window.__flashStats)
     const budget = createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 });
-    const flashLog = params.has('debugFlash') ? logFlashes(budget, { clock: () => performance.now() / 1000, log: (m) => console.log(m) }) : null;
+    const flashLog = DEBUG && params.has('debugFlash') ? logFlashes(budget, { clock: () => performance.now() / 1000, log: (m) => console.log(m) }) : null;
     // reduced motion also means less light: every granted flash is dimmed here, in one place
     const flashes = scaleGrants(flashLog?.budget ?? budget, () => (store.get().reducedMotion ? REDUCED_MOTION_FLASH : 1));
 
@@ -279,16 +285,17 @@ async function boot(mount: HTMLElement) {
         /* sandboxed / opaque origins refuse; the share button still works */
       }
     };
-    syncUrl(store, world, { read: () => location.search, write: writeSearch });
+    // (writes the starting state at once; production drops the debug switches from the address)
+    syncUrl(store, world, { read: () => location.search, write: writeSearch, keepDebug: DEBUG });
     // back / forward over a mobile overlay entry restores that entry's address: rewrite it from the live state
-    window.addEventListener('popstate', () => writeSearch(nextSearch(store.get(), world, location.search)));
+    window.addEventListener('popstate', () => writeSearch(nextSearch(store.get(), world, location.search, { keepDebug: DEBUG })));
 
-    // debug: ?hover=<org> pins the org highlight (screenshots)
-    const hover = params.get('hover');
-    if (hover && world.orgs[hover]) store.set({ hoverOrg: hover });
+    // debug (dev server / debug build only): ?hover=<org> pins the org highlight (screenshots)
+    const hover = DEBUG ? params.get('hover') : null;
+    if (hover && Object.hasOwn(world.orgs, hover)) store.set({ hoverOrg: hover });
     if (flashLog) Object.assign(window, { __flashStats: flashLog.stats });
-    // dev only: handles for poking the app from the console / harness (--eval)
-    if (import.meta.env.DEV) {
+    // dev server / debug build only: handles for poking the app from the console / harness (--eval)
+    if (DEBUG) {
       Object.assign(window, { __renderer: renderer, __galaxy: galaxy, __store: store, __world: world, __fleets: fleets, __highlight: highlight, __battle: battle, __mobile: mobile });
     }
   } catch (err: unknown) {

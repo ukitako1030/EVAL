@@ -1,7 +1,8 @@
-// Page-side script for `shoot.mjs --eval-file scripts/flash-run.js` (page opened with ?debugFlash; dev server or preview):
+// Page-side script for `shoot.mjs --eval-file scripts/flash-run.js` (page opened with ?debugFlash, which only the dev
+// server or a VITE_DEBUG_HOOKS=1 build honours — see README):
 // drives the app's own timeline controls — speed to 4×, play — so the real playback clock (holds on news months),
 // banner queue and battle shockwaves run, until playback stops at the end of the timeline (or window.FLASH_RUN_TO,
-// e.g. '2025-12', is shown). Then, on the dev server only (window.__battle), hammers the budget with a burst of
+// e.g. '2025-12', is shown). Then (window.__battle) hammers the budget with a burst of
 // shockwaves. Returns at once; progress and the summary go to the console (`--console`), totals stay on
 // window.__flashStats and the summary on window.__flashRun.
 void (async () => {
