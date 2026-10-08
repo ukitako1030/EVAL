@@ -40,6 +40,13 @@ describe('frontFrame', () => {
     expect(clampT(w, 99)).toBe(3);
     expect(frontFrame(w, 'general', 99).map((u) => u.id)).toEqual(['claude', 'gpt', 'gemini']);
   });
+  it('never hands NaN to the renderer, even from a cell that bypassed parseWorld', () => {
+    const bad = makeWorld();
+    bad.series.general.gpt[0] = { s: Number.NaN, c: Number.POSITIVE_INFINITY, q: 'bogus' as never, qs: 'high', qc: 'high' };
+    for (const t of [0, 0.5]) {
+      for (const u of frontFrame(bad, 'general', t)) for (const v of [u.s, u.c, u.fog, u.fogBlend, u.presence]) expect(Number.isFinite(v), `${u.id} @${t}`).toBe(true);
+    }
+  });
   it('treats a non-finite t as the last month (never NaN)', () => {
     for (const t of [NaN, Infinity, -Infinity]) expect(clampT(w, t)).toBe(3);
     expect(frontFrame(w, 'general', NaN)).toEqual(frontFrame(w, 'general', 3));

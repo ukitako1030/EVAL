@@ -11,6 +11,7 @@
  * HUD (and an open bottom sheet) so the planet is never hidden.
  */
 import { createRenderer } from './render/app';
+import { WebGLRequiredError } from './render/webgl';
 import { createGalaxy } from './render/galaxy';
 import { createFleets } from './render/fleets';
 import { createHighlight } from './render/highlight';
@@ -39,6 +40,7 @@ import { createIntroCard, type IntroCard } from './ui/introCard';
 import { showLoadError } from './ui/loadError';
 import { createMobile, type Mobile, type OverlayHistory } from './ui/mobile';
 import { holdOnScreen, layoutMode, viewportOf, type Insets } from './ui/mobileLayout';
+import { createErrorLog } from './util/errorLog';
 
 /** Banners stay up this long (s); the focused view shows one at a time, the galaxy two (one on phones). */
 const BANNER_SECONDS = 4;
@@ -212,42 +214,50 @@ async function boot(mount: HTMLElement) {
     }
 
     // ---- frame loop ----
+    // a step that throws must not freeze the site (PixiJS stops its ticker on an exception): log it once, keep going
+    const frameError = createErrorLog('a frame');
     renderer.onFrame((dt, rawDt) => {
-      if (!pinnedQuality) {
-        const g = governor.frame(now(), rawDt);
-        const level = mobile.active ? (Math.max(g, MOBILE_QUALITY) as QualityLevel) : g;
-        if (level !== renderer.quality) renderer.setQuality(level);
-      }
-      let s = store.get();
-      if (card) {
-        if (!s.intro) card.close(); // skipped
-        else if (card.advance(dt)) startFromTheTop(); // 開戦
-        if (card.closed) card = null;
-      } else if (!timeline.isDragging()) {
-        const r = playback.tick(rawDt, s);
-        if (r.t !== s.t || r.playing !== s.playing) {
-          const ended = s.intro && !r.playing && r.t >= last;
-          ticking = true;
-          store.set(ended ? { t: r.t, playing: false, intro: false } : { t: r.t, playing: r.playing });
-          ticking = false;
+      try {
+        if (!pinnedQuality) {
+          const g = governor.frame(now(), rawDt);
+          const level = mobile.active ? (Math.max(g, MOBILE_QUALITY) as QualityLevel) : g;
+          if (level !== renderer.quality) renderer.setQuality(level);
         }
-        if (s.playing) for (const m of r.crossed) queue.push(selectEvents(world, m, s.front));
-      }
+        let s = store.get();
+        if (card) {
+          if (!s.intro) card.close(); // skipped
+          else if (card.advance(dt)) startFromTheTop(); // 開戦
+          if (card.closed) card = null;
+        } else if (!timeline.isDragging()) {
+          const r = playback.tick(rawDt, s);
+          if (r.t !== s.t || r.playing !== s.playing) {
+            const ended = s.intro && !r.playing && r.t >= last;
+            ticking = true;
+            store.set(ended ? { t: r.t, playing: false, intro: false } : { t: r.t, playing: r.playing });
+            ticking = false;
+          }
+          if (s.playing) for (const m of r.crossed) queue.push(selectEvents(world, m, s.front));
+        }
 
-      s = store.get();
-      galaxy.update(dt, frames(s.t, s.sortBy));
-      highlight.update(dt);
-      fleets.update(dt, s.t);
-      battle.update(dt); // after galaxy.update: reads this frame's planet wedges
+        s = store.get();
+        galaxy.update(dt, frames(s.t, s.sortBy));
+        highlight.update(dt);
+        fleets.update(dt, s.t);
+        battle.update(dt); // after galaxy.update: reads this frame's planet wedges
 
-      const visible = queue.update(now());
-      banners.render(visible);
-      for (const b of visible) {
-        if (started.has(b.key)) continue;
-        started.add(b.key);
-        if (b.event.front === s.front) battle.shockwave(b.event.unit); // the news hits the focused battle
+        const visible = queue.update(now());
+        banners.render(visible);
+        for (const b of visible) {
+          if (started.has(b.key)) continue;
+          started.add(b.key);
+          if (b.event.front === s.front) battle.shockwave(b.event.unit); // the news hits the focused battle
+        }
+        if (started.size > visible.length) for (const k of started) if (!visible.some((b) => b.key === k)) started.delete(k);
+      } catch (err) {
+        frameError(err);
+      } finally {
+        ticking = false;
       }
-      if (started.size > visible.length) for (const k of started) if (!visible.some((b) => b.key === k)) started.delete(k);
     });
 
     // keep the address bar shareable (front / whole month / language), throttled
@@ -273,7 +283,7 @@ async function boot(mount: HTMLElement) {
   } catch (err: unknown) {
     console.error('AI WAR failed to start', err);
     const l = params.get('lang');
-    showLoadError(document.body, l === 'en' || l === 'ja' ? (l as Lang) : 'ja');
+    showLoadError(document.body, l === 'en' || l === 'ja' ? (l as Lang) : 'ja', err instanceof WebGLRequiredError ? 'webglRequired' : 'loadError');
   }
 }
 

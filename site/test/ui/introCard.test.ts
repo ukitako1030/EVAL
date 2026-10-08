@@ -66,4 +66,8 @@ describe('load error', () => {
     el.remove();
     expect(showLoadError(document.body, 'ja').textContent).toContain('データを読み込めませんでした');
   });
+  it('can say that WebGL is required instead', () => {
+    expect(showLoadError(document.body, 'ja', 'webglRequired').textContent).toContain('WebGL が必要です');
+    expect(showLoadError(document.body, 'en', 'webglRequired').textContent).toContain('WebGL is required');
+  });
 });

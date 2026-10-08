@@ -8,6 +8,8 @@ import { AdvancedBloomFilter } from 'pixi-filters/advanced-bloom';
 import type { QualityLevel } from '../fx/quality';
 import { createBackground } from './background';
 import { cameraFor, ease, worldToScreen, worldTransform, type Camera, type CameraTarget, type Viewport } from './camera';
+import { createErrorLog } from '../util/errorLog';
+import { requireWebGL } from './webgl';
 
 export interface RendererOptions {
   /** prefers-reduced-motion: camera moves are instant, ambient drift stops */
@@ -79,6 +81,13 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
     resolution: baseResolution,
     autoDensity: true,
   });
+  // without WebGL PixiJS falls back to WebGPU / Canvas, which would draw nothing: fail loudly (load-error screen)
+  try {
+    requireWebGL(app.renderer);
+  } catch (err) {
+    app.destroy();
+    throw err;
+  }
   app.canvas.classList.add('stage');
   canvasParent.appendChild(app.canvas);
 
@@ -126,7 +135,17 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
   }
   setQuality(0);
 
+  // PixiJS stops requesting frames when a ticker listener throws: never let one escape
+  const tickError = createErrorLog('a renderer frame');
   function tick(ticker: Ticker) {
+    try {
+      step(ticker);
+    } catch (err) {
+      tickError(err);
+    }
+  }
+
+  function step(ticker: Ticker) {
     const rawDt = ticker.elapsedMS / 1000;
     const dt = Math.min(MAX_DT, Math.max(0, ticker.deltaMS / 1000));
 
@@ -147,7 +166,13 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
     world.scale.set(wt.scale);
 
     bg.update(dt, { cam, viewport, overviewScale: cameraFor({ kind: 'galaxy' }, viewport).scale, warp });
-    for (const cb of callbacks) cb(dt, rawDt);
+    for (const cb of callbacks) {
+      try {
+        cb(dt, rawDt);
+      } catch (err) {
+        tickError(err);
+      }
+    }
   }
   app.ticker.add(tick, undefined, UPDATE_PRIORITY.HIGH);
 

@@ -24,6 +24,8 @@ export interface UnitFrame {
 }
 
 export const FOG: Record<Confidence, number> = { high: 0, medium: 0.25, reconstructed: 0.5, estimated: 0.8 };
+/** an unknown confidence is drawn as estimated (thick fog) */
+const fogOf = (q: Confidence): number => FOG[q] ?? FOG.estimated;
 
 /** Clamps `t` to the month range; a non-finite `t` (NaN, ±Infinity) maps to the last month so no caller ever sees NaN. */
 export function clampT(world: World, t: number): number {
@@ -68,20 +70,23 @@ export function frontFrame(world: World, front: FrontId, t: number, sortBy: Sort
       s = a.s + (b.s - a.s) * f;
       c = a.c + (b.c - a.c) * f;
       q = f < 0.5 ? a.q : b.q;
-      fogBlend = FOG[a.q] + (FOG[b.q] - FOG[a.q]) * f;
+      fogBlend = fogOf(a.q) + (fogOf(b.q) - fogOf(a.q)) * f;
       presence = 1;
     } else if (a) {
       ({ s, c, q } = a);
-      fogBlend = FOG[q];
+      fogBlend = fogOf(q);
       presence = i1 === i0 ? 1 : 1 - f;
     } else if (b) {
       ({ s, c, q } = b);
-      fogBlend = FOG[q];
+      fogBlend = fogOf(q);
       presence = f;
     } else continue;
     presence = Math.min(Math.max(presence, 0), 1);
-    if (presence <= 0) continue;
-    out.push({ id, front, org: u.org, name: u.name, color: world.orgs[u.org]?.color ?? '#888888', s, c, q, fog: FOG[q], fogBlend, presence, rank: 0, rankDelta: 0 });
+    if (!(presence > 0)) continue;
+    // parseWorld repairs world.json, but these values position geometry: never let a NaN through to PixiJS
+    if (!Number.isFinite(s)) s = 0;
+    if (!Number.isFinite(c)) c = 0;
+    out.push({ id, front, org: u.org, name: u.name, color: world.orgs[u.org]?.color ?? '#888888', s, c, q, fog: fogOf(q), fogBlend, presence, rank: 0, rankDelta: 0 });
   }
   // an arriving / leaving unit ranks by what is visible of it, so a nearly invisible unit never jumps to the top
   const key = keyOf(sortBy);
