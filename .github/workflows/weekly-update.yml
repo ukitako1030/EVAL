@@ -13,7 +13,12 @@ name: weekly-update
 on:
   schedule:
     - cron: '0 0 * * 1' # Monday 00:00 UTC = 09:00 JST
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: 'Also refetch the full history of these sources (space-separated ids, e.g. "openrouter cloudflare"); empty = normal weekly run'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -53,7 +58,15 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           DESIGNARENA_API_KEY: ${{ secrets.DESIGNARENA_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run fetch
+          BACKFILL: ${{ inputs.backfill }}
+        run: |
+          npm run fetch
+          if [ -n "$BACKFILL" ]; then
+            # ids only (letters, digits, dashes, spaces): the input is never interpolated into the script itself
+            if ! printf '%s' "$BACKFILL" | grep -Eq '^[a-z0-9 -]+$'; then echo "invalid backfill ids" >&2; exit 1; fi
+            # shellcheck disable=SC2086
+            npm run fetch -- --backfill $BACKFILL
+          fi
 
       - name: Compute world.json and run the pipeline tests
         working-directory: pipeline
