@@ -203,6 +203,24 @@ describe('computeWorld', () => {
     expect(w.units.general.claude).toEqual({ org: 'anthropic', name: 'Claude', since: '2023-03' });
     expect(w.units.general.claude).not.toHaveProperty('announcements');
   });
+  it('exports the announcement series that units refer to (without notes), and only those', () => {
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena, wiki],
+      now: new Date('2023-06-15T00:00:00Z'),
+    });
+    expect(w.announcements).toEqual({
+      chatgpt: {
+        metric: 'WAU',
+        points: [
+          { date: '2024-01-15', value: 100000000, url: 'https://openai.com/a' },
+          { date: '2024-06-01', value: 200000000, url: 'https://openai.com/b', metric: 'MAU' },
+        ],
+      },
+    });
+  });
   it('gives each cell the strength (qs) and scale (qc) confidence; q is the lower of the two', () => {
     const w = computeWorld({
       rawDir: join(dir, 'raw'),

@@ -10,6 +10,7 @@ const w: World = {
   orgs: { openai: { name: 'OpenAI', color: '#19c37d' } },
   fronts: [{ id: 'general', name: { ja: '総合戦線', en: 'General Front' } }],
   units: { general: { gpt: { org: 'openai', name: 'GPT', since: '2022-11' } } },
+  announcements: {},
   series: { general: { gpt: [{ s: 90, c: 100, q: 'high', qs: 'high', qc: 'high' }, { s: 100, c: 100, q: 'medium', qs: 'high', qc: 'medium' }] } },
   breakdown: { general: { gpt: {} } },
   scaleBreakdown: { general: { gpt: {} } },

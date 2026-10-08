@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DateStr, FrontIdSchema, LocalizedSchema, MonthStr, EventTypeSchema, SignalIdSchema } from '../config/schemas';
+import { DateStr, FrontIdSchema, LocalizedSchema, MetricSchema, MonthStr, EventTypeSchema, SignalIdSchema } from '../config/schemas';
 
 const ConfidenceSchema = z.enum(['high', 'medium', 'reconstructed', 'estimated']);
 
@@ -43,6 +43,22 @@ export const WorldSchema = z
         // since: the unit's first month; announcements: key of its official user-count series in `announcements`
         z.object({ org: z.string(), name: z.string(), since: MonthStr, announcements: z.string().optional() }),
       ),
+    ),
+    /** the curated official user-count series that units refer to (units[front][id].announcements) */
+    announcements: z.record(
+      z.string(),
+      z.object({
+        metric: MetricSchema,
+        points: z.array(
+          z.object({
+            date: DateStr,
+            value: z.number().positive(),
+            url: z.url({ protocol: /^https?$/ }),
+            /** only when the point's metric differs from the series metric */
+            metric: MetricSchema.optional(),
+          }),
+        ),
+      }),
     ),
     series: z.record(z.string(), z.record(z.string(), z.array(UnitMonthSchema.nullable()))),
     breakdown: z.record(
@@ -149,6 +165,9 @@ export const WorldSchema = z
       const series = w.series[f];
       for (const [u, def] of Object.entries(units ?? {})) {
         if (!has(w.orgs, def.org)) bad(['units', f, u, 'org'], `units.${f}.${u} refers to unknown org "${def.org}"`);
+        if (def.announcements !== undefined && !has(w.announcements, def.announcements)) {
+          bad(['units', f, u, 'announcements'], `units.${f}.${u} refers to unknown announcements series "${def.announcements}"`);
+        }
         if (series && !has(series, u)) bad(['series', f, u], `units.${f}.${u} has no series`);
       }
       for (const [u, arr] of Object.entries(series ?? {})) {

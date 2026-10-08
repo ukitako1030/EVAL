@@ -3,6 +3,7 @@ import { FRONT_IDS, SIGNAL_IDS, minConfidence, type FrontId, type Observation, t
 import { monthRange, toMonth, type Month } from '../core/months';
 import { round1, round3 } from '../core/math';
 import { parseAnnouncements, parseEvents, parseMethod, parseReleases, parseUnits, readText } from '../config/load';
+import type { AnnSeries } from '../config/schemas';
 import { latestSnapshotDate, loadSource } from '../raw/store';
 import type { SourceModule, StrengthModule } from '../sources/types';
 import { assignSeries, bySeries, unitExists, type SeriesTable } from './assign';
@@ -67,6 +68,16 @@ function latestWins(obs: SignalObs[]): SignalObs[] {
   return [...last.values()];
 }
 
+/** The public part of a curated announcements series: points sorted by date, notes left out. */
+function exportAnnouncements(s: AnnSeries): World['announcements'][string] {
+  return {
+    metric: s.metric,
+    points: [...s.points]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((p) => ({ date: p.date, value: p.value, url: p.url, ...(p.metric && p.metric !== s.metric ? { metric: p.metric } : {}) })),
+  };
+}
+
 export function computeWorld(opts: ComputeOpts): World {
   const method = parseMethod(readText(opts.methodPath));
   const units = parseUnits(readText(join(opts.curatedDir, 'units.yaml')));
@@ -113,6 +124,7 @@ export function computeWorld(opts: ComputeOpts): World {
     orgs: units.orgs,
     fronts: FRONT_IDS.map((id) => ({ id, name: units.fronts[id].name })),
     units: {},
+    announcements: {},
     series: {},
     breakdown: {},
     scaleBreakdown: {},
@@ -187,6 +199,7 @@ export function computeWorld(opts: ComputeOpts): World {
       const key = u.scale.announcements;
       if (key && announcements.series[key]) {
         ann.set(u.id, announcementMonthly(announcements.series[key], months, method.scale.metricFactors, method.scale.announcementStaleMonths));
+        world.announcements[key] = exportAnnouncements(announcements.series[key]);
       }
     }
     if (ann.size) signals.set('announcements', ann);

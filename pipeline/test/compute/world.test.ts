@@ -8,7 +8,8 @@ const minimal: World = {
   partialMonth: '2026-10',
   orgs: { openai: { name: 'OpenAI', color: '#19c37d' } },
   fronts: [{ id: 'general', name: { ja: '総合戦線', en: 'General Front' } }],
-  units: { general: { gpt: { org: 'openai', name: 'GPT', since: '2022-11' } } },
+  units: { general: { gpt: { org: 'openai', name: 'GPT', since: '2022-11', announcements: 'chatgpt' } } },
+  announcements: { chatgpt: { metric: 'WAU', points: [{ date: '2025-10-06', value: 800000000, url: 'https://openai.com/' }] } },
   series: { general: { gpt: [null, { s: 100, c: 100, q: 'medium', qs: 'high', qc: 'medium' }] } },
   breakdown: { general: { gpt: { '2026-10': [{ source: 'arena-text', value: 100, weight: 0.5, kind: 'measured', model: 'gpt-5', share: 1 }] } } },
   scaleBreakdown: { general: { gpt: { '2026-10': [{ component: 'consumer', share: 100, signals: ['crux', 'tranco'] }] } } },
@@ -103,6 +104,16 @@ describe('WorldSchema', () => {
       expect(paths((w) => delete (w.units.general.gpt as Partial<World['units'][string][string]>).since)).toEqual(['units.general.gpt.since']);
       expect(paths((w) => (w.units.general.gpt.since = '2022-11-30'))).toEqual(['units.general.gpt.since']);
       expect(paths((w) => (w.units.general.gpt.announcements = 42 as unknown as string))).toEqual(['units.general.gpt.announcements']);
+    });
+    it('an announcements key must name an exported announcements series', () => {
+      expect(paths((w) => (w.units.general.gpt.announcements = 'nope'))).toEqual(['units.general.gpt.announcements']);
+      expect(paths((w) => delete w.units.general.gpt.announcements)).toEqual([]);
+    });
+    it('announcement points need a date, a positive value and an http(s) url', () => {
+      expect(paths((w) => (w.announcements.chatgpt.points[0].date = '2025-10'))).toEqual(['announcements.chatgpt.points.0.date']);
+      expect(paths((w) => (w.announcements.chatgpt.points[0].value = 0))).toEqual(['announcements.chatgpt.points.0.value']);
+      expect(paths((w) => (w.announcements.chatgpt.points[0].url = 'openai.com'))).toEqual(['announcements.chatgpt.points.0.url']);
+      expect(paths((w) => (w.announcements.chatgpt.metric = 'YAU' as never))).toEqual(['announcements.chatgpt.metric']);
     });
     it('every unit needs a series and every series a unit', () => {
       expect(paths((w) => (w.units.general.extra = { org: 'openai', name: 'Extra', since: '2022-11' }))).toEqual(['series.general.extra']);
