@@ -54,6 +54,11 @@ export interface Renderer {
   readonly viewport: Viewport;
   /** true while a focus move is animating */
   readonly cameraMoving: boolean;
+  /**
+   * CPU time (ms) the last complete frame spent in update + render (the frame callbacks through PixiJS's render), NaN
+   * before the first; the quality governor tells a slow app from a slow display (50 Hz, a 30 fps cap) with it
+   */
+  readonly workMs: number;
   setQuality(level: QualityLevel): void;
   setReducedMotion(on: boolean): void;
   /** keep HUD panels from covering the framed area */
@@ -137,12 +142,19 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
 
   // PixiJS stops requesting frames when a ticker listener throws: never let one escape
   const tickError = createErrorLog('a renderer frame');
+  // work time: from this (HIGH priority) listener to one that runs after PixiJS's render (LOW) — update + render
+  let frameStart = Number.NaN;
+  let workMs = Number.NaN;
   function tick(ticker: Ticker) {
+    frameStart = performance.now();
     try {
       step(ticker);
     } catch (err) {
       tickError(err);
     }
+  }
+  function endWork() {
+    if (frameStart === frameStart) workMs = performance.now() - frameStart;
   }
 
   function step(ticker: Ticker) {
@@ -175,6 +187,7 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
     }
   }
   app.ticker.add(tick, undefined, UPDATE_PRIORITY.HIGH);
+  app.ticker.add(endWork, undefined, UPDATE_PRIORITY.UTILITY);
 
   return {
     app,
@@ -193,6 +206,9 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
     },
     get cameraMoving() {
       return tween !== null;
+    },
+    get workMs() {
+      return workMs;
     },
     setQuality,
     setReducedMotion(on) {
@@ -225,6 +241,7 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
     destroy() {
       callbacks.clear();
       app.ticker.remove(tick);
+      app.ticker.remove(endWork);
       worldRoot.filters = [];
       bloom.destroy();
       bg.destroy();

@@ -27,7 +27,7 @@ import { createStore, defaultState, type AppState } from './state/store';
 import { decodeUrl } from './state/url';
 import { nextSearch, syncUrl } from './state/urlSync';
 import { initialPlayback, safeLocalStorage } from './state/intro';
-import { HOLD_SECONDS, MAX_HOLD_SECONDS, createPlayback } from './playback/clock';
+import { HOLD_SECONDS, MAX_HOLD_SECONDS, createPlayback, newsAfterChange } from './playback/clock';
 import { createBannerQueue, holdCounts, selectEvents } from './events/queue';
 import { mountHud } from './ui/hud';
 import { createRanking } from './ui/ranking';
@@ -169,10 +169,14 @@ async function boot(mount: HTMLElement) {
     let ticking = false; // store writes from the playback tick (anything else moving `t` is the user)
     const started = new Set<string>();
     let card: IntroCard | null = null;
-    /** Playback starts at month 0 (after the intro card, or "play again" from the end): announce 開戦 and hold on it. */
+    /**
+     * Playback starts at month 0 (after the intro card, "play again" from the end, or play pressed while paused there):
+     * announce 開戦 and hold on it.
+     */
     const startFromTheTop = () => {
       const s = store.get();
       if (!s.playing || monthIndex(world, s.t) !== 0) return;
+      queue.clear(); // a restart (paused during the opening hold, then play) must not queue the opening news twice
       queue.push(selectEvents(world, 0, s.front));
       playback.holdAt(0, s.speed); // month 0 has news too: let it be read before moving on
     };
@@ -187,10 +191,9 @@ async function boot(mount: HTMLElement) {
       } else if ((s.selectedUnit === null) !== (prev.selectedUnit === null)) {
         reframe({ aim: false, animate: true }); // the mobile bottom sheet opened / closed: the planet moves above it
       }
-      if (s.front === prev.front && !ticking && s.t !== prev.t) {
-        queue.clear(); // scrubbed / stepped / skipped: news from the old position is stale
-        if (!card) startFromTheTop();
-      }
+      const news = newsAfterChange(s, prev, ticking);
+      if (news.clear) queue.clear(); // scrubbed / stepped / skipped: news from the old position is stale
+      if (news.fromTop && !card) startFromTheTop(); // incl. play pressed while paused at month 0
       if (s.speed !== prev.speed) queue.setMinSeconds(HOLD_SECONDS[s.speed]);
       if (s.reducedMotion !== prev.reducedMotion) renderer.setReducedMotion(s.reducedMotion);
       if (s.lang !== prev.lang) document.title = `AI WAR — ${tr('subtitle', s.lang)}`;
@@ -220,7 +223,8 @@ async function boot(mount: HTMLElement) {
     renderer.onFrame((dt, rawDt) => {
       try {
         if (!pinnedQuality) {
-          const g = governor.frame(now(), rawDt);
+          // with the measured work time a steady 50 Hz / 30 fps-capped display with cheap frames is not "slow"
+          const g = governor.frame(now(), rawDt, renderer.workMs / 1000);
           const level = mobile.active ? (Math.max(g, MOBILE_QUALITY) as QualityLevel) : g;
           if (level !== renderer.quality) renderer.setQuality(level);
         }

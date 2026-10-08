@@ -15,6 +15,23 @@ export interface TickResult extends PlaybackState {
   holding: boolean;
 }
 
+/**
+ * What a store change that the playback tick did NOT make (`ticking` false: the visitor scrubbed, stepped, pressed
+ * play…) means for the battle news, within one front: `clear` — `t` moved, so queued news is stale; `fromTop` — playback
+ * is (now) on at month 0 because the visitor moved there or pressed play there, so the opening news and its hold must
+ * run (playback never "crosses" month 0).
+ */
+export function newsAfterChange(
+  s: { t: number; playing: boolean; front: string | null },
+  prev: { t: number; playing: boolean; front: string | null },
+  ticking: boolean,
+): { clear: boolean; fromTop: boolean } {
+  if (ticking || s.front !== prev.front) return { clear: false, fromTop: false };
+  const moved = s.t !== prev.t;
+  const pressedPlay = s.playing && !prev.playing;
+  return { clear: moved, fromTop: s.playing && (moved || pressedPlay) && Math.floor(Math.max(0, s.t) + 1e-9) === 0 };
+}
+
 /** The app caps every month's hold at this many seconds (a month with many banners must not stall playback). */
 export const MAX_HOLD_SECONDS = 6;
 
