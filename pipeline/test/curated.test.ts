@@ -216,6 +216,7 @@ describe('units.yaml', () => {
     ['image', 'Gemini 3.1 Flash Image Gen 2K (Nano Banana 2)', 'nanobanana'],
     ['image', 'Imagen 4 Ultra Generate Preview 06-06', 'nanobanana'],
     ['image', 'FLUX.2 [flex]', 'flux'],
+    ['image', 'FLUX.2 Klein 4B Distilled', 'flux'],
     ['image', 'Seedream Lite 5.0', 'seedream'],
     ['image', 'Ideogram 4.0', 'ideogram'],
     ['image', 'p-image-ideogram (high)', null],

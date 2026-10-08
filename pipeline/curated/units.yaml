@@ -28,7 +28,7 @@ exclude:
   # third-party fine-tunes / look-alikes that contain a family token (notes-gh.md EXCLUDE, notes-epoch.md).
   # `raft-` is guarded with a look-behind so it cannot hit `recraft-v3`.
   - 'swe-gpt|swe-llama|hermes|nemotron|dracarys|deepswe|skywork|openhands-lm|swe-agent-lm|frog(?:boss|mini)|(?<![a-z0-9])raft-|reflection-70b|wizardlm|tulu|simpo'
-  - 'distill|cerebras-gpt|gpt4all|sharegpt|llava|video_?chat|videollama|open_llama|steerlm|dolphin|smaug|opencua'
+  - 'distill-(?:qwen|llama)|cerebras-gpt|gpt4all|sharegpt|llava|video_?chat|videollama|open_llama|steerlm|dolphin|smaug|opencua'
   # DeepSeek-R1 distillations into Qwen/Llama that are named without "distill" (e.g. deepseek-r1-0528-qwen3-8b)
   - 'deepseek-r1(?:-\d+)?-(?:qwen|llama)'
   # multi-model strings: "agent + model", "GPT-4o & Claude 3 Opus", "DeepSeek R1 + claude-3-5-sonnet"
