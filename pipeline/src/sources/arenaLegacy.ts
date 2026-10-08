@@ -26,7 +26,9 @@ function validate(item: unknown): Observation | null {
  * Chatbot Arena overall-text ratings, month-end snapshots 2023-05 … 2025-08, including the models the current
  * leaderboard-dataset no longer lists (claude-1/2, bard, gpt-3.5-turbo-0314, gemini-exp-*, …): the survivorship fix.
  * Imported once by scripts/import_arena_legacy.py (the Space is frozen), so `runFetch` skips it (`static`).
- * Lowest priority in its group: where a month also has arena-text / arena-text-style data, those win.
+ * Highest priority in its group (3 vs arena-text-style 2 / arena-text 1; compute/strength.ts lets the highest priority
+ * with measured data win): in 2023-05 … 2025-08 these snapshots take precedence over the current dataset, which only
+ * back-fills models still in Arena's registry. Later months have no legacy data, so arena-text-style / arena-text apply.
  */
 export const arenaLegacy: StrengthModule = {
   id: 'arena-legacy',

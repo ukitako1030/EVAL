@@ -33,7 +33,7 @@ const good = (over: Partial<Observation> = {}): Observation => ({
 });
 
 describe('arenaLegacy module', () => {
-  it('is a static, low-priority member of the arena-text group', () => {
+  it('is a static, highest-priority (3) member of the arena-text group: it wins where it has measured data', () => {
     expect(arenaLegacy.id).toBe('arena-legacy');
     expect(arenaLegacy.role).toBe('strength');
     expect(arenaLegacy.group).toBe('arena-text');
