@@ -198,6 +198,19 @@ describe('computeWorld', () => {
     expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki', 'fake-usage', 'fake-statements']);
     expect(w.sources[1].credit).toBe('Source: Fake, as of 2026-10-05 (2026-10-05)');
   });
+  it('states the licence of the derived data in English and Japanese', () => {
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena],
+      now: new Date('2023-06-15T00:00:00Z'),
+    });
+    expect(w.dataLicense).toBe(
+      'Derived data. Contains material from sources under CC BY 4.0, CC BY-SA 3.0/4.0 and CC BY-NC 4.0 among others; see sources[] for each licence and credit. Non-commercial use only.',
+    );
+    for (const s of ['派生データ', 'CC BY 4.0', 'CC BY-SA 3.0/4.0', 'CC BY-NC 4.0', 'sources[]', '非営利']) expect(w.dataLicenseJa).toContain(s);
+  });
   it('appends the curated credits (credits.yaml) as group "curated" without dates', () => {
     const w = computeWorld({
       rawDir: join(dir, 'raw'),

@@ -28,10 +28,19 @@ function isHttpUrl(s: string): boolean {
 /** Bumped whenever the shape of world.json changes in a way the website must know about. */
 export const SCHEMA_VERSION = 2;
 
+/** The licence of world.json: derived data that includes non-commercial (CC BY-NC) material. */
+export const DATA_LICENSE =
+  'Derived data. Contains material from sources under CC BY 4.0, CC BY-SA 3.0/4.0 and CC BY-NC 4.0 among others; see sources[] for each licence and credit. Non-commercial use only.';
+export const DATA_LICENSE_JA =
+  '派生データです。CC BY 4.0、CC BY-SA 3.0/4.0、CC BY-NC 4.0 などのライセンスで提供されているデータ源の素材を含みます。各データ源のライセンスとクレジットは sources[] を参照してください。非営利目的でのみ利用できます。';
+
 export const WorldSchema = z
   .object({
     schemaVersion: z.literal(SCHEMA_VERSION),
     generatedAt: z.string(),
+    /** licence statement for world.json itself (en / ja) */
+    dataLicense: z.string().min(1),
+    dataLicenseJa: z.string().min(1),
     months: z.array(MonthStr).min(1),
     partialMonth: MonthStr,
     orgs: z.record(z.string(), z.object({ name: z.string(), color: z.string() })),

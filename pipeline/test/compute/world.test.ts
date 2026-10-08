@@ -4,6 +4,8 @@ import { WorldSchema, validateWorld, type World } from '../../src/compute/world'
 const minimal: World = {
   schemaVersion: 2,
   generatedAt: '2026-10-12T00:00:00.000Z',
+  dataLicense: 'Derived data. Non-commercial use only.',
+  dataLicenseJa: '派生データ。非営利目的に限る。',
   months: ['2026-09', '2026-10'],
   partialMonth: '2026-10',
   orgs: { openai: { name: 'OpenAI', color: '#19c37d' } },
@@ -30,6 +32,10 @@ function paths(mutate: (w: World) => void): string[] {
 describe('WorldSchema', () => {
   it('accepts a minimal world', () => {
     expect(WorldSchema.safeParse(minimal).success).toBe(true);
+  });
+  it('requires a non-empty data licence in both languages', () => {
+    expect(paths((w) => (w.dataLicense = ''))).toEqual(['dataLicense']);
+    expect(paths((w) => delete (w as Partial<World>).dataLicenseJa)).toEqual(['dataLicenseJa']);
   });
   it('requires schemaVersion 2', () => {
     expect(paths((w) => ((w as { schemaVersion: number }).schemaVersion = 1))).toEqual(['schemaVersion']);

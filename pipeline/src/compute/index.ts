@@ -13,7 +13,7 @@ import { buildSignalTable } from './signals';
 import { computeScale } from './scale';
 import { scaleConfidence, strengthConfidence } from './confidence';
 import { detectEvents, type FrontCells, type WorldEvent } from './events';
-import { SCHEMA_VERSION, validateWorld, type World } from './world';
+import { DATA_LICENSE, DATA_LICENSE_JA, SCHEMA_VERSION, validateWorld, type World } from './world';
 
 export interface ComputeOpts {
   rawDir: string;
@@ -120,6 +120,8 @@ export function computeWorld(opts: ComputeOpts): World {
   const world: World = {
     schemaVersion: SCHEMA_VERSION,
     generatedAt: opts.now.toISOString(),
+    dataLicense: DATA_LICENSE,
+    dataLicenseJa: DATA_LICENSE_JA,
     months,
     partialMonth: months[months.length - 1],
     orgs: units.orgs,
