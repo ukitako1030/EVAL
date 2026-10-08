@@ -13,7 +13,7 @@ describe('music-arena parse', () => {
   it('parses the early format (system keys, "+x / -y" CIs, extra license column, one-decimal scores)', () => {
     const obs = parseMusicArena([{ date: '2025-08-31', board: 'vocal', text: earlyVocal }]);
     expect(obs).toHaveLength(5);
-    expect(obs[0]).toEqual({ series: 'music-arena@vocal', kind: 'elo', model: 'riffusion-fuzz-1-0', date: '2025-08-31', dateKind: 'snapshot', value: 1172.5 });
+    expect(obs[0]).toEqual({ series: 'music-arena@vocal', kind: 'elo', model: 'riffusion-fuzz-1-0', org: 'Riffusion', date: '2025-08-31', dateKind: 'snapshot', value: 1172.5 });
     expect(obs[1]).toMatchObject({ model: 'riffusion-fuzz-1-1', value: 1087.3 });
     expect(obs[4]).toMatchObject({ model: 'acestep', value: 660.1 });
   });
@@ -21,14 +21,29 @@ describe('music-arena parse', () => {
   it('parses the late format (display names, "±x" CIs, integer scores)', () => {
     const vocal = parseMusicArena([{ date: '2026-07-31', board: 'vocal', text: lateVocal }]);
     expect(vocal).toHaveLength(9);
-    expect(vocal[0]).toEqual({ series: 'music-arena@vocal', kind: 'elo', model: 'Riffusion FUZZ v1.0', date: '2026-07-31', dateKind: 'snapshot', value: 1132 });
+    expect(vocal[0]).toEqual({ series: 'music-arena@vocal', kind: 'elo', model: 'Riffusion FUZZ v1.0', org: 'Producer.ai', date: '2026-07-31', dateKind: 'snapshot', value: 1132 });
     expect(vocal.find((o) => o.model === 'Lyria 3 Pro')?.value).toBe(1107);
 
     const inst = parseMusicArena([{ date: '2026-07-31', board: 'instrumental', text: lateInstrumental }]);
     expect(inst).toHaveLength(15);
-    expect(inst[0]).toMatchObject({ series: 'music-arena@instrumental', model: 'Lyria 3 Pro', value: 1394, date: '2026-07-31' });
+    expect(inst[0]).toMatchObject({ series: 'music-arena@instrumental', model: 'Lyria 3 Pro', org: 'Google DeepMind', value: 1394, date: '2026-07-31' });
+    expect(inst.find((o) => o.model === 'ACE-Step 1.5 Turbo (1.7B)')?.org).toBe('ACE Studio / StepFun');
     expect(inst.find((o) => o.model === 'Stable Audio 3 (Medium)')?.value).toBe(1333);
     expect(inst.find((o) => o.model === 'MusicGen Small')?.value).toBe(794);
+  });
+
+  it('passes the organization column through as org only when it names one', () => {
+    const text = 'Rank\tModel\tArena Score\torganization\n1\tA\t1000\tAcme\n2\tB\t900\t\n3\tC\t800\tHidden\n4\tD\t700\t  Beta Labs  \n';
+    const withOrg = parseMusicArena([{ date: '2026-01-31', board: 'vocal', text }]);
+    expect(withOrg.map((o) => [o.model, o.org])).toEqual([
+      ['A', 'Acme'],
+      ['B', undefined],
+      ['C', undefined], // "Hidden" marks an undisclosed preview model, not an organisation
+      ['D', 'Beta Labs'],
+    ]);
+    expect(withOrg.every((o) => !('org' in o) || typeof o.org === 'string')).toBe(true);
+    const noColumn = parseMusicArena([{ date: '2026-01-31', board: 'vocal', text: 'Rank\tModel\tArena Score\n1\tA\t1000\n' }]);
+    expect(noColumn[0]).toEqual({ series: 'music-arena@vocal', kind: 'elo', model: 'A', date: '2026-01-31', dateKind: 'snapshot', value: 1000 });
   });
 
   it('combines several files and tolerates YYYYMMDD folder dates', () => {
@@ -54,8 +69,14 @@ describe('music-arena parse', () => {
     expect(parseMusicArena([])).toEqual([]);
   });
 
+  it('keeps the BOM out of the parser source as an escape, not an invisible literal character', () => {
+    const src = readFileSync(new URL('../../src/sources/musicArena.ts', import.meta.url), 'utf8');
+    expect(src).not.toContain(String.fromCharCode(0xfeff));
+    expect(src).toContain(String.raw`/^\uFEFF/`);
+  });
+
   it('parseTsv handles a BOM and ragged rows', () => {
-    expect(parseTsv('﻿a\tb\n1\t2\n3\n')).toEqual([
+    expect(parseTsv('\uFEFFa\tb\n1\t2\n3\n')).toEqual([
       { a: '1', b: '2' },
       { a: '3', b: '' },
     ]);

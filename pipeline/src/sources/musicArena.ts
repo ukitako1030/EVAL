@@ -55,7 +55,7 @@ async function fetchMusicArena(ctx: FetchCtx): Promise<MusicArenaFile[]> {
 
 /** Splits a TSV (LF or CRLF, optional BOM) into records keyed by its header row. Rows with the wrong width are padded/truncated. */
 export function parseTsv(text: string): Record<string, string>[] {
-  const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter((l) => l.trim() !== '');
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter((l) => l.trim() !== '');
   if (lines.length < 2) return [];
   const header = lines[0].split('\t').map((h) => h.trim());
   return lines.slice(1).map((l) => {
@@ -66,7 +66,8 @@ export function parseTsv(text: string): Record<string, string>[] {
 
 /**
  * Pure parser for `MusicArenaFile[]`. Both TSV generations parse the same way: the early files (20250831, 20250930) use system
- * keys as `Model` and "+x / -y" CIs, later ones display names and "±x"; only `Model` and `Arena Score` are used.
+ * keys as `Model` and "+x / -y" CIs, later ones display names and "±x"; only `Model`, `Arena Score` and, when it names one,
+ * `organization` are used ("Hidden" marks an undisclosed preview model in the early files and is not an organisation).
  */
 export function parseMusicArena(raw: unknown): Observation[] {
   if (!Array.isArray(raw)) return [];
@@ -80,7 +81,16 @@ export function parseMusicArena(raw: unknown): Observation[] {
       const model = row['Model'];
       const value = toNumber(row['Arena Score']);
       if (!model || value === null) continue;
-      out.push({ series: `music-arena@${board}`, kind: 'elo', model, date, dateKind: 'snapshot', value });
+      const org = row['organization'] ?? '';
+      out.push({
+        series: `music-arena@${board}`,
+        kind: 'elo',
+        model,
+        ...(org && org.toLowerCase() !== 'hidden' ? { org } : {}),
+        date,
+        dateKind: 'snapshot',
+        value,
+      });
     }
   }
   return out;
