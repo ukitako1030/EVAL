@@ -2,7 +2,7 @@ import type { Observation } from '../core/types';
 import type { StrengthModule } from './types';
 import { isoDate } from './lib/values';
 
-/** The only error `fetch` ever throws; the data comes from raw/arena-legacy/<date>.json, written by the import script. */
+/** The only error `fetch` ever throws; the data comes from raw/arena-legacy/current.json, written by the import script. */
 export const STATIC_FETCH_ERROR = 'static source: run scripts/import_arena_legacy.py';
 
 function nonEmptyString(v: unknown): v is string {
