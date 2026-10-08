@@ -1,8 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
+import * as XLSX from 'xlsx';
 import { utils, write } from 'xlsx';
 import { OSWORLD_XLSX_URL, osworld, parseOsworld, readOsworldXlsx } from '../../src/sources/osworld';
 import type { FetchCtx } from '../../src/sources/types';
+
+vi.mock('xlsx', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('xlsx')>();
+  return { ...actual, read: vi.fn(actual.read) };
+});
 
 type Row = Record<string, unknown>;
 const rows = JSON.parse(readFileSync(new URL('../fixtures/osworld/sample.rows.json', import.meta.url), 'utf8')) as Row[];
@@ -92,6 +98,17 @@ describe('osworld fetch', () => {
     expect(out[0]).toMatchObject({ Model: 'claude-sonnet-4-6', 'Success rate': 72.11, 'Max steps': 100 });
     expect(out[3]['Success rate']).toBe('🚧');
     expect(JSON.parse(JSON.stringify(out))).toEqual(out); // JSON-serialisable
+  });
+
+  it('asks SheetJS for the first sheet only and neither formulas nor rich-text HTML', () => {
+    const read = vi.mocked(XLSX.read);
+    read.mockClear();
+    readOsworldXlsx(bytes);
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(read.mock.calls[0][1]).toMatchObject({ type: 'array', sheets: 0, cellFormula: false, cellHTML: false });
+    const wb = read.mock.results[0].value as XLSX.WorkBook;
+    expect(wb.SheetNames).toHaveLength(2); // names are always listed …
+    expect(Object.keys(wb.Sheets)).toEqual(['Eval Results']); // … but only the first sheet is parsed
   });
 
   it('downloads the documented URL and parses to observations', async () => {

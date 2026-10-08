@@ -19,7 +19,8 @@ type Row = Record<string, unknown>;
  * "YYYY-MM-DD" so the result is JSON-serialisable.
  */
 export function readOsworldXlsx(bytes: Uint8Array): Row[] {
-  const wb = read(bytes, { type: 'array' });
+  // Only the first sheet is parsed (the site itself reads just that one); formulas and rich-text HTML are not needed.
+  const wb = read(bytes, { type: 'array', sheets: 0, cellFormula: false, cellHTML: false });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   if (!sheet) throw new Error('OSWorld xlsx has no sheets');
   const rows = utils.sheet_to_json<Row>(sheet, { raw: true, defval: null });
