@@ -330,6 +330,7 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
         alpha: clamp(1 - (zoom - 1.15) / 0.6, 0, 1),
         compact: layout.portrait,
         hover: hovered && st.front !== hovered ? hovered : null,
+        screen: { w: renderer.app.screen.width, h: renderer.app.screen.height },
       });
     },
     planet(id) {

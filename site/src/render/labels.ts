@@ -8,7 +8,7 @@
 import { CanvasTextMetrics, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import type { FrontId, Lang, Localized } from '../data/types';
 import type { Planet } from './planet';
-import { hexColor } from './planet';
+import { hexColor } from './planetDraw';
 
 export interface LabelView {
   lang: Lang;
@@ -22,6 +22,8 @@ export interface LabelView {
   compact: boolean;
   /** planet the pointer is over (shows the "click to enter" hint) */
   hover: FrontId | null;
+  /** screen size: optional labels never leave it */
+  screen: { w: number; h: number };
 }
 
 export interface GalaxyLabels {
@@ -91,16 +93,16 @@ export function createGalaxyLabels(): GalaxyLabels {
   const hint = makeText(FONT_JP, 12, '700', 0xbff6ff, 1);
   hint.style.dropShadow = { color: 0x3de8ff, alpha: 0.9, blur: 8, distance: 0, angle: 0 };
   container.addChild(hint);
+  let screen = { w: 1e9, h: 1e9 };
   const all = (): Text[] => [hint, ...[...titles.values()].flatMap((t) => [t.name, t.sub, t.lead]), ...units.values()];
 
   function place(t: Text, x: number, y: number, placed: Rect[], pad = 2, force = false): boolean {
-    // Text bounds include the style padding (room for the glow); collide on the glyph box only
-    const tp = t.style.padding;
-    const w = Math.max(0, t.width - 2 * tp);
-    const h = Math.max(0, t.height - 2 * tp) * 0.42;
+    // collide on the glyph box (the line box is taller than the glyphs)
+    const w = t.width;
+    const h = t.height * 0.38;
     const x0 = x - w * t.anchor.x - pad;
     const r = { x0, y0: y - h - pad, x1: x0 + w + 2 * pad, y1: y + h + pad };
-    if (!force && placed.some((p) => hit(p, r))) {
+    if (!force && (placed.some((p) => hit(p, r)) || r.x0 < 4 || r.y0 < 4 || r.x1 > screen.w - 4 || r.y1 > screen.h - 4)) {
       t.visible = false;
       return false;
     }
@@ -114,6 +116,7 @@ export function createGalaxyLabels(): GalaxyLabels {
     container,
     update(planets, names, v) {
       container.alpha = v.alpha;
+      screen = v.screen;
       lines.clear();
       const hidden = v.alpha <= 0.01;
       for (const t of all()) t.visible = false;
@@ -121,6 +124,8 @@ export function createGalaxyLabels(): GalaxyLabels {
       const placed: Rect[] = [];
       const k = v.compact ? 0.8 : 1;
       const used = new Set<string>();
+      let hintAt: { p: Planet; c: { x: number; y: number }; sr: number; below: boolean; top: number; bottom: number } | null = null;
+      const discs = planets.map((p) => ({ c: v.toScreen(p.x, p.y), r: p.slot.r * v.scale * 1.25 }));
 
       // planet titles first (hub first), they always win
       const order = [...planets].sort((a, b) => Number(b.slot.hub) - Number(a.slot.hub));
@@ -150,10 +155,19 @@ export function createGalaxyLabels(): GalaxyLabels {
         place(T.name, c.x, y, placed, 2, true);
         if (showSub) place(T.sub, c.x, y + gap, placed, 1, true);
         place(T.lead, c.x, y + block, placed, 1, true);
-        if (v.hover === p.id) {
-          set(hint, WORDS.hint[v.lang], Math.round(12 * k), 0xbff6ff, 0x3de8ff);
-          const hy = below ? c.y - sr * 1.3 - 26 : c.y + sr * 1.32 + 24;
-          place(hint, c.x, hy, placed, 1, true);
+        if (v.hover === p.id) hintAt = { p, c, sr, below, top: y, bottom: y + block };
+      }
+
+      // "click to enter" hint for the hovered planet: on the open side, never over another planet
+      if (hintAt) {
+        const { c, sr, below, top, bottom } = hintAt;
+        set(hint, WORDS.hint[v.lang], Math.round(12 * k), 0xbff6ff, 0x3de8ff);
+        const tries = below ? [c.y - sr * 1.3 - 26, bottom + 20] : [c.y + sr * 1.32 + 24, top - 20];
+        const hw = hint.width / 2 + 4;
+        for (const hy of tries) {
+          const self = planets.indexOf(hintAt.p);
+          const clear = discs.every((d, i) => i === self || Math.max(Math.abs(d.c.x - c.x) - hw, Math.abs(d.c.y - hy) - 9) > d.r);
+          if (clear && place(hint, c.x, hy, placed, 1)) break;
         }
       }
 
@@ -196,18 +210,29 @@ export function createGalaxyLabels(): GalaxyLabels {
           if (w.share < 0.004) continue;
           outs.push({ t, am, side: Math.cos(am) >= 0 ? 1 : -1, y: c.y + Math.sin(am) * sr * 1.2, col });
         }
-        const gap = fs + 4;
+        const gap = fs + 5;
         for (const side of [1, -1]) {
+          // classic pie labels: stack top-down on each side, elbows riding a circle just outside the planet
           const list = outs.filter((o) => o.side === side).sort((a, b) => a.y - b.y);
           for (let i = 1; i < list.length; i++) if (list[i].y - list[i - 1].y < gap) list[i].y = list[i - 1].y + gap;
           for (const o of list) {
             const ax = c.x + Math.cos(o.am) * sr * 0.9;
             const ay = c.y + Math.sin(o.am) * sr * 0.9;
-            const ex = c.x + Math.cos(o.am) * sr * 1.18;
-            const tx = ex + side * 18;
+            const R1 = sr * 1.18;
+            const dy = o.y - c.y;
+            const ex = c.x + side * Math.sqrt(Math.max(0, R1 * R1 - dy * dy));
             o.t.anchor.set(side > 0 ? 0 : 1, 0.5);
-            if (!place(o.t, tx + side * 4, o.y, placed)) continue;
-            lines.moveTo(ax, ay).lineTo(ex, o.y).lineTo(tx, o.y).stroke({ width: 1, color: o.col, alpha: 0.85 });
+            // blocked (e.g. by the planet title)? slide outward along a longer leader line
+            let tx = NaN;
+            for (let i = 0; i < 6; i++) {
+              const x = ex + side * (18 + i * 14);
+              if (place(o.t, x + side * 4, o.y, placed)) {
+                tx = x;
+                break;
+              }
+            }
+            if (Number.isNaN(tx)) continue;
+            lines.moveTo(ax, ay).lineTo(ex, o.y).lineTo(tx, o.y).stroke({ width: 1.2, color: o.col, alpha: 0.9 });
             lines.circle(ax, ay, 2).fill({ color: o.col, alpha: 0.9 });
           }
         }

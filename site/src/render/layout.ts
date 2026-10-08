@@ -207,6 +207,9 @@ export interface Frontline {
   seed: number;
 }
 
+/** a frontline never takes more than this share of a neighbouring wedge, so areas stay ≈ ∝ scale */
+export const MAX_BULGE = 0.34;
+
 export function strHash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
@@ -233,8 +236,8 @@ export function frontlines(wedges: readonly Wedge[]): Frontline[] {
       base: cur.a0,
       push: clamp(ds / 10, -1, 1),
       fierce: clamp(1 - Math.abs(ds) / 14, 0.12, 1),
-      maxL: (prev.a1 - prev.a0) * 0.42,
-      maxR: (cur.a1 - cur.a0) * 0.42,
+      maxL: (prev.a1 - prev.a0) * MAX_BULGE,
+      maxR: (cur.a1 - cur.a0) * MAX_BULGE,
       seed: strHash(key),
     });
   }
@@ -244,7 +247,7 @@ export function frontlines(wedges: readonly Wedge[]): Frontline[] {
 /**
  * Frontline angle at radius fraction `rho` (CORE..1) and time `t` (s). The line wobbles — more when the
  * neighbours are evenly matched — and bulges toward the weaker side by the strength difference. `amp`
- * scales the motion (0 = still, for reduced motion). Never leaves 42 % of either neighbouring wedge.
+ * scales the motion (0 = still, for reduced motion). Never eats more than MAX_BULGE of either neighbouring wedge.
  */
 export function borderAngle(b: Frontline, rho: number, t: number, amp = 1): number {
   const rp = clamp((rho - CORE) / (1 - CORE), 0, 1);
@@ -254,7 +257,7 @@ export function borderAngle(b: Frontline, rho: number, t: number, amp = 1): numb
     w === 0
       ? 0
       : w * (Math.sin(rho * 9 + t * 1.3 + s) + 0.6 * Math.sin(rho * 17 - t * 2.1 + s * 2.3) + 0.35 * Math.sin(rho * 33 + t * 3.7 + s * 0.7)) * smoothstep(0, 0.2, rp);
-  const push = b.push * 0.12 * Math.sin(Math.PI * rp * 0.85) * (0.85 + 0.15 * amp * Math.sin(t * 1.7 + s));
+  const push = b.push * 0.085 * Math.sin(Math.PI * rp * 0.85) * (0.85 + 0.15 * amp * Math.sin(t * 1.7 + s));
   return b.base + clamp((wob + push) / Math.max(rho, 0.22), -b.maxL, b.maxR);
 }
 

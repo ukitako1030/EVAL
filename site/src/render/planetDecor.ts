@@ -215,8 +215,10 @@ export function createPlanetDecor(tex: PlanetTextures): PlanetDecor {
       if (moonGlow.parent !== host) host.addChild(moonGlow, moonCore);
       moonGlow.position.set(mx, my);
       moonCore.position.set(mx, my);
-      moonGlow.alpha = behind ? 0.4 : 0.9;
-      moonCore.alpha = behind ? 0.5 : 1;
+      // brightness follows the orbit smoothly (no pop when the moon passes in front of the planet)
+      const lit = 0.5 + 0.5 * Math.sin(m);
+      moonGlow.alpha = 0.4 + 0.5 * lit;
+      moonCore.alpha = 0.5 + 0.5 * lit;
       coreGlow.alpha = 0.5 + 0.15 * Math.sin(t * 3 + ph);
       coreDash.rotation = t * 0.5;
       coreHex.rotation = t * 0.6;
