@@ -15,7 +15,8 @@ export interface TickResult extends PlaybackState {
   holding: boolean;
 }
 
-export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlySet<number> }) {
+/** `eventMonths`: month index → number of banners that month; playback holds `HOLD_SECONDS[speed]` per banner. */
+export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlyMap<number, number> }) {
   let hold = 0;
   return {
     tick(rawDt: number, st: PlaybackState): TickResult {
@@ -34,9 +35,10 @@ export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlyS
       const crossed: number[] = [];
       for (let m = Math.floor(from + 1e-9) + 1; m <= Math.floor(to + 1e-9); m++) {
         crossed.push(m);
-        if (opts.eventMonths.has(m)) {
+        const items = opts.eventMonths.get(m) ?? 0;
+        if (items > 0) {
           to = m;
-          hold = HOLD_SECONDS[st.speed];
+          hold = HOLD_SECONDS[st.speed] * items;
           break;
         }
       }
