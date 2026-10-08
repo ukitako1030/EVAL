@@ -1,0 +1,47 @@
+# Officially announced (or credibly reported) active-user counts, one metric per series (spec §5.2, §6.2).
+#
+# Seeded from Epoch AI "AI Companies" usage reports (https://epoch.ai/data/ai_companies_usage_reports.csv,
+# CC BY 4.0; fixture pipeline/test/fixtures/epoch-usage/sample.csv): rows with Source type
+# "Company disclosure" / "Media report", Confidence Confident / Likely, not "Exclude from graph view".
+# Values are recorded exactly as stated. `date` is the date the figure refers to (Epoch's `Date`).
+# Points whose metric differs from the series metric are left out (e.g. Meta AI 185M WAU, Gemini 35M DAU,
+# OpenAI 350M MAU "All products"), so each series stays one metric.
+series:
+  chatgpt:
+    metric: WAU
+    points:
+      - { date: 2023-03-25, value: 50000000, url: 'https://cdn.openai.com/pdf/a253471f-8260-40c6-a2cc-aa93fe9f142e/economic-research-chatgpt-usage-paper.pdf', note: 'OpenAI/NBER usage paper, consumer plans (reported 2025-09)' }
+      - { date: 2023-09-20, value: 80000000, url: 'https://cdn.openai.com/pdf/a253471f-8260-40c6-a2cc-aa93fe9f142e/economic-research-chatgpt-usage-paper.pdf', note: 'OpenAI/NBER usage paper, consumer plans' }
+      - { date: 2024-03-20, value: 125000000, url: 'https://cdn.openai.com/pdf/a253471f-8260-40c6-a2cc-aa93fe9f142e/economic-research-chatgpt-usage-paper.pdf', note: 'OpenAI/NBER usage paper, consumer plans' }
+      - { date: 2024-09-15, value: 240000000, url: 'https://www.nber.org/papers/w34255', note: 'OpenAI/NBER usage paper, consumer plans' }
+      - { date: 2024-12-04, value: 300000000, url: 'https://x.com/OpenAINewsroom/status/1864373399218475440' }
+      - { date: 2025-03-13, value: 430000000, url: 'https://cdn.openai.com/pdf/a253471f-8260-40c6-a2cc-aa93fe9f142e/economic-research-chatgpt-usage-paper.pdf', note: 'OpenAI/NBER usage paper, consumer plans' }
+      # Epoch's 2025-07-15 row ("ChatGPT 700M WAU", value 770000000) is left out: its value contradicts its own
+      # label and OpenAI's 700M figure of 2025-08-04.
+      - { date: 2025-08-04, value: 700000000, url: 'https://www.cnbc.com/2025/08/04/openai-chatgpt-700-million-users.html' }
+      - { date: 2025-10-06, value: 800000000, url: 'https://techcrunch.com/2025/10/06/sam-altman-says-chatgpt-has-hit-800m-weekly-active-users/', note: 'Sam Altman at DevDay 2025' }
+      - { date: 2025-12-09, value: 900000000, url: 'https://www.theinformation.com/newsletters/ai-agenda/chatgpt-nears-900-million-weekly-active-users-gemini-catching', note: 'media report ("nears 900M")' }
+      - { date: 2026-02-28, value: 920000000, url: 'https://www.theinformation.com/articles/openai-tops-25-billion-annualized-revenue-anthropic-narrows-gap', note: 'media report' }
+      - { date: 2026-07-28, value: 1000000000, url: 'https://www.theinformation.com/articles/openais-chatgpt-nears-1-billion-weekly-active-users-seven-months-target', note: 'media report ("nears 1B")' }
+      - { date: 2026-09-29, value: 1200000000, url: 'https://openai.com/index/devday-2026-recap/' }
+  gemini-app:
+    metric: MAU
+    points:
+      - { date: 2025-03-15, value: 350000000, url: 'https://www.theverge.com/google/654641/google-reveals-gemini-ai-has-350-million-monthly-active-users', note: 'Google court exhibit (antitrust trial)' }
+      - { date: 2025-05-20, value: 400000000, url: 'https://techcrunch.com/2025/05/20/googles-gemini-ai-app-has-400m-monthly-active-users/', note: 'Sundar Pichai at Google I/O 2025 ("400M+")' }
+      - { date: 2025-07-23, value: 450000000, url: 'https://www.theverge.com/news/712638/alphabet-google-earnings-q2-2025-ceo-sundar-pichai-ai', note: 'Alphabet Q2 2025 earnings' }
+      - { date: 2025-10-29, value: 650000000, url: 'https://s206.q4cdn.com/479360582/files/doc_financials/2025/q3/2025q3-alphabet-earnings-release.pdf', note: 'Alphabet Q3 2025 earnings release' }
+      - { date: 2026-08-11, value: 1000000000, url: 'https://blog.google/innovation-and-ai/products/gemini-app/one-billion-monthly-users/', note: '"1B+ monthly users"' }
+  meta-ai:
+    metric: MAU
+    points:
+      - { date: 2024-09-25, value: 400000000, url: 'https://about.fb.com/news/2024/09/metas-ai-product-news-connect/' }
+      - { date: 2024-10-30, value: 500000000, url: 'https://www.engadget.com/social-media/meta-ai-has-more-than-500-million-users-220353427.html' }
+      - { date: 2024-12-15, value: 600000000, url: 'https://www.cnbc.com/2025/02/27/meta-plans-to-release-a-standalone-meta-ai-app.html' }
+      - { date: 2025-01-29, value: 700000000, url: 'https://www.cnbc.com/2025/02/27/meta-plans-to-release-a-standalone-meta-ai-app.html' }
+      - { date: 2025-05-28, value: 1000000000, url: 'https://www.cnbc.com/2025/05/28/zuckerberg-meta-ai-one-billion-monthly-users.html' }
+      - { date: 2025-10-29, value: 1000000000, url: 'https://s21.q4cdn.com/399680738/files/doc_financials/2025/q3/META-Q3-2025-Earnings-Call-Transcript.pdf', note: 'Meta Q3 2025 earnings call' }
+  grok:
+    metric: MAU
+    points:
+      - { date: 2025-09-17, value: 64000000, url: 'https://www.nytimes.com/2025/09/18/technology/elon-musk-artificial-intelligence-xai.html', note: 'media report' }

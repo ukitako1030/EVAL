@@ -161,7 +161,8 @@ fronts:
         since: 2023-08 # Qwen-7B open release (2023-08-03)
         match: &qwen_match
           # qwen-14b-chat, qwen1.5…qwen3.8, "Qwen 3.6 Plus", QwQ, QVQ, CodeQwen; not Qwen-Image / Omni / TTS
-          - '(?<![a-z0-9])(?:code)?(?:qwen|qwq|qvq)(?![a-z])(?!.*(?:image|tts|omni|realtime|audio|[-_ .(]live(?![a-z])))'
+          # (look-behind also rejects "(" so VBench's "Wan2.2-T2V-A14B (Qwen prompt-optimized)" is not Qwen)
+          - '(?<![a-z0-9(])(?:code)?(?:qwen|qwq|qvq)(?![a-z])(?!.*(?:image|tts|omni|realtime|audio|[-_ .(]live(?![a-z])))'
         orgMatch: &qwen_org 'alibaba|qwen|tongyi'
         scale: &qwen_scale
           crux: [chat.qwen.ai, chat.qwenlm.ai]
@@ -452,9 +453,8 @@ fronts:
         since: 2024-06 # TODO verify
         match:
           - '(?<![a-z0-9])ray[-_ ]?\d'
-          # VBench "Luma"; Dream Machine (not Luma's Photon / UNI image models)
+          # VBench "Luma" (not Luma's Photon / UNI image models)
           - '(?<![a-z0-9])luma(?![a-z])(?!.*(?:photon|uni-))'
-          - 'dream[-_ ]?machine'
         scale:
           # not luma.com (the Luma events platform)
           crux: [lumalabs.ai, dream-machine.lumalabs.ai]
@@ -510,8 +510,6 @@ fronts:
         match:
           # minimax-speech-2.8-hd, "MiniMax Speech 02 HD", "MiniMax Speech-02-Turbo"
           - '(?<![a-z0-9])minimax[-_ ]?speech'
-          # MiniMax API ids without the vendor prefix: speech-02-hd, speech-2.6-turbo
-          - '(?<![a-z0-9-])speech-(?:0[12]|2\.\d)(?:-(?:hd|turbo))?(?![a-z])'
         scale:
           # company site (shared with MiniMax's LLMs and Hailuo, which live on other fronts)
           crux: [minimax.io]
