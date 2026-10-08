@@ -1,0 +1,92 @@
+name: weekly-update
+
+# Every Monday: fetch the sources, recompute world.json, run the tests, and open ONE pull request
+# ("今週の戦況更新") on a rolling branch. Merging that pull request publishes the new data
+# (deploy.yml runs when main changes). Nothing is published without a human merging it.
+#
+# The API keys are optional repository secrets (Settings > Secrets and variables > Actions):
+#   OPENROUTER_API_KEY, CLOUDFLARE_API_TOKEN, DESIGNARENA_API_KEY
+# A source whose key is missing is skipped and listed in the pull request.
+#
+# Note: a pull request opened with the built-in GITHUB_TOKEN does not trigger ci.yml. That is fine here,
+# because this job runs the tests and the site build itself before it opens the pull request.
+on:
+  schedule:
+    - cron: '0 0 * * 1' # Monday 00:00 UTC = 09:00 JST
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: weekly-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            pipeline/package-lock.json
+            site/package-lock.json
+
+      # keep the published world.json to diff against
+      - name: Keep the previous world.json
+        run: cp site/public/data/world.json /tmp/world.before.json
+
+      - name: Install pipeline dependencies
+        working-directory: pipeline
+        run: npm ci
+
+      # Exit code 1 only when every source failed (network outage): the job stops and no pull request is opened.
+      - name: Fetch sources
+        working-directory: pipeline
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DESIGNARENA_API_KEY: ${{ secrets.DESIGNARENA_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run fetch
+
+      - name: Compute world.json and run the pipeline tests
+        working-directory: pipeline
+        run: npm run compute && npm test
+
+      - name: Test and build the site
+        working-directory: site
+        run: npm ci && npm test && npm run build
+
+      # The secrets are passed only so that the summary can mask them if one ever shows up in an error message.
+      - name: Write the pull request summary
+        working-directory: pipeline
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DESIGNARENA_API_KEY: ${{ secrets.DESIGNARENA_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run summary -- --before /tmp/world.before.json --after ../site/public/data/world.json --status out/status-latest.json --warnings out/warnings.json --out /tmp/pr-body.md
+
+      - name: Today's date (UTC)
+        id: date
+        run: echo "today=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      # Needs Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests".
+      - name: Open or update the pull request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: data/weekly-update
+          delete-branch: true
+          title: '今週の戦況更新（${{ steps.date.outputs.today }}）'
+          body-path: /tmp/pr-body.md
+          commit-message: 'data: weekly update ${{ steps.date.outputs.today }}'
+          add-paths: |
+            pipeline/raw/**
+            site/public/data/world.json
+          labels: data-update
