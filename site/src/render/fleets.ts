@@ -32,6 +32,7 @@ import {
   fleetCap,
   fleetPeak,
   fleetWeight,
+  laneEnvelope,
   legU,
   nextLeg,
   orbitPoint,
@@ -87,6 +88,8 @@ interface Ship extends Rng {
   a1: number;
   /** fraction of the galaxy width per second */
   speed: number;
+  /** −1..1: side of the stream the ship flies on (fleets spread across the stream instead of riding its dashes) */
+  lane: number;
   /** orbit radius (× r), angle and angular speed */
   rr: number;
   oa: number;
@@ -199,7 +202,7 @@ export function createFleets(galaxy: Galaxy, renderer: Renderer, opts: FleetsOpt
     }
     ships.push({
       live: false, org: 0, k: 0, rng: 1, dying: false, alpha: 0, leg: Leg.Loiter, at: 0, dest: 0, s: 0, a0: 0, a1: 0, speed: 0.08,
-      rr: 1.5, oa: 0, ow: 0, x: 0, y: 0, hx: 1, hy: 0, behind: false, layer: -1, hist: new Float32Array(HN * 2), hi: 0, hn: 0, hacc: 0, parts,
+      lane: 0, rr: 1.5, oa: 0, ow: 0, x: 0, y: 0, hx: 1, hy: 0, behind: false, layer: -1, hist: new Float32Array(HN * 2), hi: 0, hn: 0, hacc: 0, parts,
     });
   }
 
@@ -217,6 +220,8 @@ export function createFleets(galaxy: Galaxy, renderer: Renderer, opts: FleetsOpt
   let alive = 0;
   let cursor = 0;
   let layoutDirty = false;
+  /** widest lane offset (world units) */
+  let laneW = 0;
   const offLayout = galaxy.onLayoutChange(() => (layoutDirty = true));
 
   const rimOf = (fi: number) => planets[fi].slot.r * (fi === hub ? RIM_HUB : RIM_SAT);
@@ -257,7 +262,19 @@ export function createFleets(galaxy: Galaxy, renderer: Renderer, opts: FleetsOpt
     }
     if (sh.leg === Leg.Out || sh.leg === Leg.In) {
       const f = sh.leg === Leg.Out ? sh.at : sh.dest;
-      return f !== hub && galaxy.streamPoint(fronts[f], legU(sh.leg, sh.s), out) !== null;
+      const u = legU(sh.leg, sh.s);
+      if (f === hub || !galaxy.streamPoint(fronts[f], u, out)) return false;
+      // lane offset across the stream, zero at both mouths so arcs and streams still join up
+      const off = sh.lane * laneW * laneEnvelope(u);
+      if (off !== 0 && galaxy.streamPoint(fronts[f], u < 0.98 ? u + 0.02 : u - 0.02, tmpB)) {
+        const dir = u < 0.98 ? 1 : -1;
+        const tx = (tmpB.x - out.x) * dir;
+        const ty = (tmpB.y - out.y) * dir;
+        const L = Math.hypot(tx, ty) || 1;
+        out.x -= (ty / L) * off;
+        out.y += (tx / L) * off;
+      }
+      return true;
     }
     const c = sh.leg === Leg.HubArc ? hub : sh.at;
     const a1 = arcEnd(sh);
@@ -345,6 +362,7 @@ export function createFleets(galaxy: Galaxy, renderer: Renderer, opts: FleetsOpt
       sh.alpha = 0;
       sh.layer = -1;
       sh.speed = randIn(sh, 0.065, 0.115);
+      sh.lane = randIn(sh, -1, 1);
       place(sh, initial);
       alive++;
       return;
@@ -447,9 +465,9 @@ export function createFleets(galaxy: Galaxy, renderer: Renderer, opts: FleetsOpt
     body.rotation = rot;
     body.scaleX = (2.4 * sz * (1 + 0.2 * boost)) / DART_W;
     body.scaleY = (1.5 * sz * (1 + 0.2 * boost)) / DART_H;
-    body.alpha = a * (0.55 + 0.45 * o.gain);
+    body.alpha = a * (0.6 + 0.4 * o.gain);
     glow.scaleX = glow.scaleY = (5.6 * sz * (1 + 0.4 * boost)) / GLOW_W;
-    glow.alpha = 0.5 * a * o.gain * (1 + 1.2 * boost);
+    glow.alpha = 0.6 * a * o.gain * (1 + 1.2 * boost);
     if (sh.hn > 1) {
       const j = (sh.hi - sh.hn + HN) % HN;
       const dx = sh.x - sh.hist[j * 2];
@@ -457,8 +475,8 @@ export function createFleets(galaxy: Galaxy, renderer: Renderer, opts: FleetsOpt
       const len = Math.hypot(dx, dy);
       trail.rotation = Math.atan2(dy, dx);
       trail.scaleX = len / STREAK_W;
-      trail.scaleY = ((1.4 + 0.6 * boost) * px) / (STREAK_H / 2);
-      trail.alpha = len > 0.6 * px ? 0.7 * a * (0.6 + 0.4 * o.gain) : 0;
+      trail.scaleY = ((1.6 + 0.6 * boost) * px) / (STREAK_H / 2);
+      trail.alpha = len > 0.6 * px ? 0.8 * a * (0.6 + 0.4 * o.gain) : 0;
     } else trail.alpha = 0;
   }
 
@@ -474,7 +492,8 @@ export function createFleets(galaxy: Galaxy, renderer: Renderer, opts: FleetsOpt
       const mdt = dt * (reduced ? 0.2 : 1);
       const ws = renderer.layers.world.scale.x || 1;
       const px = 1 / ws;
-      const sz = clamp(3 * Math.sqrt(ws / ovScale), 2.6, 4.4) * px;
+      const sz = clamp(3.5 * Math.sqrt(ws / ovScale), 3, 5) * px;
+      laneW = 5 * px;
       for (const sh of ships) {
         if (!sh.live) continue;
         sh.alpha += ((sh.dying ? 0 : 1) - sh.alpha) * Math.min(1, dt * 2.5);

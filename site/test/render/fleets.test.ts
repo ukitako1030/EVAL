@@ -11,6 +11,7 @@ import {
   fleetCap,
   fleetPeak,
   fleetWeight,
+  laneEnvelope,
   legU,
   nextLeg,
   orbitPoint,
@@ -158,6 +159,15 @@ describe('ship paths', () => {
     expect(legU(Leg.In, 0.25)).toBe(0.75);
     expect(legU(Leg.Out, 1.7)).toBe(1);
     expect(legU(Leg.In, -1)).toBe(1);
+  });
+
+  it('lets ships spread across a stream only between its mouths', () => {
+    expect(laneEnvelope(0)).toBeCloseTo(0);
+    expect(laneEnvelope(1)).toBeCloseTo(0);
+    expect(laneEnvelope(0.5)).toBeCloseTo(1);
+    expect(laneEnvelope(-0.2)).toBeCloseTo(0);
+    expect(laneEnvelope(1.3)).toBeCloseTo(0);
+    expect(laneEnvelope(0.25)).toBeCloseTo(laneEnvelope(0.75));
   });
 
   it('takes the short way round between two angles', () => {

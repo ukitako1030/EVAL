@@ -182,6 +182,11 @@ export function legU(leg: Leg, s: number): number {
   return leg === Leg.In ? 1 - p : p;
 }
 
+/** how far a ship may stray from a stream's centreline at `u`: 0 at both mouths, 1 midway */
+export function laneEnvelope(u: number): number {
+  return Math.sin(Math.PI * clamp(u, 0, 1));
+}
+
 /** `a1` shifted by whole turns so the arc `a0 → a1` goes the short way round (|a1 − a0| ≤ π) */
 export function shortArc(a0: number, a1: number): number {
   let d = (a1 - a0 + Math.PI) % TAU;
