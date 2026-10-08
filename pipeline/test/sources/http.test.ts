@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { HttpError, makeFetchCtx, parseRetryAfter, USER_AGENT } from '../../src/sources/http';
+import { DEFAULT_TIMEOUT_MS, HttpError, makeFetchCtx, parseRetryAfter, USER_AGENT } from '../../src/sources/http';
 import type { FetchCtx } from '../../src/sources/types';
 
 let server: Server;
@@ -218,6 +218,36 @@ describe('timeout and abort', () => {
     ac.abort();
     await expect(ctx({ attempts: 3, baseDelayMs: 5 }).fetchText(`${base}/pre`, { signal: ac.signal })).rejects.toThrow();
     expect(hits).toHaveLength(0);
+  });
+});
+
+describe('default timeout', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+  it('is 180 s per request, headers and body included (Arena parquet is 58 MB)', async () => {
+    expect(DEFAULT_TIMEOUT_MS).toBe(180_000);
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => init.signal!.addEventListener('abort', () => reject(new Error('aborted')))),
+      ),
+    );
+    let outcome: unknown = 'pending';
+    void ctx({ attempts: 1 })
+      .fetchBytes('https://example.test/big.parquet')
+      .then(
+        (v) => (outcome = v),
+        (e: unknown) => (outcome = e),
+      );
+    await vi.advanceTimersByTimeAsync(179_999);
+    expect(outcome).toBe('pending');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(outcome).toBeInstanceOf(Error);
+    expect((outcome as Error).message).toBe('timeout after 180000 ms for https://example.test/big.parquet');
   });
 });
 

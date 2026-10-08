@@ -2,6 +2,9 @@ import type { FetchCtx } from './types';
 
 export const USER_AGENT = 'AI-WAR-data-pipeline/0.1 (non-commercial research visualisation; https://github.com/ukitako1030)';
 
+/** Default per-try timeout (headers AND body): generous enough for Arena's 58 MB parquet on a slow runner. */
+export const DEFAULT_TIMEOUT_MS = 180_000;
+
 /** A server-requested back-off (Retry-After) is never honoured for longer than this. */
 export const MAX_RETRY_AFTER_MS = 60_000;
 
@@ -21,7 +24,7 @@ export class HttpError extends Error {
 export interface RetryOpts {
   /** total tries per request (default 3) */
   attempts?: number;
-  /** abort one try — headers AND body — after this long (default 60 s) */
+  /** abort one try — headers AND body — after this long (default 180 s, see DEFAULT_TIMEOUT_MS) */
   timeoutMs?: number;
   /** wait baseDelayMs·2^i between tries i and i+1 (default 1000) */
   baseDelayMs?: number;
@@ -90,7 +93,7 @@ function isHttpsDowngrade(requested: string, finalUrl: string): boolean {
  */
 async function request<T>(url: string, init: RequestInit, read: (res: Response) => Promise<T>, retry: RetryOpts): Promise<T> {
   const attempts = retry.attempts ?? 3;
-  const timeoutMs = retry.timeoutMs ?? 60_000;
+  const timeoutMs = retry.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const baseDelayMs = retry.baseDelayMs ?? 1000;
   const safeUrl = stripQuery(url);
   try {
