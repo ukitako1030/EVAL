@@ -1,0 +1,236 @@
+[
+  {
+    "id": "arena-text",
+    "status": "ok",
+    "count": 7644,
+    "ms": 3884
+  },
+  {
+    "id": "arena-text-style",
+    "status": "ok",
+    "count": 6921,
+    "ms": 2393
+  },
+  {
+    "id": "arena-legacy",
+    "status": "skipped",
+    "count": 0,
+    "error": "static source (imported by script)",
+    "ms": 0
+  },
+  {
+    "id": "arena-coding",
+    "status": "ok",
+    "count": 6748,
+    "ms": 631
+  },
+  {
+    "id": "arena-coding-raw",
+    "status": "ok",
+    "count": 7227,
+    "ms": 712
+  },
+  {
+    "id": "arena-webdev",
+    "status": "ok",
+    "count": 935,
+    "ms": 1179
+  },
+  {
+    "id": "arena-t2i",
+    "status": "ok",
+    "count": 856,
+    "ms": 1126
+  },
+  {
+    "id": "arena-image-edit",
+    "status": "ok",
+    "count": 564,
+    "ms": 846
+  },
+  {
+    "id": "arena-t2v",
+    "status": "ok",
+    "count": 458,
+    "ms": 869
+  },
+  {
+    "id": "arena-i2v",
+    "status": "ok",
+    "count": 461,
+    "ms": 917
+  },
+  {
+    "id": "epoch-eci",
+    "status": "ok",
+    "count": 274,
+    "ms": 99
+  },
+  {
+    "id": "epoch-terminalbench",
+    "status": "ok",
+    "count": 202,
+    "ms": 304
+  },
+  {
+    "id": "epoch-swebench",
+    "status": "ok",
+    "count": 35,
+    "ms": 4
+  },
+  {
+    "id": "epoch-metr",
+    "status": "ok",
+    "count": 45,
+    "ms": 3
+  },
+  {
+    "id": "epoch-vending",
+    "status": "ok",
+    "count": 66,
+    "ms": 2
+  },
+  {
+    "id": "epoch-apex",
+    "status": "ok",
+    "count": 52,
+    "ms": 3
+  },
+  {
+    "id": "epoch-osworld",
+    "status": "ok",
+    "count": 20,
+    "ms": 2
+  },
+  {
+    "id": "epoch-osworld2",
+    "status": "ok",
+    "count": 16,
+    "ms": 2
+  },
+  {
+    "id": "swebench",
+    "status": "ok",
+    "count": 47,
+    "ms": 346
+  },
+  {
+    "id": "aider-edit",
+    "status": "ok",
+    "count": 96,
+    "ms": 277
+  },
+  {
+    "id": "aider-polyglot",
+    "status": "ok",
+    "count": 66,
+    "ms": 234
+  },
+  {
+    "id": "livebench-coding",
+    "status": "ok",
+    "count": 69,
+    "ms": 390
+  },
+  {
+    "id": "osworld",
+    "status": "ok",
+    "count": 37,
+    "ms": 183
+  },
+  {
+    "id": "tau2",
+    "status": "ok",
+    "count": 92,
+    "ms": 2113
+  },
+  {
+    "id": "vbench",
+    "status": "ok",
+    "count": 73,
+    "ms": 1240
+  },
+  {
+    "id": "tts-arena",
+    "status": "ok",
+    "count": 38,
+    "ms": 705
+  },
+  {
+    "id": "music-arena",
+    "status": "ok",
+    "count": 185,
+    "ms": 5749
+  },
+  {
+    "id": "designarena-image",
+    "status": "skipped",
+    "count": 0,
+    "error": "missing env: DESIGNARENA_API_KEY",
+    "ms": 0
+  },
+  {
+    "id": "designarena-video",
+    "status": "skipped",
+    "count": 0,
+    "error": "missing env: DESIGNARENA_API_KEY",
+    "ms": 0
+  },
+  {
+    "id": "designarena-tts",
+    "status": "skipped",
+    "count": 0,
+    "error": "missing env: DESIGNARENA_API_KEY",
+    "ms": 0
+  },
+  {
+    "id": "designarena-music",
+    "status": "skipped",
+    "count": 0,
+    "error": "missing env: DESIGNARENA_API_KEY",
+    "ms": 0
+  },
+  {
+    "id": "crux",
+    "status": "ok",
+    "count": 982,
+    "ms": 39826
+  },
+  {
+    "id": "tranco",
+    "status": "ok",
+    "count": 1077,
+    "ms": 201369
+  },
+  {
+    "id": "statcounter",
+    "status": "ok",
+    "count": 108,
+    "ms": 908
+  },
+  {
+    "id": "cloudflare",
+    "status": "skipped",
+    "count": 0,
+    "error": "missing env: CLOUDFLARE_API_TOKEN",
+    "ms": 0
+  },
+  {
+    "id": "openrouter",
+    "status": "ok",
+    "count": 58,
+    "ms": 1117
+  },
+  {
+    "id": "wikipedia",
+    "status": "ok",
+    "count": 983,
+    "ms": 16315
+  },
+  {
+    "id": "itunes",
+    "status": "ok",
+    "count": 13,
+    "ms": 460
+  }
+]

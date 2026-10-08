@@ -5,9 +5,9 @@ strength:
   releaseActiveMonths: 3
   kinds:
     elo: { scale: 400 }
-    percent: { clampLo: 0.5, clampHi: 99.5 }
-    minutes: { kappa: 1.0 }
-    eci: { tau: 8 }
+    percent: { clampLo: 0.5, clampHi: 99.5, scale: 0.4 }
+    minutes: { kappa: 0.25 }
+    eci: { tau: 18 }
   estimate: { floor: 60, step: 6 }
   weights:
     general: { arena-text: 0.5, epoch-eci: 0.5 }

@@ -309,7 +309,9 @@ fronts:
         match:
           # dall-e-3, "DALL·E 3", gpt-image-1…2.5, "GPT Image 1.5", chatgpt-image-latest
           - '(?<![a-z0-9])(?:dall[-·. ]?e|(?:chat)?gpt[-_ ]image)(?![a-z])'
-        scale: {} # no separate host (inside chatgpt.com)
+        scale:
+          # no separate host (inside chatgpt.com); attention only
+          wikipedia: [DALL-E]
       nanobanana:
         org: google
         name: Nano Banana
@@ -354,7 +356,9 @@ fronts:
         match:
           # seedream-3, seedream-4-2k, "Seedream 4.0", seededit-3.0 (not bagel, a separate research model)
           - '(?<![a-z0-9])seed(?:ream|edit)(?![a-z])'
-        scale: {}
+        scale:
+          # used inside Doubao/Jimeng apps (no own host in our lists); attention only
+          wikipedia: [Seedream]
       ideogram:
         org: ideogram
         name: Ideogram
@@ -447,7 +451,9 @@ fronts:
         since: 2025-06 # Seedance 1.0 (2025-06, https://arxiv.org/abs/2506.09113)
         match:
           - '(?<![a-z0-9])seedance(?![a-z])'
-        scale: {}
+        scale:
+          # used inside Doubao/Jimeng apps (no own host in our lists); attention only
+          wikipedia: [Seedance]
       luma:
         org: luma
         name: Luma Ray
