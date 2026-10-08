@@ -124,8 +124,54 @@ describe('epoch benchmark-hub modules', () => {
     // davinci-002 has a score but an empty Release date
     expect(fixture('epoch-metr')).toMatch(/^davinci-002,0\.144057,0\.161869,,OpenAI/m);
     expect(byModel(obs, 'davinci-002')).toEqual([]);
-    expect(obs).toHaveLength(26);
+    expect(obs).toHaveLength(24); // 26 dated rows, minus the two superseded by a newer METR version
     expect(epochMetr.group).toBe('metr');
+  });
+
+  it('METR: keeps only the newest METR version of a model that was measured under several', () => {
+    const obs = parse(epochMetr, 'epoch-metr');
+    // gpt-4o-2024-05-13 has a row without a METR version (9.17) and a METR-Horizon-v1.1 row (6.99)
+    expect(fixture('epoch-metr')).toMatch(/^gpt-4o-2024-05-13,9\.17045,/m);
+    expect(byModel(obs, 'gpt-4o-2024-05-13').map((o) => o.value)).toEqual([6.991195]);
+    expect(byModel(obs, 'gpt-4-0314').map((o) => o.value)).toEqual([3.987428]);
+    // models with a single row are untouched, whatever their version
+    expect(byModel(obs, 'gpt-3.5-turbo-instruct')).toHaveLength(1);
+    expect(byModel(obs, 'gpt2-xl')).toHaveLength(1);
+  });
+
+  describe('METR version selection', () => {
+    const header = 'Model version,Time horizon,Release date,Organization,METR version';
+    const metr = (...rows: string[]) => epochMetr.parse([header, ...rows].join('\n'), { now: NOW }).map((o) => [o.model, o.value]);
+
+    it('compares versions numerically, not as strings', () => {
+      expect(
+        metr('m,1,2025-01-01,X,METR-Horizon-v1.9', 'm,2,2025-01-01,X,METR-Horizon-v1.10', 'm,3,2025-01-01,X,METR-Horizon-v1.2'),
+      ).toEqual([['m', 2]]);
+      expect(metr('m,1,2025-01-01,X,METR-Horizon-v1.1', 'm,2,2025-01-01,X,METR-Horizon-v2'), 'a newer major wins').toEqual([['m', 2]]);
+      expect(metr('m,1,2025-01-01,X,METR-Horizon-v2', 'm,2,2025-01-01,X,METR-Horizon-v1.1')).toEqual([['m', 1]]);
+    });
+
+    it('treats a missing version as the oldest and keeps every row of the newest version', () => {
+      expect(metr('m,1,2025-01-01,X,', 'm,2,2025-01-01,X,METR-Horizon-v1.0')).toEqual([['m', 2]]);
+      expect(metr('m,1,2025-01-01,X,METR-Horizon-v1.1', 'm,2,2025-01-01,X,', 'm,3,2025-01-01,X,METR-Horizon-v1.1')).toEqual([['m', 1], ['m', 3]]);
+      expect(metr('m,1,2025-01-01,X,', 'm,2,2025-01-01,X,')).toEqual([['m', 1], ['m', 2]]);
+    });
+
+    it('decides per model and ignores rows that are not usable observations', () => {
+      expect(
+        metr(
+          'a,1,2025-01-01,X,METR-Horizon-v1.0',
+          'b,5,2025-01-01,X,METR-Horizon-v1.0',
+          'a,2,2025-01-01,X,METR-Horizon-v1.1',
+          'b,6,,X,METR-Horizon-v1.1', // newest version but no release date: cannot supersede the usable row
+        ),
+      ).toEqual([['b', 5], ['a', 2]]);
+    });
+
+    it('applies only to METR: other Epoch benchmarks keep repeated rows', () => {
+      const raw = ['Model version,Score,Release date,Organization', 'm,10,2025-01-01,X', 'm,20,2025-01-01,X'].join('\n');
+      expect(epochOsworld.parse(raw, { now: NOW }).map((o) => o.value)).toEqual([10, 20]);
+    });
   });
 
   it('Vending-Bench 2: dollars → thousands of dollars on the eci scale, negatives kept', () => {

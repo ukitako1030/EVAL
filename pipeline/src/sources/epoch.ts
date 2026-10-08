@@ -75,6 +75,27 @@ export interface EpochBenchmarkCfg {
   group: string;
   /** meta.name */
   name: string;
+  /**
+   * Column naming the methodology version a row was measured under (e.g. `METR-Horizon-v1.1`). When a model has rows
+   * from several versions only its newest version's rows are kept; rows with no version count as the oldest.
+   */
+  versionCol?: string;
+}
+
+/** The trailing dotted number of a version label ("METR-Horizon-v1.10" -> [1, 10]); null when there is none. */
+function versionKey(label: string): number[] | null {
+  const m = /(\d+(?:\.\d+)*)\s*$/.exec(label);
+  return m ? m[1].split('.').map(Number) : null;
+}
+
+/** Numeric, component-wise comparison (1.10 > 1.9; 1 = 1.0); no version sorts below every version. */
+function compareVersions(a: number[] | null, b: number[] | null): number {
+  if (a === null || b === null) return a === b ? 0 : a === null ? -1 : 1;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const d = (a[i] ?? 0) - (b[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
 }
 
 function escapeRegExp(s: string): string {
@@ -84,7 +105,8 @@ function escapeRegExp(s: string): string {
 /**
  * One benchmark CSV of the Epoch AI Benchmarking Hub zip. Every row carries the model's `Release date`
  * and `Organization`, so no join with the model metadata is needed. Several rows per model are kept as they are
- * (agents, effort variants); picking one is the strength computation's job.
+ * (agents, effort variants; picking one is the strength computation's job), except that with `versionCol` a model's
+ * rows from older methodology versions are dropped in favour of its newest version's.
  */
 export function epochBenchmark(cfg: EpochBenchmarkCfg): StrengthModule {
   const entry = new RegExp(`(?:^|/)${escapeRegExp(cfg.file)}$`);
@@ -105,7 +127,7 @@ export function epochBenchmark(cfg: EpochBenchmarkCfg): StrengthModule {
     parse(raw) {
       const rows = rowsOf(raw);
       if (!rows) return [];
-      const out: Observation[] = [];
+      const out: { obs: Observation; version: number[] | null }[] = [];
       for (const row of rows) {
         const score = toNumber(row[cfg.scoreCol]);
         const obs = observation(
@@ -116,9 +138,15 @@ export function epochBenchmark(cfg: EpochBenchmarkCfg): StrengthModule {
           isoDate(row['Release date']),
           score === null ? null : score * cfg.scale,
         );
-        if (obs) out.push(obs);
+        if (obs) out.push({ obs, version: cfg.versionCol ? versionKey(text(row[cfg.versionCol])) : null });
       }
-      return out;
+      if (!cfg.versionCol) return out.map((r) => r.obs);
+      const newest = new Map<string, number[] | null>();
+      for (const { obs, version } of out) {
+        const cur = newest.get(obs.model);
+        if (cur === undefined || compareVersions(version, cur) > 0) newest.set(obs.model, version);
+      }
+      return out.filter((r) => compareVersions(r.version, newest.get(r.obs.model)!) === 0).map((r) => r.obs);
     },
   };
 }
@@ -151,6 +179,7 @@ export const epochMetr = epochBenchmark({
   scale: 1,
   group: 'metr',
   name: 'Epoch AI Benchmarking Hub: METR time horizons',
+  versionCol: 'METR version',
 });
 
 /**
