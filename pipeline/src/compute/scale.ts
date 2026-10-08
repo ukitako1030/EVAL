@@ -50,7 +50,8 @@ export function scaleMonth(
   // signal shares among the present units that have the signal
   const sigShare = new Map<string, Map<string, number>>();
   for (const [sig, byUnit] of signals) {
-    const carry = CARRY_MONTHS;
+    // announcements are already interpolated/staled per month upstream; carrying them would revive dropped values
+    const carry = sig === 'announcements' ? 0 : CARRY_MONTHS;
     const vals = new Map<string, number>();
     for (const u of present) {
       const v = valueAt(byUnit.get(u), m, carry);

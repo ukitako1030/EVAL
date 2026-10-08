@@ -126,6 +126,19 @@ describe('scaleMonth: per-signal redistribution', () => {
     expect(r.get('a')!.components).toBe(2);
     expect(r.get('c')!.components).toBe(2);
   });
+  it('does not carry announcements forward (staleness is handled upstream)', () => {
+    const data = {
+      wikipedia: { a: { '2024-04': 1 }, b: { '2024-04': 1 }, c: { '2024-04': 2 } },
+      announcements: { a: { '2024-03': 10 }, b: { '2024-03': 30 } },
+    };
+    const r = scaleMonth(['a', 'b', 'c'], '2024-04', tbl(data), method);
+    expect(r.get('a')!.components).toBe(1);
+    expect(r.get('a')!.share).toBeCloseTo(0.25, 12);
+    expect(r.get('b')!.share).toBeCloseTo(0.25, 12);
+    // the same value IS used in its own month
+    const same = scaleMonth(['a', 'b', 'c'], '2024-03', tbl({ ...data, wikipedia: { a: { '2024-03': 1 }, b: { '2024-03': 1 }, c: { '2024-03': 2 } } }), method);
+    expect(same.get('a')!.components).toBe(2);
+  });
 });
 
 describe('computeScale', () => {
