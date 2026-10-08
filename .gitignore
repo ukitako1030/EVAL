@@ -5,3 +5,4 @@ dist/
 .env
 pipeline/out/
 .claude/worktrees/
+site/dist/
