@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { computeWorld } from '../../src/compute/index';
-import { saveSnapshot } from '../../src/raw/store';
+import { loadSource, saveSnapshot } from '../../src/raw/store';
 import type { SourceModule } from '../../src/sources/types';
 import type { Observation, SignalObs } from '../../src/core/types';
 
@@ -12,8 +12,7 @@ const meta = { name: 'Fake', url: 'https://fake', license: 'CC BY 4.0', credit: 
 const arena: SourceModule = { id: 'fake-arena', role: 'strength', group: 'arena-text', history: 'full', meta, fetch: async () => null, parse: () => [] };
 const wiki: SourceModule = { id: 'fake-wiki', role: 'scale', history: 'full', meta, fetch: async () => null, parse: () => [] };
 
-const readItems = (rawDir: string, id: string): unknown[] =>
-  JSON.parse(readFileSync(join(rawDir, id, '2026-10-05.json'), 'utf8')).items;
+const readItems = (rawDir: string, id: string): unknown[] => loadSource(rawDir, id, 'full');
 
 let dir: string;
 beforeAll(() => {
