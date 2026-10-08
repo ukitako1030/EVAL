@@ -10,8 +10,8 @@ const CATEGORY = 'Generative AI';
 export const BACKFILL_START = '2025-01-26T00:00:00Z';
 /** `dateRange[]` accepts at most 364d; the same bound is used for explicit windows. */
 const MAX_WINDOW_DAYS = 364;
-/** Without backfill, enough days to cover the last two complete months plus the running one. */
-const RECENT_DAYS = 90;
+/** Without backfill, the last two complete months plus the running one: this many months back from the current one. */
+const RECENT_MONTHS_BACK = 2;
 /** How many top services to return (the API default is 5). The category has far fewer than this. */
 const SERVICE_LIMIT = 20;
 const DAY_MS = 86_400_000;
@@ -31,6 +31,15 @@ export function backfillWindows(start: string, end: Date, maxDays = MAX_WINDOW_D
   return out;
 }
 
+/**
+ * The range for a non-backfill run: from the 1st day of the month two months back until now. A bare `90d` range starts
+ * mid-month, so its first month would be a short tail, and the latest fetch of a month wins in an accumulate source.
+ */
+export function recentWindow(now: Date): [string, string] {
+  const from = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - RECENT_MONTHS_BACK, 1);
+  return [new Date(from).toISOString(), now.toISOString()];
+}
+
 /** Query string with `%20`-style escaping (URLSearchParams would write "Generative+AI"). */
 export function rankingUrl(range: { dateRange: string } | { dateStart: string; dateEnd: string }): string {
   const pairs: [string, string][] = [
@@ -47,9 +56,8 @@ export function rankingUrl(range: { dateRange: string } | { dateStart: string; d
 export async function fetchCloudflare(ctx: FetchCtx): Promise<RadarResponse[]> {
   const token = ctx.env.CLOUDFLARE_API_TOKEN;
   if (!token) throw new Error('missing env: CLOUDFLARE_API_TOKEN');
-  const requests = ctx.backfill
-    ? backfillWindows(BACKFILL_START, ctx.now).map(([dateStart, dateEnd]) => rankingUrl({ dateStart, dateEnd }))
-    : [rankingUrl({ dateRange: `${RECENT_DAYS}d` })];
+  const windows = ctx.backfill ? backfillWindows(BACKFILL_START, ctx.now) : [recentWindow(ctx.now)];
+  const requests = windows.map(([dateStart, dateEnd]) => rankingUrl({ dateStart, dateEnd }));
   const out: RadarResponse[] = [];
   for (const u of requests) {
     const body = await ctx.fetchJson<RadarResponse & { success?: boolean }>(u, { headers: { Authorization: `Bearer ${token}` } });

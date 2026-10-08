@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { BACKFILL_START, backfillWindows, cloudflare, fetchCloudflare, parseCloudflare, rankingUrl } from '../../src/sources/cloudflare';
+import { BACKFILL_START, backfillWindows, cloudflare, fetchCloudflare, parseCloudflare, rankingUrl, recentWindow } from '../../src/sources/cloudflare';
 import type { FetchCtx } from '../../src/sources/types';
 
 const docExample = JSON.parse(readFileSync(new URL('../fixtures/cloudflare/sample.json', import.meta.url), 'utf8')) as {
@@ -101,6 +101,24 @@ describe('rankingUrl / backfillWindows', () => {
   });
 });
 
+describe('recentWindow', () => {
+  it('starts on the 1st of the month two months back, so every emitted month is covered from its 1st day, and ends now', () => {
+    expect(recentWindow(new Date('2026-10-08T06:00:00Z'))).toEqual(['2026-08-01T00:00:00.000Z', '2026-10-08T06:00:00.000Z']);
+    expect(recentWindow(new Date('2026-10-01T00:00:00Z'))).toEqual(['2026-08-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z']);
+    expect(recentWindow(new Date('2026-12-31T23:59:59Z'))).toEqual(['2026-10-01T00:00:00.000Z', '2026-12-31T23:59:59.000Z']);
+  });
+
+  it('crosses a year boundary and stays inside the 364-day range limit', () => {
+    expect(recentWindow(new Date('2027-01-05T12:00:00Z'))).toEqual(['2026-11-01T00:00:00.000Z', '2027-01-05T12:00:00.000Z']);
+    expect(recentWindow(new Date('2027-02-28T00:00:00Z'))[0]).toBe('2026-12-01T00:00:00.000Z');
+    for (const d of ['2026-03-31T00:00:00Z', '2026-05-31T23:00:00Z', '2026-12-31T00:00:00Z']) {
+      const [from, to] = recentWindow(new Date(d));
+      expect(Date.parse(to) - Date.parse(from)).toBeLessThanOrEqual(364 * 86_400_000);
+      expect(from.endsWith('-01T00:00:00.000Z')).toBe(true);
+    }
+  });
+});
+
 describe('fetchCloudflare', () => {
   const now = new Date('2026-10-08T06:00:00Z');
   const body = withServices({ 'ChatGPT / OpenAI': [1, 1], 'Claude / Anthropic': [3, 2] }, ['2026-10-06T00:00:00Z', '2026-10-07T00:00:00Z']);
@@ -124,11 +142,12 @@ describe('fetchCloudflare', () => {
     return { ctx, calls, logs };
   }
 
-  it('requests the last 90 days with a bearer token and logs the exact service names', async () => {
+  it('requests from the 1st of the month two months back (not a bare 90d) with a bearer token and logs the exact service names', async () => {
     const { ctx, calls, logs } = stub();
     const raw = await fetchCloudflare(ctx);
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe(rankingUrl({ dateRange: '90d' }));
+    expect(calls[0].url).toBe(rankingUrl({ dateStart: '2026-08-01T00:00:00.000Z', dateEnd: '2026-10-08T06:00:00.000Z' }));
+    expect(calls[0].url).not.toContain('dateRange');
     expect(calls[0].init?.headers).toEqual({ Authorization: 'Bearer cf-test-token' });
     expect(logs.join('\n')).toContain('ChatGPT / OpenAI | Claude / Anthropic');
     expect(logs.join('\n')).not.toContain('cf-test-token');
