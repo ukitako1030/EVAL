@@ -36,4 +36,36 @@ describe('buildSignalTable', () => {
   it('ignores unmapped keys', () => {
     expect(t.get('wikipedia')).toBeUndefined();
   });
+
+  it('skips zero, negative and non-finite observations (does not store 0)', () => {
+    const us = [u('gpt', { crux: ['chatgpt.com'], wikipedia: ['ChatGPT'], itunes: ['111'] })];
+    const bad: SignalObs[] = [
+      { signal: 'crux', key: 'chatgpt.com', month: '2025-01', value: 0 }, // rank 0 would be 1/0 → skipped, not stored as 0
+      { signal: 'wikipedia', key: 'ChatGPT', month: '2025-01', value: 0 },
+      { signal: 'wikipedia', key: 'ChatGPT', month: '2025-02', value: NaN },
+      { signal: 'wikipedia', key: 'ChatGPT', month: '2025-03', value: -5 },
+      { signal: 'wikipedia', key: 'ChatGPT', month: '2025-04', value: Infinity },
+      { signal: 'wikipedia', key: 'ChatGPT', month: '2025-05', value: 7 },
+      { signal: 'itunes', key: '111', month: '2025-01', value: 0 },
+      { signal: 'itunes', key: '111', month: '2025-01', value: 900 },
+    ];
+    const tb = buildSignalTable(us, bad);
+    expect(tb.get('crux')).toBeUndefined();
+    const wiki = tb.get('wikipedia')!.get('gpt')!;
+    expect([...wiki.keys()]).toEqual(['2025-05']);
+    expect(wiki.get('2025-05')).toBe(7);
+    expect(tb.get('itunes')!.get('gpt')!.get('2025-01')).toBe(900);
+  });
+  it('assigns an openrouter slug only to the unit with the longest matching prefix', () => {
+    const us = [
+      u('gpt', { openrouter: ['openai/'] }),
+      u('oss', { openrouter: ['openai/gpt-oss'] }),
+    ];
+    const tb = buildSignalTable(us, [
+      { signal: 'openrouter', key: 'openai/gpt-oss-120b', month: '2025-01', value: 0.4 },
+      { signal: 'openrouter', key: 'openai/gpt-5', month: '2025-01', value: 0.2 },
+    ]);
+    expect(tb.get('openrouter')!.get('oss')!.get('2025-01')).toBeCloseTo(0.4, 12);
+    expect(tb.get('openrouter')!.get('gpt')!.get('2025-01')).toBeCloseTo(0.2, 12);
+  });
 });
