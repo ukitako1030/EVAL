@@ -112,11 +112,13 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
   }
 
   function burst(x: number, y: number, color: number, n: number, speedPx: number, life: number) {
-    const pale = mixColor(color, 0xffffff, 0.45);
+    const paleOrg = colorGain(color) < 1;
+    const dim = paleOrg ? mixColor(color, 0x000000, 0.35) : color;
+    const pale = paleOrg ? dim : mixColor(color, 0xffffff, 0.3);
     for (let k = 0; k < n; k++) {
       const a = rnd() * Math.PI * 2;
       const v = (0.35 + rnd() * 0.65) * speedPx * unitPx;
-      addSpark(x, y, Math.cos(a) * v, Math.sin(a) * v, life * (0.5 + rnd() * 0.5), k % 3 === 0 ? pale : color, 1 + rnd());
+      addSpark(x, y, Math.cos(a) * v, Math.sin(a) * v, life * (0.5 + rnd() * 0.5), k % 5 === 0 ? pale : dim, 1 + rnd());
     }
   }
 

@@ -322,7 +322,7 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
         vis,
         time,
         reduced,
-        selected: sel >= 0 && u.alive[sel] >= 3 ? { x: u.cx[sel], y: u.cy[sel], color: color[sel], r: 0.05 } : null,
+        selected: sel >= 0 && u.alive[sel] >= 3 ? { x: u.cx[sel], y: u.cy[sel], color: color[sel], r: 0.13 } : null,
       });
       updateLabels(p, dt, st, compact);
       // the overview's planet titles and territory names make way for the swarm labels

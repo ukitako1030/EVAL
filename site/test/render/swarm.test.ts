@@ -223,6 +223,37 @@ describe('swarm simulation', () => {
     expect(wins / all).toBeGreaterThan(0.85);
   });
 
+  it('the stronger swarm pushes the frontline into the weaker territory', () => {
+    const sw = createSwarm({ capacity: 1200, seed: 8 });
+    const frames = [frame('strong', 50, 96), frame('weak', 50, 62)];
+    const wedges = feed(sw, frames, 1000, { instant: true });
+    const into = (id: string, other: string) => {
+      const w = wedges.find((x) => x.id === other)!;
+      const slot = sw.slotOf(id);
+      let n = 0;
+      let inside = 0;
+      for (let i = 0; i < sw.capacity; i++) {
+        if (sw.state[i] !== ALIVE || sw.owner[i] !== slot) continue;
+        n++;
+        let a = Math.atan2(sw.y[i], sw.x[i]);
+        while (a < w.a0) a += TAU;
+        if (a <= w.a1) inside++;
+      }
+      return inside / Math.max(1, n);
+    };
+    let strongIn = 0;
+    let weakIn = 0;
+    for (let k = 0; k < 900; k++) {
+      feed(sw, frames, 1000);
+      sw.step(1 / 60, k / 60);
+      if (k >= 300 && k % 30 === 0) {
+        strongIn += into('strong', 'weak');
+        weakIn += into('weak', 'strong');
+      }
+    }
+    expect(strongIn).toBeGreaterThan(weakIn * 1.5);
+  });
+
   it('warps arriving units in and fades leaving units out', () => {
     const sw = createSwarm({ capacity: 800, seed: 9 });
     const base = [frame('a', 60, 90), frame('b', 40, 80)];

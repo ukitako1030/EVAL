@@ -8,7 +8,7 @@
  * The caller asks the flash budget; this module only draws what it is told.
  */
 import { CanvasSource, Container, Graphics, Sprite, Texture } from 'pixi.js';
-import { mixColor } from './color';
+import { colorGain, mixColor } from './color';
 
 export interface BattleFx {
   readonly container: Container;
@@ -39,6 +39,8 @@ interface Fx {
   y: number;
   color: number;
   pale: number;
+  /** < 1 for pale org colours (xAI, Luma…), which would otherwise read as white */
+  gain: number;
   grant: number;
   t: number;
   dur: number;
@@ -113,7 +115,8 @@ export function createBattleFx(glow: Texture): BattleFx {
       x,
       y,
       color,
-      pale: mixColor(color, 0xffffff, 0.35),
+      pale: mixColor(color, 0xffffff, 0.25),
+      gain: colorGain(color),
       grant: g,
       t: 0,
       dur: kind === 'shock' ? 1.6 : 1.5,
@@ -141,17 +144,19 @@ export function createBattleFx(glow: Texture): BattleFx {
         const cx = f.x * R;
         const cy = f.y * R;
         // without a flash grant the effect still reads, but only as thin, dim lines
-        const base = (f.grant > 0 ? 1 : 0.4) * vis;
+        const base = (f.grant > 0 ? 1 : 0.4) * f.gain * vis;
+        // reduced motion: rings appear at their final size and only fade (no expansion)
+        const grow = (q: number) => (v.reduced ? 0.6 : easeOut(q));
         if (f.kind === 'shock') {
           for (let r = 0; r < 3; r++) {
             const d = r * 0.12;
             const pp = clamp((p - d) / (1 - d), 0, 1);
             if (pp <= 0) continue;
-            const rad = easeOut(pp) * R * (0.8 - r * 0.15);
+            const rad = grow(pp) * R * (0.8 - r * 0.15);
             const w = ((1 - pp) * (r === 0 ? 6 : 2) + 0.6) * px;
             lines.circle(cx, cy, Math.max(px, rad)).stroke({ width: w, color: r === 1 ? f.pale : f.color, alpha: (1 - pp) * 0.85 * base });
           }
-          const rr = easeOut(p) * R * 0.7;
+          const rr = grow(p) * R * 0.7;
           for (let q = 0; q < 16; q++) {
             const a = (q / 16) * Math.PI * 2 + f.x * 7;
             lines.moveTo(cx + Math.cos(a) * rr * 0.75, cy + Math.sin(a) * rr * 0.75).lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
@@ -159,14 +164,14 @@ export function createBattleFx(glow: Texture): BattleFx {
           lines.stroke({ width: px, color: f.pale, alpha: (1 - p) * 0.6 * base });
           // the flash: a local, coloured glow at the granted intensity
           f.glow.position.set(cx, cy);
-          f.glow.width = f.glow.height = R * (0.35 + 0.5 * easeOut(p));
+          f.glow.width = f.glow.height = R * (0.35 + 0.5 * grow(p));
           f.glow.tint = f.color;
-          f.glow.alpha = f.grant * (1 - p) * (1 - p) * vis;
+          f.glow.alpha = f.grant * (1 - p) * (1 - p) * f.gain * vis;
         } else {
           const q = 1 - p;
           const rad = (1 - easeOut(Math.min(1, p * 1.6))) * R * 0.5;
           lines.circle(cx, cy, rad + 2 * px).stroke({ width: 2 * px, color: f.color, alpha: q * 0.9 * base });
-          const beamA = (f.grant > 0 ? 0.3 + 2 * f.grant : 0.18) * q * vis;
+          const beamA = (f.grant > 0 ? 0.3 + 2 * f.grant : 0.18) * q * f.gain * vis;
           if (f.beam) {
             f.beam.position.set(cx, cy);
             f.beam.width = (4 + 10 * q) * px;
@@ -185,21 +190,22 @@ export function createBattleFx(glow: Texture): BattleFx {
           f.glow.position.set(cx, cy);
           f.glow.width = f.glow.height = R * 0.24 * (0.5 + q);
           f.glow.tint = f.color;
-          f.glow.alpha = f.grant * q * vis;
+          f.glow.alpha = f.grant * q * f.gain * vis;
         }
       }
       const s = v.selected;
       if (s && vis > 0.01) {
         const cx = s.x * R;
         const cy = s.y * R;
-        const rr = s.r * R + 10 * px;
+        const rr = s.r * R + 14 * px;
         const t = v.reduced ? 0 : v.time;
+        const col = mixColor(s.color, 0xffffff, 0.4);
         for (let i = 0; i < 4; i++) {
           const a = t * 0.9 + (i * Math.PI) / 2;
-          lines.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr).arc(cx, cy, rr, a, a + 0.55);
+          lines.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr).arc(cx, cy, rr, a, a + 0.6);
         }
-        lines.stroke({ width: 1.6 * px, color: mixColor(s.color, 0xffffff, 0.4), alpha: 0.9 * vis });
-        lines.circle(cx, cy, 3.5 * px).stroke({ width: 1.2 * px, color: mixColor(s.color, 0xffffff, 0.4), alpha: 0.9 * vis });
+        lines.stroke({ width: 2 * px, color: col, alpha: 0.95 * vis });
+        lines.circle(cx, cy, rr + 7 * px).stroke({ width: px, color: col, alpha: 0.35 * vis });
       }
     },
     clear() {
