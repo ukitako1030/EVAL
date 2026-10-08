@@ -9,28 +9,45 @@ export interface ItunesRaw {
   results: { trackId: number; trackName?: string; userRatingCount?: number }[];
 }
 
-/** One stable URL per run: ids de-duplicated and sorted numerically (the CDN caches by exact query string). */
+/** Ids per lookup request. A single call with 22 ids was verified (docs/superpowers/recon/sources-scale.md); more apps are split into several calls instead of one ever-longer query string. */
+export const LOOKUP_BATCH_SIZE = 100;
+
+/** Ids de-duplicated and sorted numerically (the CDN caches by exact query string). */
+const sortedUnique = (ids: string[]) => [...new Set(ids)].sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
+
+/** The ids in lookup batches of at most `LOOKUP_BATCH_SIZE`: sorted and de-duplicated overall, so every run asks the same URLs. */
+export function lookupBatches(ids: string[]): string[][] {
+  const sorted = sortedUnique(ids);
+  const out: string[][] = [];
+  for (let i = 0; i < sorted.length; i += LOOKUP_BATCH_SIZE) out.push(sorted.slice(i, i + LOOKUP_BATCH_SIZE));
+  return out;
+}
+
+/** One stable URL per batch: ids de-duplicated and sorted numerically. */
 export function lookupUrl(ids: string[]): string {
-  const sorted = [...new Set(ids)].sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
-  return `https://itunes.apple.com/lookup?id=${sorted.join(',')}&country=${COUNTRY}`;
+  return `https://itunes.apple.com/lookup?id=${sortedUnique(ids).join(',')}&country=${COUNTRY}`;
 }
 
 export async function fetchItunes(ctx: FetchCtx): Promise<ItunesRaw> {
   const configured = [...new Set(ctx.keys('itunes').map((k) => k.trim()))];
   const bad = configured.filter((k) => !/^\d+$/.test(k));
   if (bad.length) ctx.log(`itunes: ignoring non-numeric ids ${bad.join(', ')}`);
-  const ids = configured.filter((k) => /^\d+$/.test(k));
+  const ids = sortedUnique(configured.filter((k) => /^\d+$/.test(k)));
   if (!ids.length) throw new Error('no itunes app ids configured in units.yaml');
-  // served as text/javascript with leading newlines; JSON.parse tolerates the whitespace
-  const body = JSON.parse(await ctx.fetchText(lookupUrl(ids))) as { results?: unknown };
-  if (!Array.isArray(body.results)) throw new Error('itunes: response has no results (format change?)');
-  const results = (body.results as Record<string, unknown>[])
-    .filter((r) => r && typeof r.trackId === 'number')
-    .map((r) => ({
-      trackId: r.trackId as number,
-      trackName: typeof r.trackName === 'string' ? r.trackName : undefined,
-      userRatingCount: typeof r.userRatingCount === 'number' ? r.userRatingCount : undefined,
-    }));
+  const results: ItunesRaw['results'] = [];
+  for (const batch of lookupBatches(ids)) {
+    // served as text/javascript with leading newlines; JSON.parse tolerates the whitespace
+    const body = JSON.parse(await ctx.fetchText(lookupUrl(batch))) as { results?: unknown };
+    if (!Array.isArray(body.results)) throw new Error('itunes: response has no results (format change?)');
+    for (const r of body.results as Record<string, unknown>[]) {
+      if (!r || typeof r.trackId !== 'number') continue;
+      results.push({
+        trackId: r.trackId,
+        trackName: typeof r.trackName === 'string' ? r.trackName : undefined,
+        userRatingCount: typeof r.userRatingCount === 'number' ? r.userRatingCount : undefined,
+      });
+    }
+  }
   // unknown or removed ids are dropped silently by Apple
   const got = new Set(results.map((r) => String(r.trackId)));
   const missing = ids.filter((id) => !got.has(id));

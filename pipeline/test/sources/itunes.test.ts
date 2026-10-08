@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { fetchItunes, itunes, lookupUrl, parseItunes } from '../../src/sources/itunes';
+import { LOOKUP_BATCH_SIZE, fetchItunes, itunes, lookupBatches, lookupUrl, parseItunes } from '../../src/sources/itunes';
 import type { FetchCtx } from '../../src/sources/types';
 
 const text = readFileSync(new URL('../fixtures/itunes/sample.json', import.meta.url), 'utf8');
@@ -11,6 +11,23 @@ describe('lookupUrl', () => {
     expect(lookupUrl(['6473753684', '1558240027', '6448311069', '6473753684'])).toBe(
       'https://itunes.apple.com/lookup?id=1558240027,6448311069,6473753684&country=us',
     );
+  });
+});
+
+describe('lookupBatches', () => {
+  it('splits the sorted, de-duplicated ids into batches of at most 100', () => {
+    expect(LOOKUP_BATCH_SIZE).toBe(100);
+    const ids = Array.from({ length: 250 }, (_, i) => String(1_000_000 + ((i * 7) % 250))); // unsorted, 250 distinct
+    const batches = lookupBatches([...ids, ...ids.slice(0, 20)]); // 20 duplicates on top
+    expect(batches.map((b) => b.length)).toEqual([100, 100, 50]);
+    expect(batches.flat()).toEqual([...new Set(ids)].sort((a, b) => Number(a) - Number(b)));
+  });
+
+  it('keeps exactly 100 ids in one batch and starts a new one at 101', () => {
+    const ids = (n: number) => Array.from({ length: n }, (_, i) => String(i + 1));
+    expect(lookupBatches(ids(100)).map((b) => b.length)).toEqual([100]);
+    expect(lookupBatches(ids(101)).map((b) => b.length)).toEqual([100, 1]);
+    expect(lookupBatches([])).toEqual([]);
   });
 });
 
@@ -79,6 +96,48 @@ describe('fetchItunes', () => {
     expect(raw.results[0]).toEqual({ trackId: 6448311069, trackName: 'ChatGPT', userRatingCount: 11079400 });
     expect(Object.keys(raw.results[0] as object).sort()).toEqual(['trackId', 'trackName', 'userRatingCount']);
     expect(itunes.parse(raw, { now }).find((o) => o.key === '6448311069')?.value).toBe(11079400);
+  });
+
+  it('looks up at most 100 ids per request, and merges the results of all batches', async () => {
+    const ids = Array.from({ length: 230 }, (_, i) => String(6_000_000_000 + i * 3));
+    const urls: string[] = [];
+    const ctx = {
+      now,
+      keys: (s: string) => (s === 'itunes' ? [...ids].reverse() : []), // unsorted on purpose
+      fetchText: async (url: string) => {
+        urls.push(url);
+        const asked = /id=([\d,]+)&/.exec(url)![1].split(',');
+        const results = asked.map((id) => ({ trackId: Number(id), trackName: `app ${id}`, userRatingCount: 10 }));
+        return '\n\n\n' + JSON.stringify({ resultCount: results.length, results }); // the real body starts with newlines
+      },
+      log: () => {},
+    } as unknown as FetchCtx;
+    const raw = (await fetchItunes(ctx)) as { results: { trackId: number }[] };
+    expect(urls).toHaveLength(3);
+    const askedPerCall = urls.map((u) => /id=([\d,]+)&/.exec(u)![1].split(','));
+    expect(askedPerCall.map((a) => a.length)).toEqual([100, 100, 30]);
+    expect(askedPerCall.flat()).toEqual(ids); // ascending, none lost or repeated
+    for (const u of urls) expect(u).toMatch(/^https:\/\/itunes\.apple\.com\/lookup\?id=[\d,]+&country=us$/);
+    expect(raw.results.map((r) => String(r.trackId))).toEqual(ids);
+    expect(itunes.parse(raw, { now })).toHaveLength(230);
+  });
+
+  it('reports ids with no result across batches, and fails if any batch is not a lookup result', async () => {
+    const ids = Array.from({ length: 150 }, (_, i) => String(1000 + i));
+    const logs: string[] = [];
+    const answer = (url: string) => {
+      const asked = /id=([\d,]+)&/.exec(url)![1].split(',').filter((id) => id !== '1120' && id !== '1130'); // two ids gone from the store
+      return JSON.stringify({ resultCount: asked.length, results: asked.map((id) => ({ trackId: Number(id), userRatingCount: 1 })) });
+    };
+    const ctx = { now, keys: () => ids, fetchText: async (url: string) => answer(url), log: (m: string) => logs.push(m) } as unknown as FetchCtx;
+    const raw = (await fetchItunes(ctx)) as { results: unknown[] };
+    expect(raw.results).toHaveLength(148);
+    expect(logs.filter((l) => l.includes('no result'))).toHaveLength(1);
+    expect(logs.find((l) => l.includes('no result'))).toContain('1120, 1130');
+
+    let call = 0;
+    const bad = { ...ctx, fetchText: async (url: string) => (call++ === 1 ? '{"errorMessage":"nope"}' : answer(url)) } as unknown as FetchCtx;
+    await expect(fetchItunes(bad)).rejects.toThrow(/no results/);
   });
 
   it('logs ids that Apple silently dropped', async () => {
