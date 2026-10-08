@@ -9,15 +9,23 @@ export function selectEvents(world: World, i: number, front: FrontId | null): Wo
   return world.events.filter((e) => e.month === month && shownIn(e, front));
 }
 
-/** Month indices at which `selectEvents` returns something for this view — the only months playback should pause on. */
-export function holdMonths(world: World, front: FrontId | null): Set<number> {
+/**
+ * Month index → number of banners `selectEvents` returns for it, for every month that has at least one — the only months
+ * playback should pause on, and how long: one hold per banner. Events whose month is not on the timeline are ignored.
+ */
+export function holdCounts(world: World, front: FrontId | null): Map<number, number> {
   const index = new Map(world.months.map((m, i) => [m, i] as const));
-  const out = new Set<number>();
+  const out = new Map<number, number>();
   for (const e of world.events) {
     const i = index.get(e.month);
-    if (i !== undefined && shownIn(e, front)) out.add(i);
+    if (i !== undefined && shownIn(e, front)) out.set(i, (out.get(i) ?? 0) + 1);
   }
   return out;
+}
+
+/** The months that have at least one banner (the keys of `holdCounts`). */
+export function holdMonths(world: World, front: FrontId | null): Set<number> {
+  return new Set(holdCounts(world, front).keys());
 }
 
 export interface Banner {

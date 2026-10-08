@@ -13,4 +13,8 @@ describe('url state', () => {
     expect(encodeUrl({ front: null, t: 0, lang: 'ja' }, w)).toBe('?t=2025-01&lang=ja');
     expect(decodeUrl('?front=nope&t=1999-01&lang=fr', w)).toEqual({});
   });
+  it('encodes a non-finite t as the last month, never "undefined"', () => {
+    expect(encodeUrl({ front: null, t: NaN, lang: 'en' }, w)).toBe('?t=2025-04&lang=en');
+    expect(encodeUrl({ front: null, t: Infinity, lang: 'en' }, w)).toBe('?t=2025-04&lang=en');
+  });
 });

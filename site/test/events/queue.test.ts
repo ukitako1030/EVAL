@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createBannerQueue, holdMonths, selectEvents } from '../../src/events/queue';
+import { createBannerQueue, holdCounts, holdMonths, selectEvents } from '../../src/events/queue';
 import { makeWorld } from '../fixtures/world';
 import type { WorldEvent } from '../../src/data/types';
 
@@ -14,6 +14,33 @@ describe('selectEvents', () => {
     expect(selectEvents(w, 3, 'general').map((e) => e.type)).toEqual(['surge']);
     expect(selectEvents(w, 0, null).map((e) => e.type)).toEqual(['custom']);
     expect(selectEvents(w, 1, null)).toEqual([]);
+  });
+});
+
+describe('holdCounts', () => {
+  const w = makeWorld();
+  it('maps each month index to the number of banners selectEvents returns for it', () => {
+    expect(holdCounts(w, null)).toEqual(new Map([[0, 1], [2, 1]]));
+    expect(holdCounts(w, 'image')).toEqual(new Map([[2, 1]]));
+    expect(holdCounts(w, 'general')).toEqual(new Map([[0, 1], [2, 1], [3, 1]]));
+    expect(holdCounts(w, 'code').size).toBe(0);
+  });
+  it('counts every banner of a month', () => {
+    const x = makeWorld();
+    x.events.push({ ...x.events[1], unit: 'gpt', type: 'new_model' }, { ...x.events[1], unit: 'gemini', type: 'surge' });
+    expect(holdCounts(x, null).get(2)).toBe(3);
+    expect(holdCounts(x, 'image').get(2)).toBe(1);
+  });
+  it('agrees with selectEvents for every month and view', () => {
+    for (const front of [null, 'general', 'image', 'code'] as const) {
+      const counts = holdCounts(w, front);
+      w.months.forEach((_, i) => expect(counts.get(i) ?? 0).toBe(selectEvents(w, i, front).length));
+    }
+  });
+  it('ignores events whose month is not on the timeline', () => {
+    const x = makeWorld();
+    x.events.push({ month: '2030-01', front: 'general', unit: 'gpt', type: 'custom', major: true, text: { ja: '', en: '' } });
+    expect(holdCounts(x, null)).toEqual(new Map([[0, 1], [2, 1]]));
   });
 });
 

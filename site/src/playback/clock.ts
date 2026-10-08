@@ -1,4 +1,6 @@
 export const BASE_SECONDS_PER_MONTH = 1.4;
+/** Longest step a single tick may advance (s); a stalled tab or a long GC pause must not skip months. */
+export const MAX_DT = 0.25;
 export const HOLD_SECONDS: Record<1 | 2 | 4, number> = { 1: 2, 2: 1.5, 4: 0.8 };
 
 export interface PlaybackState {
@@ -13,14 +15,20 @@ export interface TickResult extends PlaybackState {
   holding: boolean;
 }
 
-export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlySet<number> }) {
+/** `eventMonths`: month index → number of banners that month; playback holds `HOLD_SECONDS[speed]` per banner. */
+export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlyMap<number, number> }) {
   let hold = 0;
+  let heldMonth = -1; // the month the current hold belongs to
   return {
-    tick(dt: number, st: PlaybackState): TickResult {
+    tick(rawDt: number, st: PlaybackState): TickResult {
       if (!st.playing) {
         hold = 0;
+        heldMonth = -1;
         return { ...st, crossed: [], holding: false };
       }
+      if (!Number.isFinite(rawDt) || rawDt <= 0) return { ...st, crossed: [], holding: hold > 0 };
+      const dt = Math.min(rawDt, MAX_DT);
+      if (hold > 0 && Math.floor(st.t + 1e-9) !== heldMonth) hold = 0; // the user scrubbed / stepped away from the held month
       if (hold > 0) {
         hold = Math.max(0, hold - dt);
         return { ...st, crossed: [], holding: hold > 0 };
@@ -30,9 +38,11 @@ export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlyS
       const crossed: number[] = [];
       for (let m = Math.floor(from + 1e-9) + 1; m <= Math.floor(to + 1e-9); m++) {
         crossed.push(m);
-        if (opts.eventMonths.has(m)) {
+        const items = opts.eventMonths.get(m) ?? 0;
+        if (items > 0 && m < opts.lastIndex) {
           to = m;
-          hold = HOLD_SECONDS[st.speed];
+          hold = HOLD_SECONDS[st.speed] * items;
+          heldMonth = m;
           break;
         }
       }
@@ -40,6 +50,7 @@ export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlyS
     },
     reset() {
       hold = 0;
+      heldMonth = -1;
     },
   };
 }
