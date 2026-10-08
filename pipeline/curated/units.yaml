@@ -52,8 +52,9 @@ orgs:
   runway: { name: Runway, color: '#a0ff3c' }
   # mockups used #ff6ec7, which is nearly identical to Alibaba's #ff4fd8 (both on the video front with Wan)
   minimax: { name: MiniMax, color: '#5ce1e6' }
-  luma: { name: Luma AI, color: '#f5f0e1' }
-  elevenlabs: { name: ElevenLabs, color: '#dcdcdc' }
+  luma: { name: Luma AI, color: '#a78bff' }
+  # brand colours are white/grey, which made the speech and music planets read as empty; saturated stand-ins
+  elevenlabs: { name: ElevenLabs, color: '#ff5fa2' }
   cartesia: { name: Cartesia, color: '#ffe36e' }
   hume: { name: Hume AI, color: '#c792ea' }
   suno: { name: Suno, color: '#ffcf33' }
