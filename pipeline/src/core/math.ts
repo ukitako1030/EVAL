@@ -24,7 +24,10 @@ export function weightedMean(items: { value: number; weight: number }[]): number
   return sw > 0 ? s / sw : null;
 }
 
-/** Mean of the last `window` non-null values ending at i; null where series[i] is null. */
+/**
+ * Mean of the non-null values among the last `window` positions ending at i (nulls inside the window are skipped,
+ * not replaced by earlier values); null where series[i] is null.
+ */
 export function trailingMean(series: (number | null)[], window: number): (number | null)[] {
   return series.map((cur, i) => {
     if (cur === null) return null;
