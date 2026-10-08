@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { frontFrame, orgDeployment, monthLabel, clampT, FOG } from '../../src/data/timeline';
+import { frontFrame, orgDeployment, orgDeploymentFrom, allFrames, createFrameSource, monthLabel, clampT, FOG } from '../../src/data/timeline';
 import { makeWorld } from '../fixtures/world';
 
 describe('frontFrame', () => {
@@ -142,5 +142,29 @@ describe('deterministic ordering', () => {
   it('orders orgs with equal reach and share the same way', () => {
     // 'a-org' etc. only exist on the code front, one front each, equal share
     expect(orgDeployment(tied(), 1).filter((d) => ['a', 'B', 'Z'].includes(d.org)).map((d) => d.org)).toEqual(['B', 'Z', 'a']);
+  });
+});
+
+describe('shared frames', () => {
+  it('allFrames holds every front; orgDeploymentFrom matches orgDeployment in either sort order', () => {
+    const w = makeWorld();
+    for (const t of [0, 1.5, 3]) {
+      const fs = allFrames(w, t, 'scale');
+      expect(Object.keys(fs).sort()).toEqual(w.fronts.map((f) => f.id).sort());
+      expect(fs.general).toEqual(frontFrame(w, 'general', t, 'scale'));
+      expect(orgDeploymentFrom(w, fs)).toEqual(orgDeployment(w, t));
+    }
+  });
+  it('createFrameSource computes once per (t, sortBy)', () => {
+    const w = makeWorld();
+    const src = createFrameSource(w);
+    const a = src(1.25, 'strength');
+    expect(src(1.25, 'strength')).toBe(a);
+    const b = src(1.5, 'strength');
+    expect(b).not.toBe(a);
+    expect(b.general).toEqual(frontFrame(w, 'general', 1.5, 'strength'));
+    const c = src(1.5, 'scale');
+    expect(c).not.toBe(b);
+    expect(c.general).toEqual(frontFrame(w, 'general', 1.5, 'scale'));
   });
 });

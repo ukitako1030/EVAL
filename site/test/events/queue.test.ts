@@ -81,4 +81,38 @@ describe('banner queue', () => {
     q.clear();
     expect(q.update(10)).toEqual([]);
   });
+  it('minSeconds: a banner that has been up that long makes way for waiting news; alone it stays the full time', () => {
+    const q = createBannerQueue({ maxVisible: 1, seconds: 4, maxPending: 6, stagger: 0, minSeconds: 2 });
+    q.push([ev('a'), ev('b')]);
+    expect(q.update(0).map((b) => b.event.unit)).toEqual(['a']);
+    expect(q.update(1.9).map((b) => b.event.unit)).toEqual(['a']);
+    expect(q.update(2).map((b) => b.event.unit)).toEqual(['b']); // 'a' yields after 2 s
+    expect(q.update(5.9).map((b) => b.event.unit)).toEqual(['b']); // nothing waiting: 'b' stays its 4 s
+    expect(q.update(6)).toEqual([]);
+    // two at a time: both yield once readable for minSeconds
+    const g = createBannerQueue({ maxVisible: 2, seconds: 4, maxPending: 6, stagger: 0.35, minSeconds: 2 });
+    g.push([ev('a'), ev('b'), ev('c'), ev('d')]);
+    g.update(0);
+    expect(g.update(0.35).map((b) => b.event.unit)).toEqual(['a', 'b']);
+    expect(g.update(1.9).map((b) => b.event.unit)).toEqual(['a', 'b']);
+    expect(g.update(2).map((b) => b.event.unit)).toEqual(['b', 'c']); // 'a' (up 2 s) made way for 'c'
+    expect(g.update(2.35).map((b) => b.event.unit)).toEqual(['c', 'd']); // then 'b' for 'd'
+    expect(g.update(6.3).map((b) => b.event.unit)).toEqual(['d']); // nothing waiting: full 4 s each
+  });
+  it('setMinSeconds follows the playback speed; never above seconds; default never yields early', () => {
+    const q = createBannerQueue({ maxVisible: 1, seconds: 4, maxPending: 6, stagger: 0 });
+    q.push([ev('a'), ev('b')]);
+    q.update(0);
+    expect(q.update(3.9).map((b) => b.event.unit)).toEqual(['a']);
+    expect(q.update(4).map((b) => b.event.unit)).toEqual(['b']);
+    q.setMinSeconds(0.8);
+    q.push([ev('c')]);
+    expect(q.update(4.7).map((b) => b.event.unit)).toEqual(['b']);
+    expect(q.update(4.8).map((b) => b.event.unit)).toEqual(['c']);
+    q.setMinSeconds(99); // clamped to seconds
+    q.setMinSeconds(NaN); // ignored
+    q.push([ev('d')]);
+    expect(q.update(8.7).map((b) => b.event.unit)).toEqual(['c']);
+    expect(q.update(8.8).map((b) => b.event.unit)).toEqual(['d']);
+  });
 });

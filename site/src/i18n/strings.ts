@@ -82,7 +82,8 @@ export const STRINGS = {
   asOf: { ja: '取得日', en: 'Retrieved' },
   otherCredits: { ja: 'その他の出典', en: 'Other credits' },
   backToMonitor: { ja: '戦況モニターへ戻る', en: 'Back to the monitor' },
-  loadError: { ja: 'データを読み込めませんでした。時間をおいて再読み込みしてください。', en: 'Could not load the data; please reload in a moment.' },
+  introTitle: { ja: 'ChatGPT 公開、開戦', en: 'ChatGPT launches — the war begins' },
+  loadError: { ja:'データを読み込めませんでした。時間をおいて再読み込みしてください。', en: 'Could not load the data; please reload in a moment.' },
 } as const satisfies Record<string, { ja: string; en: string }>;
 
 /** The label for each confidence level (`q`, `qs`, `qc`). */

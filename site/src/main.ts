@@ -1,105 +1,219 @@
+/**
+ * App wiring: data → store → playback / banners → shared frames → HUD + PixiJS renderer.
+ *
+ * One shared clock — the galaxy's animation clock (seconds of rendered frames since start) — drives the galaxy, the
+ * org highlight, the battle, the banner queue and every flash-budget request, so the budget's "≤ 3 per second" is
+ * measured on one timeline. Frames (`frontFrame` for every front) are computed once per animation frame and shared
+ * by the galaxy (and through its planets the battle), the ranking and the deployment matrix.
+ */
 import { createRenderer, type Renderer } from './render/app';
-import { createGalaxy, type Galaxy } from './render/galaxy';
+import { createGalaxy } from './render/galaxy';
 import { createFleets } from './render/fleets';
 import { createHighlight } from './render/highlight';
+import { createBattle } from './render/battle';
 import { FONT_DISP, FONT_JP, FONT_UI } from './render/labels';
 import { isPortrait } from './render/layout';
-import type { QualityLevel } from './fx/quality';
+import { createQualityGovernor, type QualityLevel } from './fx/quality';
 import { createFlashBudget, logFlashes } from './fx/flashBudget';
-import { createBattle } from './render/battle';
-import { STRINGS } from './i18n/strings';
+import { tr } from './i18n/strings';
 import { loadWorld } from './data/load';
-import { frontFrame, type UnitFrame } from './data/timeline';
+import { createFrameSource, monthIndex } from './data/timeline';
 import type { FrontId, Lang, World } from './data/types';
-import { createStore, defaultState } from './state/store';
+import { createStore, defaultState, type AppState } from './state/store';
 import { decodeUrl } from './state/url';
+import { syncUrl } from './state/urlSync';
+import { initialPlayback, safeLocalStorage } from './state/intro';
+import { HOLD_SECONDS, MAX_HOLD_SECONDS, createPlayback } from './playback/clock';
+import { createBannerQueue, holdCounts, selectEvents } from './events/queue';
+import { mountHud } from './ui/hud';
+import { createRanking } from './ui/ranking';
+import { createDeployment } from './ui/deployment';
+import { createTimelineBar } from './ui/timelineBar';
+import { createBanners } from './ui/banners';
+import { createDetail } from './ui/detail';
+import { createBackButton } from './ui/backButton';
+import { createIntroCard, type IntroCard } from './ui/introCard';
+import { showLoadError } from './ui/loadError';
 
-// Minimal wiring for the galaxy overview — playback, HUD and the full frame loop arrive in Task 15.
+/** Banners stay up this long (s); the focused view shows one at a time, the galaxy two. */
+const BANNER_SECONDS = 4;
+
 const mount = document.getElementById('app');
 if (mount) void boot(mount);
 
 async function boot(mount: HTMLElement) {
+  const params = new URLSearchParams(location.search);
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   try {
     const fonts = loadFonts();
     const [renderer, world] = await Promise.all([createRenderer(mount, { reducedMotion: motion.matches }), loadWorld()]);
-    const params = new URLSearchParams(location.search);
-    // debug: ?quality=0..3 pins the quality level (used by the screenshot / fps harness)
-    const q = params.get('quality');
-    if (q === '0' || q === '1' || q === '2' || q === '3') renderer.setQuality(Number(q) as QualityLevel);
+    const last = world.months.length - 1;
+    // a shared link (with `t`) opens paused at its month and never plays the intro
+    const store = createStore<AppState>({
+      ...defaultState(last),
+      ...initialPlayback(safeLocalStorage(), last, { sharedLink: params.has('t') }),
+      ...decodeUrl(location.search, world),
+      reducedMotion: motion.matches,
+    });
+    motion.addEventListener('change', (e) => store.set({ reducedMotion: e.matches }));
 
-    const store = createStore({ ...defaultState(world.months.length - 1), ...decodeUrl(location.search, world), reducedMotion: motion.matches });
-    // debug: ?debugFlash logs the granted flashes per second (stats also on window.__flashStats)
-    const flashLog = params.has('debugFlash') ? logFlashes(createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 }), { clock: () => performance.now() / 1000, log: (m) => console.log(m) }) : null;
-    const flashes = flashLog?.budget ?? createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 });
+    // debug: ?quality=0..3 pins the quality level (screenshot / fps harness); otherwise the governor steps it down
+    const q = params.get('quality');
+    const pinnedQuality = q === '0' || q === '1' || q === '2' || q === '3';
+    if (pinnedQuality) renderer.setQuality(Number(q) as QualityLevel);
+    const compact = window.innerWidth < 768 || isPortrait({ w: window.innerWidth, h: window.innerHeight });
+    const governor = createQualityGovernor({ targetFps: compact ? 30 : 60, window: 2 });
+
+    // every light flash goes through this budget; debug: ?debugFlash logs grants per second (window.__flashStats)
+    const budget = createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 });
+    const flashLog = params.has('debugFlash') ? logFlashes(budget, { clock: () => performance.now() / 1000, log: (m) => console.log(m) }) : null;
+    const flashes = flashLog?.budget ?? budget;
+
     // wait briefly for the web fonts so the first labels render in the right face (refreshed if they arrive later)
     await Promise.race([fonts, new Promise((r) => setTimeout(r, 1500))]);
     const galaxy = createGalaxy(renderer, { world, store, flashes });
-    void fonts.then(() => galaxy.refreshText());
-    preloadFontGlyphs(world).then(() => galaxy.refreshText(), () => undefined);
+    const now = () => galaxy.time; // the shared clock
+    const fleets = createFleets(galaxy, renderer, { world, store });
+    const highlight = createHighlight(galaxy, { world, store, flashes, fleets });
+    const battle = createBattle(renderer, galaxy, { store, flashes, now });
+    const refreshText = () => {
+      galaxy.refreshText();
+      battle.refreshText();
+    };
+    void fonts.then(refreshText);
+    preloadFontGlyphs(world).then(refreshText, () => undefined);
 
+    // ---- HUD ----
+    const frames = createFrameSource(world);
+    const hud = mountHud(mount, store, world);
+    createRanking(hud.slots.ranking, world, store, { frames });
+    createDeployment(hud.slots.deployment, world, store, { frames });
+    const timeline = createTimelineBar(hud.slots.timeline, world, store);
+    const banners = createBanners(hud.slots.banners, world, store);
+    createDetail(hud.slots.detail, world, store);
+    createBackButton(hud.el, store);
+
+    // ---- camera ----
     applyInsets(renderer);
     window.addEventListener('resize', () => applyInsets(renderer));
     const aim = (instant: boolean) => renderer.focus(galaxy.cameraTarget(store.get().front), { instant });
     aim(true);
     galaxy.onLayoutChange(() => aim(true));
-    store.subscribe((s, prev) => {
-      if (s.front !== prev.front) aim(false);
-      if (s.reducedMotion !== prev.reducedMotion) renderer.setReducedMotion(s.reducedMotion);
-    });
-    motion.addEventListener('change', (e) => store.set({ reducedMotion: e.matches }));
 
-    renderer.onFrame((dt) => {
+    // ---- playback + battle news ----
+    const playbackFor = (front: FrontId | null) => createPlayback({ lastIndex: last, eventMonths: holdCounts(world, front), maxHoldSeconds: MAX_HOLD_SECONDS });
+    // a banner yields to waiting news after playback's per-banner hold, so the news keeps pace with the timeline
+    const queueFor = (front: FrontId | null) =>
+      createBannerQueue({ maxVisible: front ? 1 : 2, seconds: BANNER_SECONDS, maxPending: 6, stagger: 0.35, minSeconds: HOLD_SECONDS[store.get().speed] });
+    let playback = playbackFor(store.get().front);
+    let queue = queueFor(store.get().front);
+    let ticking = false; // store writes from the playback tick (anything else moving `t` is the user)
+    const started = new Set<string>();
+    let card: IntroCard | null = null;
+    /** Playback starts at month 0 (after the intro card, or "play again" from the end): announce 開戦 and hold on it. */
+    const startFromTheTop = () => {
       const s = store.get();
-      galaxy.update(dt, framesAt(world, s.t, s.sortBy));
+      if (!s.playing || monthIndex(world, s.t) !== 0) return;
+      queue.push(selectEvents(world, 0, s.front));
+      playback.holdAt(0, s.speed); // month 0 has news too: let it be read before moving on
+    };
+
+    store.subscribe((s, prev) => {
+      if (s.front !== prev.front) {
+        // the views announce different news and hold on different months
+        playback = playbackFor(s.front);
+        queue = queueFor(s.front);
+        aim(false);
+      } else if (!ticking && s.t !== prev.t) {
+        queue.clear(); // scrubbed / stepped / skipped: news from the old position is stale
+        if (!card) startFromTheTop();
+      }
+      if (s.speed !== prev.speed) queue.setMinSeconds(HOLD_SECONDS[s.speed]);
+      if (s.reducedMotion !== prev.reducedMotion) renderer.setReducedMotion(s.reducedMotion);
+      if (s.lang !== prev.lang) document.title = `AI WAR — ${tr('subtitle', s.lang)}`;
+    });
+    document.title = `AI WAR — ${tr('subtitle', store.get().lang)}`;
+
+    window.addEventListener('keydown', (e) => {
+      // the detail panel consumes its own Escape (closes first); otherwise Escape closes the detail, then leaves the front
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      const s = store.get();
+      if (s.selectedUnit) store.set({ selectedUnit: null });
+      else if (s.front) store.set({ front: null });
     });
 
-    // ---- Task 12: fleets + org highlight (Task 15 folds this into the full frame loop) ----
-    const fleets = createFleets(galaxy, renderer, { world, store });
-    const highlight = createHighlight(galaxy, { world, store, flashes, fleets });
-    renderer.onFrame((dt) => {
+    // ---- first-visit intro: title card (playback waits), then the war from month 0 at 1× ----
+    if (store.get().intro) {
+      store.set({ speed: 1 });
+      card = createIntroCard(hud.el, world, store);
+      // fly in from deep space while the card is up (instant under reduced motion)
+      const cam = renderer.camera;
+      renderer.focus(galaxy.cameraTarget(store.get().front), { from: { ...cam, scale: cam.scale * 0.45 }, durationMs: 2600 });
+    }
+
+    // ---- frame loop ----
+    renderer.onFrame((dt, rawDt) => {
+      if (!pinnedQuality) {
+        const level = governor.frame(now(), rawDt);
+        if (level !== renderer.quality) renderer.setQuality(level);
+      }
+      let s = store.get();
+      if (card) {
+        if (!s.intro) card.close(); // skipped
+        else if (card.advance(dt)) startFromTheTop(); // 開戦
+        if (card.closed) card = null;
+      } else if (!timeline.isDragging()) {
+        const r = playback.tick(rawDt, s);
+        if (r.t !== s.t || r.playing !== s.playing) {
+          const ended = s.intro && !r.playing && r.t >= last;
+          ticking = true;
+          store.set(ended ? { t: r.t, playing: false, intro: false } : { t: r.t, playing: r.playing });
+          ticking = false;
+        }
+        if (s.playing) for (const m of r.crossed) queue.push(selectEvents(world, m, s.front));
+      }
+
+      s = store.get();
+      galaxy.update(dt, frames(s.t, s.sortBy));
       highlight.update(dt);
-      fleets.update(dt, store.get().t);
+      fleets.update(dt, s.t);
+      battle.update(dt); // after galaxy.update: reads this frame's planet wedges
+
+      const visible = queue.update(now());
+      banners.render(visible);
+      for (const b of visible) {
+        if (started.has(b.key)) continue;
+        started.add(b.key);
+        if (b.event.front === s.front) battle.shockwave(b.event.unit); // the news hits the focused battle
+      }
+      if (started.size > visible.length) for (const k of started) if (!visible.some((b) => b.key === k)) started.delete(k);
     });
+
+    // keep the address bar shareable (front / whole month / language), throttled
+    syncUrl(store, world, {
+      read: () => location.search,
+      write(search) {
+        try {
+          history.replaceState(history.state, '', `${location.pathname}${search}${location.hash}`);
+        } catch {
+          /* sandboxed / opaque origins refuse; the share button still works */
+        }
+      },
+    });
+
     // debug: ?hover=<org> pins the org highlight (screenshots)
     const hover = params.get('hover');
     if (hover && world.orgs[hover]) store.set({ hoverOrg: hover });
-    // ---- end Task 12 ----
-
-    // ── Task 13: planet zoom battle — temporary wiring, Task 15 replaces this block ──────────────────
-    const battle = createBattle(renderer, galaxy, { store, flashes });
-    void fonts.then(() => battle.refreshText());
-    renderer.onFrame((dt) => battle.update(dt)); // registered after the galaxy's callback, so it runs after galaxy.update
-    window.addEventListener('keydown', (e) => {
-      // the detail panel consumes its own Escape (closes first); a second Escape leaves the front
-      if (e.key === 'Escape' && !e.defaultPrevented && store.get().front) store.set({ front: null });
-    });
-    const back = document.createElement('button');
-    back.type = 'button';
-    back.style.cssText =
-      'position:fixed;left:16px;top:16px;z-index:5;padding:7px 14px;font:700 13px "Noto Sans JP",sans-serif;letter-spacing:.08em;color:#bff4ff;background:rgba(4,12,26,.78);border:1px solid rgba(95,232,255,.55);cursor:pointer';
-    back.addEventListener('click', () => store.set({ front: null }));
-    document.body.appendChild(back);
-    const showBack = (s: { front: FrontId | null; lang: Lang }) => {
-      back.hidden = !s.front;
-      back.textContent = `◀ ${STRINGS.backToGalaxy[s.lang]}`;
-    };
-    showBack(store.get());
-    store.subscribe((s) => showBack(s));
-    if (import.meta.env.DEV || flashLog) Object.assign(window, { __battle: battle, __flashStats: flashLog?.stats ?? null });
-    // ── end Task 13 ───────────────────────────────────────────────────────────────────────────────
-
+    if (flashLog) Object.assign(window, { __flashStats: flashLog.stats });
     // dev only: handles for poking the app from the console / harness (--eval)
-    if (import.meta.env.DEV) Object.assign(window, { __renderer: renderer, __galaxy: galaxy, __store: store, __world: world, __fleets: fleets, __highlight: highlight });
+    if (import.meta.env.DEV) {
+      Object.assign(window, { __renderer: renderer, __galaxy: galaxy, __store: store, __world: world, __fleets: fleets, __highlight: highlight, __battle: battle });
+    }
   } catch (err: unknown) {
     console.error('AI WAR failed to start', err);
+    const l = params.get('lang');
+    showLoadError(document.body, l === 'en' || l === 'ja' ? (l as Lang) : 'ja');
   }
-}
-
-function framesAt(world: World, t: number, sortBy: 'strength' | 'scale'): Partial<Record<FrontId, UnitFrame[]>> {
-  const out: Partial<Record<FrontId, UnitFrame[]>> = {};
-  for (const f of world.fronts) out[f.id] = frontFrame(world, f.id, t, sortBy);
-  return out;
 }
 
 /** Leave room for the HUD: ranking panel on the right (desktop), top bar and timeline. */

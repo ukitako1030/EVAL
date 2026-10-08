@@ -35,18 +35,30 @@ export interface Banner {
   end: number;
 }
 
-export function createBannerQueue(opts: { maxVisible: number; seconds: number; maxPending: number; stagger: number }) {
+/**
+ * Battle-news banners, `maxVisible` at a time, each up for `seconds`. `minSeconds` (default `seconds`): once a banner
+ * has been up that long it makes way early for news that is waiting — set it to playback's per-banner hold so the
+ * banners keep pace with playback (which holds that long per banner) instead of falling further and further behind.
+ */
+export function createBannerQueue(opts: { maxVisible: number; seconds: number; maxPending: number; stagger: number; minSeconds?: number }) {
   let pending: WorldEvent[] = [];
   let scheduled: Banner[] = [];
   let seq = 0;
+  let minSeconds = Math.min(opts.minSeconds ?? opts.seconds, opts.seconds);
   return {
     push(events: WorldEvent[]) {
       pending.push(...events);
       if (pending.length > opts.maxPending) pending = pending.slice(pending.length - opts.maxPending);
     },
+    /** Change `minSeconds` (e.g. with the playback speed). */
+    setMinSeconds(s: number) {
+      if (Number.isFinite(s) && s >= 0) minSeconds = Math.min(s, opts.seconds);
+    },
     /** Banners visible at `now` (seconds). */
     update(now: number): Banner[] {
       scheduled = scheduled.filter((b) => b.end > now);
+      // the oldest banner yields to waiting news once it has been readable for minSeconds (scheduled is in start order)
+      while (pending.length && scheduled.length >= opts.maxVisible && now - scheduled[0].start + 1e-9 >= minSeconds) scheduled.shift();
       while (scheduled.length < opts.maxVisible && pending.length) {
         const e = pending.shift()!;
         const last = scheduled[scheduled.length - 1];
