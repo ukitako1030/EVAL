@@ -2,6 +2,11 @@ import type { World } from '../compute/world';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
+/** Org colours are interpolated into style/stroke attributes, so only #rrggbb passes; anything else falls back to grey. */
+function safeColor(c: unknown): string {
+  return typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c) ? c : '#888';
+}
+
 function spark(values: (number | null)[], color: string, w = 260, h = 40): string {
   const pts: string[] = [];
   values.forEach((v, i) => {
@@ -19,10 +24,13 @@ export function renderReport(w: World): string {
     .map((f) => {
       const units = Object.entries(w.units[f.id] ?? {});
       const rows = units
-        .map(([id, u]) => ({ id, u, cell: w.series[f.id][id][last], series: w.series[f.id][id] }))
+        .map(([id, u]) => {
+          const series = w.series[f.id]?.[id] ?? []; // a unit can lack a series entry
+          return { id, u, cell: series[last] ?? null, series };
+        })
         .sort((a, b) => (b.cell?.s ?? -1) - (a.cell?.s ?? -1))
         .map(({ u, cell, series }) => {
-          const color = w.orgs[u.org]?.color ?? '#888';
+          const color = safeColor(w.orgs[u.org]?.color);
           return `<tr><td><span class="chip" style="background:${color}"></span>${esc(u.name)}</td><td>${esc(w.orgs[u.org]?.name ?? u.org)}</td>
 <td class="num">${cell ? cell.s.toFixed(1) : '—'}</td><td class="num">${cell ? cell.c.toFixed(1) : '—'}</td><td>${cell?.q ?? '—'}</td>
 <td>${spark(series.map((c) => c?.s ?? null), color)}</td><td>${spark(series.map((c) => c?.c ?? null), color)}</td></tr>`;

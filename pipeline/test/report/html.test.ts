@@ -25,4 +25,31 @@ describe('renderReport', () => {
     expect(html).toContain('首位交代');
     expect(html).toContain('medium');
   });
+  it('keeps a valid #rrggbb org colour', () => {
+    const html = renderReport(w);
+    expect(html).toContain('background:#19c37d');
+    expect(html).toContain('stroke="#19c37d"');
+  });
+  it('never lets an org colour break out of the style/stroke attributes', () => {
+    const evil = '#fff"><script>alert(1)</script><i style="x:';
+    for (const color of [evil, 'red', '#12345', '#1234567', 'url(javascript:alert(1))', '#ggg000', '']) {
+      const html = renderReport({ ...w, orgs: { openai: { name: 'OpenAI', color } } });
+      expect(html).not.toContain('<script>');
+      expect(html).not.toContain('javascript:');
+      expect(html).toContain('background:#888');
+      expect(html).toContain('stroke="#888"');
+    }
+  });
+  it('does not crash for a unit that has no series entry (or a front without a series table)', () => {
+    const extra: World = {
+      ...w,
+      units: { general: { gpt: { org: 'openai', name: 'GPT' }, ghost: { org: 'openai', name: 'Ghost' } } },
+    };
+    const html = renderReport(extra);
+    expect(html).toContain('Ghost');
+    expect(html.indexOf('GPT')).toBeLessThan(html.indexOf('Ghost')); // units with data sort first
+    const noTable = renderReport({ ...extra, series: {} });
+    expect(noTable).toContain('Ghost');
+    expect(noTable).toContain('GPT');
+  });
 });
