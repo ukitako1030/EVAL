@@ -11,6 +11,8 @@ const table = (
   priority: number,
   kind: SeriesTable['kind'],
   pts: Record<string, Record<string, number | [number, boolean]>>,
+  /** month → freshness (a month without an entry counts as fully fresh) */
+  fresh: Record<string, number> = {},
 ): SeriesTable => ({
   front: 'general',
   group,
@@ -28,6 +30,7 @@ const table = (
       ),
     ]),
   ),
+  freshness: new Map(Object.entries(fresh)),
 });
 
 describe('winProb', () => {

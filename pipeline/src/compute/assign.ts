@@ -1,5 +1,5 @@
 import type { FrontId, Observation, ValueKind } from '../core/types';
-import { addMonths, daysBetween, monthEnd, toMonth, type Month } from '../core/months';
+import { addMonths, daysBetween, monthDiff, monthEnd, toMonth, type Month } from '../core/months';
 import type { CompiledRelease, CompiledUnit } from '../config/load';
 
 export interface AssignedPoint {
@@ -16,11 +16,31 @@ export interface SeriesTable {
   kind: ValueKind;
   /** unitId → month → point */
   points: Map<string, Map<Month, AssignedPoint>>;
+  /**
+   * month → freshness in (0, 1]: 1 while the series is active (release type) or its latest snapshot is fresh (snapshot type,
+   * also for reconstructed months), then 1 − k/(fadeMonths+1) in the k-th month after that limit. Months without an entry
+   * have no points.
+   */
+  freshness: Map<Month, number>;
 }
 
 export interface AssignParams {
   snapshotMaxAgeDays: number;
   releaseActiveMonths: number;
+  /** a stale series keeps contributing for this many months, with linearly decreasing freshness (0 = cut off at once) */
+  fadeMonths: number;
+}
+
+/** Freshness of the k-th month after a series' fresh limit (k ≤ 0: still fresh). 0 means the series no longer contributes. */
+export function fadeFreshness(k: number, fadeMonths: number): number {
+  return k <= 0 ? 1 : Math.max(0, 1 - k / (fadeMonths + 1));
+}
+
+/** The last month whose end is at most `maxAgeDays` after the snapshot date (the month before the snapshot's own month if none). */
+function lastFreshMonth(snap: string, maxAgeDays: number): Month {
+  let m = addMonths(toMonth(snap), -1);
+  while (daysBetween(snap, monthEnd(addMonths(m, 1))) <= maxAgeDays) m = addMonths(m, 1);
+  return m;
 }
 
 /**
@@ -72,7 +92,7 @@ export function assignSeries(args: {
   if (!finite.length) {
     // one broken source must not crash the whole computation: contribute nothing
     const f = args.observations[0];
-    return { front: args.front, group: args.group, series: f.series, priority: args.priority, kind: f.kind, points: new Map() };
+    return { front: args.front, group: args.group, series: f.series, priority: args.priority, kind: f.kind, points: new Map(), freshness: new Map() };
   }
   // a time part ("2024-05-31T12:00:00Z") must not push a row out of its month
   const obs = finite.map((o) => ({ ...o, date: o.date.slice(0, 10) }));
@@ -90,7 +110,9 @@ export function assignSeries(args: {
     priority: args.priority,
     kind: first.kind,
     points: new Map(),
+    freshness: new Map(),
   };
+  const fade = args.params.fadeMonths;
   const unitById = new Map(args.units.map((u) => [u.id, u]));
   const byUnit = new Map<string, Observation[]>();
   for (const o of obs) {
@@ -108,11 +130,16 @@ export function assignSeries(args: {
     const dates = obs.map((o) => o.date).sort();
     const firstMonth = toMonth(dates[0]);
     const lastActive = addMonths(toMonth(dates[dates.length - 1]), args.params.releaseActiveMonths);
+    for (const m of args.months) {
+      if (m < firstMonth) continue;
+      const f = fadeFreshness(monthDiff(lastActive, m), fade);
+      if (f > 0) table.freshness.set(m, f);
+    }
     for (const [unitId, list] of byUnit) {
       const u = unitById.get(unitId)!;
       const sorted = [...list].sort((a, b) => a.date.localeCompare(b.date));
       for (const m of args.months) {
-        if (m < firstMonth || m > lastActive || !unitExists(u, m)) continue;
+        if (!table.freshness.has(m) || !unitExists(u, m)) continue;
         const end = monthEnd(m);
         let best: Observation | null = null;
         for (const o of sorted) {
@@ -144,13 +171,17 @@ export function assignSeries(args: {
       else break;
     }
     if (snap) {
-      if (daysBetween(snap, end) > args.params.snapshotMaxAgeDays) continue;
+      const fresh = daysBetween(snap, end) <= args.params.snapshotMaxAgeDays;
+      const f = fresh ? 1 : fadeFreshness(monthDiff(lastFreshMonth(snap, args.params.snapshotMaxAgeDays), m), fade);
+      if (f <= 0) continue;
+      table.freshness.set(m, f);
       for (const [unitId, o] of bestAt.get(snap) ?? new Map<string, Observation>()) {
         if (unitExists(unitById.get(unitId)!, m)) put(unitId, m, { value: o.value, model: o.model, reconstructed: false });
       }
       continue;
     }
     // m is before the first snapshot → reconstruct from the first snapshot using release months
+    table.freshness.set(m, 1);
     for (const [unitId, list] of byUnit) {
       const u = unitById.get(unitId)!;
       if (!unitExists(u, m)) continue;

@@ -51,6 +51,8 @@ export const MethodSchema = z.object({
     minUnits: z.number().int().min(1),
     snapshotMaxAgeDays: z.number().int().positive(),
     releaseActiveMonths: z.number().int().min(0),
+    // months a stale series keeps contributing with linearly decreasing weight (compute/assign.ts fadeFreshness); 0 = cut off
+    fadeMonths: z.number().int().min(0).default(0),
     kinds: z.object({
       elo: z.object({ scale: z.number().positive() }),
       // scale (default 1) multiplies the logit gap: < 1 softens benchmarks whose top models are far apart

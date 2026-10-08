@@ -3,6 +3,7 @@ strength:
   minUnits: 2
   snapshotMaxAgeDays: 92
   releaseActiveMonths: 3
+  fadeMonths: 6
   kinds:
     elo: { scale: 400 }
     percent: { clampLo: 0.5, clampHi: 99.5, scale: 0.4 }
