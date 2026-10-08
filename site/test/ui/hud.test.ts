@@ -4,12 +4,12 @@ import { mountHud } from '../../src/ui/hud';
 import { createStore, defaultState, type AppState } from '../../src/state/store';
 import { makeWorld } from '../fixtures/world';
 
-function setup(patch: Partial<AppState> = {}) {
+function setup(patch: Partial<AppState> = {}, opts: Parameters<typeof mountHud>[3] = {}) {
   const world = makeWorld();
   const store = createStore<AppState>({ ...defaultState(world.months.length - 1), ...patch });
   const root = document.createElement('div');
   document.body.appendChild(root);
-  const hud = mountHud(root, store, world);
+  const hud = mountHud(root, store, world, opts);
   return { world, store, root, hud };
 }
 
@@ -18,6 +18,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 afterEach(() => {
   document.body.replaceChildren();
   Reflect.deleteProperty(navigator, 'clipboard');
+  Reflect.deleteProperty(navigator, 'share');
   vi.useRealTimers();
 });
 
@@ -67,6 +68,50 @@ describe('HUD shell', () => {
     expect(document.documentElement.lang).toBe('en');
     ja.click();
     expect(root.querySelector('.hud-sub')?.textContent).toBe('電脳戦況モニター');
+  });
+
+  it('the 🌐 button (mobile layout) switches to the other language', () => {
+    const { root, store } = setup();
+    const globe = root.querySelector<HTMLButtonElement>('#hud-lang-toggle')!;
+    expect(globe.textContent).toBe('🌐EN');
+    expect(globe.getAttribute('aria-label')).toBe('English に切り替え');
+    globe.click();
+    expect(store.get().lang).toBe('en');
+    expect(globe.textContent).toBe('🌐JA');
+    expect(globe.getAttribute('aria-label')).toBe('日本語に切り替え');
+    globe.click();
+    expect(store.get().lang).toBe('ja');
+  });
+
+  it('on phones share opens the device share sheet, and copies the link when there is none', async () => {
+    const share = vi.fn(() => Promise.resolve());
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'share', { value: share, configurable: true });
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    let phone = true;
+    const { root } = setup({}, { nativeShare: () => phone });
+    const btn = root.querySelector<HTMLButtonElement>('#hud-share')!;
+    btn.click();
+    await flush();
+    expect(share).toHaveBeenCalledTimes(1);
+    expect((share.mock.calls[0] as unknown as [{ url: string }])[0].url.endsWith('?t=2025-04&lang=ja')).toBe(true);
+    expect(writeText).not.toHaveBeenCalled();
+
+    share.mockImplementationOnce(() => Promise.reject(Object.assign(new Error('closed'), { name: 'AbortError' })));
+    btn.click();
+    await flush();
+    expect(writeText).not.toHaveBeenCalled(); // the reader closed the sheet: nothing else to do
+
+    share.mockImplementationOnce(() => Promise.reject(new Error('not allowed')));
+    btn.click();
+    await flush();
+    expect(writeText).toHaveBeenCalledTimes(1);
+
+    phone = false; // desktop layout: always copy
+    btn.click();
+    await flush();
+    expect(share).toHaveBeenCalledTimes(3);
+    expect(writeText).toHaveBeenCalledTimes(2);
   });
 
   it('share copies the page URL with the encoded state and confirms', async () => {

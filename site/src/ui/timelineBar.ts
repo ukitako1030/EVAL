@@ -1,4 +1,4 @@
-import type { FrontId, Lang, World } from '../data/types';
+import type { FrontId, Lang, World, WorldEvent } from '../data/types';
 import { clampT, monthIndex, monthLabel } from '../data/timeline';
 import { selectEvents } from '../events/queue';
 import { tr } from '../i18n/strings';
@@ -6,6 +6,22 @@ import type { AppState, Store } from '../state/store';
 import { clamp, dotMonth, frontName, h, isTypingTarget, setAccent, setAttr, setStyle, setText, unitColor } from './dom';
 
 const SPEEDS: AppState['speed'][] = [1, 2, 4];
+/** In the compact (mobile) timeline, news months closer than this share one marker. */
+export const COMPACT_MONTH_GAP = 3;
+
+/**
+ * Sorted month indices → groups that share one marker: a month joins the current group while it is less than `gap`
+ * months after the group's first month (gap 1 → every month on its own).
+ */
+export function groupMonths(months: readonly number[], gap: number): number[][] {
+  const out: number[][] = [];
+  for (const m of months) {
+    const g = out[out.length - 1];
+    if (g && m - g[0] < Math.max(1, gap)) g.push(m);
+    else out.push([m]);
+  }
+  return out;
+}
 
 /**
  * Pointer x (px from the track's left edge) → fractional month index on a track `width` px wide covering `months` months.
@@ -23,6 +39,8 @@ export interface TimelineBar {
   update(state: AppState): void;
   /** true while the user drags the slider (no battle news while scrubbing) */
   isDragging(): boolean;
+  /** narrow screens: nearby news months share one marker (`COMPACT_MONTH_GAP`) so the diamonds don't pile up */
+  setCompact(on: boolean): void;
   destroy(): void;
 }
 
@@ -65,13 +83,19 @@ export function createTimelineBar(root: HTMLElement, world: World, store: Store<
   let markerEls: { i: number; el: HTMLButtonElement }[] = [];
   let markerKey = '';
   let pastMonth = -1;
+  let compact = false;
 
   function buildMarkers(front: FrontId | null, lang: Lang): void {
     markerEls = [];
     markers.replaceChildren();
+    const news = new Map<number, WorldEvent[]>();
     for (let i = 0; i <= last; i++) {
       const evs = selectEvents(world, i, front);
-      if (!evs.length) continue;
+      if (evs.length) news.set(i, evs);
+    }
+    for (const group of groupMonths([...news.keys()], compact ? COMPACT_MONTH_GAP : 1)) {
+      const i = group[0];
+      const evs = group.flatMap((m) => news.get(m) ?? []);
       const desc = evs.map((e) => `${dotMonth(e.month)} ${frontName(world, e.front, lang)} — ${e.text[lang]}`).join('\n');
       const b = h('button', { class: 'tl-marker', attrs: { type: 'button', 'data-month': i, title: desc, 'aria-label': desc } });
       b.style.left = `${pct(i)}%`;
@@ -107,6 +131,7 @@ export function createTimelineBar(root: HTMLElement, world: World, store: Store<
   track.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     dragging = true;
+    el.classList.add('tl-dragging');
     try {
       track.setPointerCapture?.(e.pointerId);
     } catch {
@@ -121,11 +146,13 @@ export function createTimelineBar(root: HTMLElement, world: World, store: Store<
   track.addEventListener('pointerup', (e) => {
     if (!dragging) return;
     dragging = false;
+    el.classList.remove('tl-dragging');
     store.set({ t: tAt(e, true), playing: false }); // rest on a whole month
   });
   track.addEventListener('pointercancel', () => {
     if (!dragging) return;
     dragging = false;
+    el.classList.remove('tl-dragging');
     store.set({ t: Math.round(clampT(world, store.get().t)) });
   });
 
@@ -158,7 +185,7 @@ export function createTimelineBar(root: HTMLElement, world: World, store: Store<
   let lang: Lang | null = null;
 
   function update(state: AppState): void {
-    const key = `${state.front ?? ''}|${state.lang}`;
+    const key = `${state.front ?? ''}|${state.lang}|${compact}`;
     if (key !== markerKey) {
       markerKey = key;
       buildMarkers(state.front, state.lang);
@@ -178,6 +205,7 @@ export function createTimelineBar(root: HTMLElement, world: World, store: Store<
     const f = last > 0 ? t / last : 1;
     setStyle(fill, 'transform', `scaleX(${f.toFixed(4)})`);
     setStyle(thumb, 'left', `${(f * 100).toFixed(3)}%`);
+    setStyle(el, '--tl-f', f.toFixed(3)); // lets the compact layout keep the month badge inside the track
     const lbl = monthLabel(world, t);
     setText(label, lbl);
     const mi = monthIndex(world, t);
@@ -197,6 +225,11 @@ export function createTimelineBar(root: HTMLElement, world: World, store: Store<
     el,
     update,
     isDragging: () => dragging,
+    setCompact(on) {
+      if (on === compact) return;
+      compact = on;
+      update(store.get());
+    },
     destroy() {
       unsubscribe();
       doc.removeEventListener('keydown', onKey);

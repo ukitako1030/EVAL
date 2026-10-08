@@ -23,6 +23,7 @@ const HELP = `usage: node scripts/shoot.mjs [options]
   --cpu-throttle <n> slow the CPU down n× (DevTools CPU throttling) — e.g. 4 for a mid-range phone
   --console          also print the page's console.log / console.info lines (e.g. the ?debugFlash log)
   --resize <WxH@ms>  resize the viewport to WxH at ms (checks the page follows a window resize)
+  --swipe <x1,y1,x2,y2@ms;…>  one-finger touch swipes (CDP Input.dispatchTouchEvent, ~180 ms each) at those times
   --chrome <path>    Chrome executable (default: $CHROME_PATH or the usual install location)
 exit code: 0 ok · 1 console errors / exceptions seen · 2 harness failure`;
 
@@ -140,6 +141,11 @@ async function main() {
     if (!m) throw new Error(`bad --resize ${o.resize} (want WxH@ms)`);
     resize = { w: Number(m[1]), h: Number(m[2]), ms: Number(m[3]) };
   }
+  const swipes = (o.swipe ? o.swipe.split(';') : []).map((x) => {
+    const m = /^(-?[\d.]+),(-?[\d.]+),(-?[\d.]+),(-?[\d.]+)@(\d+)$/.exec(x.trim());
+    if (!m) throw new Error(`bad --swipe ${x} (want x1,y1,x2,y2@ms)`);
+    return { pts: m.slice(1, 5).map(Number), ms: Number(m[5]) };
+  });
   const prefix = o.name ?? nameFromUrl(o.url);
   const outDir = path.resolve(o.out);
   fs.mkdirSync(outDir, { recursive: true });
@@ -227,10 +233,11 @@ async function main() {
       const steps = times.map((ms) => ({ ms, kind: 'shot' }));
       if (o.eval) steps.push({ ms: Number(o['eval-at'] ?? 1000), kind: 'eval' });
       if (resize) steps.push({ ms: resize.ms, kind: 'resize' });
+      for (const sw of swipes) steps.push({ ms: sw.ms, kind: 'swipe', sw });
       steps.sort((a, b) => a.ms - b.ms || (a.kind === 'shot' ? 1 : -1));
       let shotW = w;
       let shotH = h;
-      for (const { ms, kind } of steps) {
+      for (const { ms, kind, sw } of steps) {
         const wait = t0 + ms - Date.now();
         if (wait > 0) await sleep(wait);
         if (kind === 'resize') {
@@ -238,6 +245,18 @@ async function main() {
           shotH = resize.h;
           await send('Emulation.setDeviceMetricsOverride', { width: shotW, height: shotH, deviceScaleFactor: dpr, mobile });
           console.log(`  resize @${ms}ms → ${shotW}x${shotH}`);
+          continue;
+        }
+        if (kind === 'swipe') {
+          const [x1, y1, x2, y2] = sw.pts;
+          const n = 8;
+          await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x1, y: y1 }] });
+          for (let i = 1; i <= n; i++) {
+            await sleep(180 / n);
+            await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x1 + ((x2 - x1) * i) / n, y: y1 + ((y2 - y1) * i) / n }] });
+          }
+          await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+          console.log(`  swipe @${ms}ms (${x1},${y1}) → (${x2},${y2})`);
           continue;
         }
         if (kind === 'eval') {

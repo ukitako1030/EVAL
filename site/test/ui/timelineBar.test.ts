@@ -63,6 +63,21 @@ describe('timeline bar', () => {
     expect(markers(root)[0].style.getPropertyValue('--c')).toBe('#4c8dff');
   });
 
+  it('compact (mobile): news months close together share one marker that lists all their news', () => {
+    const { root, store, bar } = setup({ front: 'general' });
+    teardown = bar.destroy;
+    expect(markers(root).map((m) => m.dataset.month)).toEqual(['0', '2', '3']);
+    bar.setCompact(true);
+    expect(markers(root).map((m) => m.dataset.month)).toEqual(['0', '3']); // months 0..2 → one marker at 0
+    expect(markers(root)[0].dataset.n).toBe('2');
+    expect(markers(root)[0].getAttribute('aria-label')).toBe('2025.01 generalJA — 開戦\n2025.03 generalJA — 首位交代');
+    store.set({ t: 0 });
+    expect(markers(root)[0].classList.contains('past')).toBe(true);
+    expect(markers(root)[1].classList.contains('past')).toBe(false);
+    bar.setCompact(false);
+    expect(markers(root).map((m) => m.dataset.month)).toEqual(['0', '2', '3']);
+  });
+
   it('marks markers up to the current month as past and labels the slider', () => {
     const { root, bar } = setup();
     teardown = bar.destroy;
@@ -172,11 +187,14 @@ describe('timeline bar', () => {
     track.dispatchEvent(new PointerEvent('pointerdown', { clientX: 250, button: 0, bubbles: true }));
     expect(store.get()).toMatchObject({ t: 1.5, playing: false });
     expect(bar.isDragging()).toBe(true);
+    expect(bar.el.classList.contains('tl-dragging')).toBe(true); // the mobile month badge shows while scrubbing
     track.dispatchEvent(new PointerEvent('pointermove', { clientX: 330, bubbles: true }));
     expect(store.get().t).toBeCloseTo(2.3);
     track.dispatchEvent(new PointerEvent('pointerup', { clientX: 190, bubbles: true }));
     expect(store.get().t).toBe(1);
     expect(bar.isDragging()).toBe(false);
+    expect(bar.el.classList.contains('tl-dragging')).toBe(false);
+    expect(bar.el.style.getPropertyValue('--tl-f')).toBe('0.333'); // month 1 of 0..3
     track.dispatchEvent(new PointerEvent('pointermove', { clientX: 400, bubbles: true }));
     expect(store.get().t).toBe(1); // not dragging any more
   });

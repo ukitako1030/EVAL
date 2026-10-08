@@ -313,25 +313,3 @@
   color: var(--text-dim);
 }
 
-@media (max-width: 767px) {
-  .detail {
-    top: auto;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: auto;
-    max-height: 72vh;
-    border-left: 1px solid var(--line);
-    border-top: 3px solid var(--c, var(--cyan));
-    background: rgba(4, 11, 26, 0.98);
-    animation-name: sheetIn;
-    z-index: 30;
-  }
-}
-
-@keyframes sheetIn {
-  from {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-}
