@@ -1,7 +1,8 @@
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { SOURCES } from '../sources/index';
+import { licenseIndex } from '../raw/licenses';
 import { makeFetchCtx } from '../sources/http';
 import { runFetch } from '../sources/run';
 import { parseUnits } from '../config/load';
@@ -27,5 +28,6 @@ const keys = (signal: SignalId): string[] => {
 };
 const ctx = makeFetchCtx(new Date(), env, (m) => console.log(m), { backfill, keys });
 const status = await runFetch(SOURCES, ctx, join(root, 'raw'), only.length ? only : undefined);
+writeFileSync(join(root, 'raw', 'LICENSES.md'), licenseIndex(SOURCES));
 const failed = status.filter((s) => s.status === 'failed').length;
 console.log(`done: ${status.filter((s) => s.status === 'ok').length} ok, ${status.filter((s) => s.status === 'skipped').length} skipped, ${failed} failed`);
