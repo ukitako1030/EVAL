@@ -92,18 +92,29 @@ describe('computeWorld', () => {
     expect(w.partialMonth).toBe('2023-06');
     const gpt = w.series.general.gpt;
     const claude = w.series.general.claude;
-    expect(gpt[0]).toEqual({ s: 100, c: 100, q: 'estimated' }); // alone, no data
+    expect(gpt[0]).toEqual({ s: 100, c: 100, q: 'estimated', qs: 'estimated', qc: 'estimated' }); // alone, no data
     expect(claude[3]).toBeNull(); // 2023-02: not yet
     expect(gpt[6]!.s).toBe(100);
     expect(claude[6]!.s).toBeCloseTo(200 / (1 + 10 ** 0.25), 1);
     expect(gpt[6]!.c).toBeCloseTo(90, 1);
-    expect(gpt[6]!.q).toBe('medium');
+    expect(gpt[6]).toMatchObject({ q: 'medium', qs: 'medium', qc: 'medium' });
     expect(w.breakdown.general.gpt['2023-05'][0]).toMatchObject({ source: 'arena-text', weight: 1, kind: 'measured' });
     expect(w.events.find((e) => e.type === 'new_unit' && e.unit === 'claude')?.month).toBe('2023-03');
     expect(w.events.find((e) => e.type === 'custom')?.text.ja).toBe('開戦');
     expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki']);
     expect(w.sources[0].asOf).toBe('2026-10-05');
     expect(w.fronts).toHaveLength(7);
+  });
+  it('gives each cell the strength (qs) and scale (qc) confidence; q is the lower of the two', () => {
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena, wiki],
+      now: new Date('2023-08-15T00:00:00Z'),
+    });
+    // 2023-08: the 2023-05-31 arena snapshot is 92 days old (still fresh); the 2023-05 Wikipedia value is no longer carried
+    expect(w.series.general.gpt[9]).toMatchObject({ q: 'estimated', qs: 'medium', qc: 'estimated' });
   });
   it('skips a corrupt source and a series that mixes kinds with warnings, and still produces the world', () => {
     const corrupt: SourceModule = { ...arena, id: 'fake-corrupt' };

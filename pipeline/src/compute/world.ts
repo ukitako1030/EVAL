@@ -1,10 +1,17 @@
 import { z } from 'zod';
 import { FrontIdSchema, LocalizedSchema, MonthStr, EventTypeSchema } from '../config/schemas';
 
+const ConfidenceSchema = z.enum(['high', 'medium', 'reconstructed', 'estimated']);
+
 export const UnitMonthSchema = z.object({
   s: z.number().min(0).max(100),
   c: z.number().min(0).max(100),
-  q: z.enum(['high', 'medium', 'reconstructed', 'estimated']),
+  /** overall confidence (the lower of qs and qc), used for the fog */
+  q: ConfidenceSchema,
+  /** strength confidence */
+  qs: ConfidenceSchema,
+  /** scale confidence (scale is never reconstructed) */
+  qc: z.enum(['high', 'medium', 'estimated']),
 });
 
 const COLOR = /^#[0-9a-fA-F]{6}$/;

@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { FRONT_IDS, SIGNAL_IDS, type FrontId, type Observation, type SignalObs } from '../core/types';
+import { FRONT_IDS, SIGNAL_IDS, minConfidence, type FrontId, type Observation, type SignalObs } from '../core/types';
 import { monthRange, toMonth, type Month } from '../core/months';
 import { round1 } from '../core/math';
 import { parseAnnouncements, parseEvents, parseMethod, parseReleases, parseUnits, readText } from '../config/load';
@@ -10,7 +10,7 @@ import { computeStrength, fillEstimatedStrength } from './strength';
 import { announcementMonthly } from './announcements';
 import { buildSignalTable } from './signals';
 import { computeScale } from './scale';
-import { unitConfidence } from './confidence';
+import { scaleConfidence, strengthConfidence } from './confidence';
 import { detectEvents, type FrontCells, type WorldEvent } from './events';
 import { SCHEMA_VERSION, validateWorld, type World } from './world';
 
@@ -182,7 +182,9 @@ export function computeWorld(opts: ComputeOpts): World {
         if (!exists(u, m)) return null;
         const st = strength.get(u)!.get(m)!;
         const sc = scale.get(u)!.get(m)!;
-        return { s: round1(st.s!), c: round1(sc.c), q: unitConfidence(st, sc.components) };
+        const qs = strengthConfidence(st);
+        const qc = scaleConfidence(sc.components);
+        return { s: round1(st.s!), c: round1(sc.c), q: minConfidence(qs, qc), qs, qc };
       });
       world.series[front][u] = arr;
       cells.set(
