@@ -22,7 +22,7 @@ import type { FrontId, Lang, World } from './data/types';
 import { createStore, defaultState, type AppState, type Store } from './state/store';
 import { decodeUrl, encodeUrl } from './state/url';
 import { initialPlayback, safeLocalStorage } from './state/intro';
-import { MAX_HOLD_SECONDS, createPlayback } from './playback/clock';
+import { HOLD_SECONDS, MAX_HOLD_SECONDS, createPlayback } from './playback/clock';
 import { createBannerQueue, holdCounts, selectEvents } from './events/queue';
 import { mountHud } from './ui/hud';
 import { createRanking } from './ui/ranking';
@@ -102,7 +102,9 @@ async function boot(mount: HTMLElement) {
 
     // ---- playback + battle news ----
     const playbackFor = (front: FrontId | null) => createPlayback({ lastIndex: last, eventMonths: holdCounts(world, front), maxHoldSeconds: MAX_HOLD_SECONDS });
-    const queueFor = (front: FrontId | null) => createBannerQueue({ maxVisible: front ? 1 : 2, seconds: BANNER_SECONDS, maxPending: 6, stagger: 0.35 });
+    // a banner yields to waiting news after playback's per-banner hold, so the news keeps pace with the timeline
+    const queueFor = (front: FrontId | null) =>
+      createBannerQueue({ maxVisible: front ? 1 : 2, seconds: BANNER_SECONDS, maxPending: 6, stagger: 0.35, minSeconds: HOLD_SECONDS[store.get().speed] });
     let playback = playbackFor(store.get().front);
     let queue = queueFor(store.get().front);
     let ticking = false; // store writes from the playback tick (anything else moving `t` is the user)
@@ -117,6 +119,7 @@ async function boot(mount: HTMLElement) {
       } else if (!ticking && s.t !== prev.t) {
         queue.clear(); // scrubbed / stepped / skipped: news from the old position is stale
       }
+      if (s.speed !== prev.speed) queue.setMinSeconds(HOLD_SECONDS[s.speed]);
       if (s.reducedMotion !== prev.reducedMotion) renderer.setReducedMotion(s.reducedMotion);
       if (s.lang !== prev.lang) document.title = `AI WAR — ${tr('subtitle', s.lang)}`;
     });

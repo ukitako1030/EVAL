@@ -81,7 +81,7 @@
 /* ---------- back to galaxy (under the title, while a front is focused) ---------- */
 .hud-back {
   position: absolute;
-  top: 96px;
+  top: 100px;
   left: 16px;
   display: flex;
   align-items: center;
@@ -101,6 +101,14 @@
 .hud-back-arrow {
   font-size: 10px;
   color: var(--cyan);
+}
+
+/* the unit detail panel moves down to make room for the button */
+@media (min-width: 768px) {
+  .hud-root:has(> #hud-back:not([hidden])) .detail {
+    top: 144px;
+    max-height: calc(100vh - 144px - 168px);
+  }
 }
 
 /* ---------- tools (top right) ---------- */
