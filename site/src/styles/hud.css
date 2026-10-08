@@ -103,12 +103,10 @@
   color: var(--cyan);
 }
 
-/* the unit detail panel moves down to make room for the button */
-@media (min-width: 768px) {
-  .hud-root:has(> #hud-back:not([hidden])) .detail {
-    top: 144px;
-    max-height: calc(100vh - 144px - 168px);
-  }
+/* the unit detail panel moves down to make room for the button (desktop layout; mobile: styles/mobile.css) */
+.hud-root:not(.m):has(> #hud-back:not([hidden])) .detail {
+  top: 144px;
+  max-height: calc(100vh - 144px - 168px);
 }
 
 /* ---------- tools (top right) ---------- */
@@ -225,32 +223,7 @@
   }
 }
 
-/* Narrow screens get their own layout in Task 14; until then keep everything reachable. */
-@media (max-width: 767px) {
-  .hud-title {
-    top: 8px;
-    left: 8px;
-    padding: 6px 10px;
-  }
-  .hud-logo {
-    font-size: 20px;
-  }
-  .hud-digits {
-    font-size: 24px;
-  }
-  .hud-back {
-    top: 66px;
-    left: 8px;
-    padding: 6px 12px 6px 9px;
-  }
-  .hud-tools {
-    top: auto;
-    bottom: 84px;
-    right: 8px;
-    max-width: calc(100vw - 16px);
-  }
-  .hud-panel,
-  .hud-legend {
-    display: none;
-  }
+/* the one-button language switch is for the mobile layout (styles/mobile.css) */
+.hud-lang-toggle {
+  display: none;
 }

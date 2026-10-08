@@ -203,18 +203,3 @@
   transition: none;
 }
 
-@media (max-width: 767px) {
-  .hud-timeline {
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
-    padding: 0 12px 0 6px;
-  }
-  .tl-btn {
-    min-width: 36px;
-    height: 36px;
-  }
-  .tl-wrap {
-    margin-left: 4px;
-  }
-}

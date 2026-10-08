@@ -88,18 +88,6 @@
   animation: none;
 }
 
-@media (max-width: 767px) {
-  .intro-inner {
-    padding: 16px;
-  }
-  .intro-kicker {
-    font-size: 11px;
-  }
-  .intro-title {
-    letter-spacing: 0.08em;
-  }
-}
-
 /* ---------- load error ---------- */
 .load-error {
   position: fixed;

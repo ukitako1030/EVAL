@@ -1,0 +1,678 @@
+/* Mobile layout (spec §8). ui/mobile.ts puts `.m` on the HUD root below 768 px wide or in portrait orientation
+   (`.m-land` for a phone held sideways, `.m-map` while the galaxy map is open, `.m-expanded` for the full ranking).
+   Safe areas come from env(safe-area-inset-*) (index.html: viewport-fit=cover). Touch targets are >= 44 px where
+   they are small (timeline, arrows, top bar). The last section covers short desktop windows (a phone held sideways
+   wider than 768 px). */
+
+.hud-root {
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --m-bar: 50px; /* top bar */
+  --m-row: 50px; /* front row */
+  --m-tl: 60px; /* timeline */
+  --m-rank: 40px; /* ranking row pitch: set by ui/mobile.ts (mobileRowHeight) */
+  --m-top: calc(var(--m-bar) + var(--m-row) + var(--safe-t));
+}
+
+.hud-root.m {
+  overflow: hidden; /* nothing may widen the page (no horizontal scroll) */
+}
+
+/* ---------- top bar: AI WAR · month · 🌐 · share · ⓘ ---------- */
+.m .hud-title {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--m-bar) + var(--safe-t));
+  align-items: center;
+  gap: 8px;
+  padding: var(--safe-t) 0 0 calc(10px + var(--safe-l));
+  border-width: 0 0 1px;
+}
+
+.m .hud-title::before {
+  display: none;
+}
+
+.m .hud-sub {
+  display: none;
+}
+
+.m .hud-logo {
+  font-size: clamp(15px, 4.45vw, 17px);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.m .hud-date {
+  gap: 2px;
+  padding-left: 8px;
+}
+
+.m .hud-digits {
+  min-width: 0;
+  font-size: clamp(16px, 5vw, 19px);
+}
+
+.m .hud-prelim {
+  padding: 0 4px;
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+}
+
+.m .hud-tools {
+  top: var(--safe-t);
+  right: calc(6px + var(--safe-r));
+  height: var(--m-bar);
+  max-width: none;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.m .hud-updated,
+.m .hud-lang {
+  display: none;
+}
+
+.m .hud-tools .hud-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 44px;
+  height: 40px;
+  padding: 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.m .hud-lang-toggle {
+  display: inline-flex;
+}
+
+.hud-globe {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.hud-lang-code {
+  font: 700 10px var(--f-disp);
+  letter-spacing: 0.04em;
+}
+
+/* "データと方法" as an ⓘ (its text stays the accessible name) */
+.m .hud-tools #hud-methods {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  font-size: 0;
+  letter-spacing: 0;
+}
+
+.m .hud-tools #hud-methods::before {
+  content: 'i';
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font: italic 700 13px/1 Georgia, 'Times New Roman', serif;
+}
+
+.m .hud-share-status {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  flex-basis: auto;
+  padding: 6px 10px;
+  white-space: nowrap;
+  background: var(--panel);
+  border: 1px solid rgba(61, 255, 158, 0.5);
+}
+
+.m .hud-share-status:empty {
+  display: none;
+}
+
+/* narrower than the 360 px phones this layout targets: the ⓘ makes way so the title and month stay readable */
+@media (max-width: 350px) {
+  .m .hud-tools #hud-methods {
+    display: none;
+  }
+}
+
+/* ---------- front row: ◀ name ▶ + galaxy map ---------- */
+.m-front {
+  position: absolute;
+  top: calc(var(--m-bar) + var(--safe-t));
+  left: var(--safe-l);
+  right: var(--safe-r);
+  height: var(--m-row);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  background: linear-gradient(180deg, rgba(4, 11, 26, 0.72), rgba(4, 11, 26, 0));
+}
+
+.m-step {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 13px;
+  color: var(--cyan);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.m-front-mid {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.m-front-name {
+  margin: 0;
+  max-width: 100%;
+  font: 800 clamp(15px, 4.6vw, 19px) / 1.15 var(--f-jp);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: #fff;
+  text-shadow: 0 0 12px rgba(61, 232, 255, 0.55);
+}
+
+.m-front-hint {
+  margin: 0;
+  font: 500 10.5px/1.2 var(--f-jp);
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.m-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.m-dots i {
+  width: 5px;
+  height: 5px;
+  background: rgba(120, 200, 255, 0.28);
+  transform: rotate(45deg);
+}
+
+.m-dots i.on {
+  background: var(--cyan);
+  box-shadow: 0 0 6px var(--cyan);
+}
+
+.m-map-btn {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 9px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.m-map-btn::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0; /* 44 px tall touch target */
+}
+
+/* a tiny galaxy: a hub with an orbit */
+.m-map-ic {
+  position: relative;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+}
+
+.m-map-ic::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ---------- planet area: the news, the intro card ---------- */
+.m .hud-banners {
+  top: calc(var(--m-top) + 4px);
+  bottom: auto;
+  left: calc(8px + var(--safe-l));
+  right: calc(8px + var(--safe-r));
+  width: auto;
+  max-width: 560px;
+  margin: 0 auto;
+  transform: none;
+}
+
+.m .banner {
+  padding: 6px 10px 8px 12px;
+  border-left-width: 4px;
+}
+
+.m .banner-head {
+  flex-wrap: wrap;
+  white-space: normal;
+  gap: 2px 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.m .banner-month {
+  font-size: 12px;
+}
+
+.m .banner-org {
+  padding: 1px 5px;
+  font-size: 9px;
+}
+
+.m .banner-text {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.m .intro-card {
+  inset: var(--m-top) 0 calc(var(--m-tl) + var(--safe-b) + 260px);
+}
+
+.m .intro-inner {
+  padding: 16px;
+}
+
+.m .intro-kicker {
+  font-size: 11px;
+}
+
+.m .intro-title {
+  letter-spacing: 0.08em;
+}
+
+.m #hud-back,
+.m .hud-legend {
+  display: none;
+}
+
+/* ---------- ranking under the planet: top 5, "すべて表示" for the rest ---------- */
+.m .hud-panel {
+  top: auto;
+  background: rgba(4, 11, 26, 0.9);
+  left: calc(8px + var(--safe-l));
+  right: calc(8px + var(--safe-r));
+  bottom: calc(var(--m-tl) + var(--safe-b) + 12px);
+  width: auto;
+  max-width: 640px;
+  max-height: calc(100% - var(--m-top) - var(--m-tl) - var(--safe-b) - 24px);
+  margin: 0 auto;
+  padding: 6px 8px 4px;
+}
+
+.m #hud-deployment,
+.m .rank-front {
+  display: none;
+}
+
+.m .rank-head {
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 32px;
+  margin-bottom: 4px;
+  padding-right: 112px; /* the show-all button */
+}
+
+.m .rank-sort .hud-btn {
+  height: 30px;
+  padding: 0 8px;
+  font-size: 10.5px;
+}
+
+.m .rank-list {
+  min-height: calc(var(--m-rank) * 5);
+  max-height: calc(var(--m-rank) * 5);
+  overflow: hidden;
+}
+
+.m .rank-row {
+  height: calc(var(--m-rank) - 2px);
+  grid-template-columns: 20px 4px 1fr 40px;
+  grid-template-rows: 16px 16px;
+  align-content: center;
+  column-gap: 6px;
+  padding: 2px 4px 2px 0;
+}
+
+.m .rank-num {
+  font-size: 14px;
+}
+
+.m .rank-chip {
+  height: 30px;
+}
+
+.m .rank-name b {
+  font-size: 14px;
+}
+
+.m-showall {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.m.m-expanded .rank-list {
+  max-height: none;
+}
+
+.m.m-expanded .hud-panel {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(61, 232, 255, 0.45) transparent;
+}
+
+/* ---------- galaxy map: the legend takes the ranking's place ---------- */
+.m.m-map .hud-panel {
+  display: none;
+}
+
+.m.m-map .hud-legend {
+  display: block;
+  left: calc(8px + var(--safe-l));
+  right: calc(8px + var(--safe-r));
+  bottom: calc(var(--m-tl) + var(--safe-b) + 12px);
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 6px 10px;
+  font-size: 10px;
+}
+
+.m .hud-lg-list {
+  gap: 3px 14px;
+}
+
+.m .hud-ic {
+  width: 12px;
+  height: 12px;
+}
+
+.m .hud-unofficial {
+  font-size: 9px;
+}
+
+.m .hud-lg {
+  white-space: normal;
+}
+
+/* ---------- timeline: fixed at the bottom, large touch targets ---------- */
+.m .hud-timeline {
+  left: calc(6px + var(--safe-l));
+  right: calc(6px + var(--safe-r));
+  bottom: calc(6px + var(--safe-b));
+  height: var(--m-tl);
+  padding: 0 12px 0 6px;
+}
+
+.m .timeline-bar {
+  gap: 6px;
+}
+
+.m .tl-btn {
+  min-width: 44px;
+  height: 44px;
+}
+
+.m .tl-skip {
+  padding: 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.m .tl-wrap {
+  margin-left: 4px;
+}
+
+/* the slider's hit area is 44 px tall; the news markers are display-only (a tap scrubs instead) */
+.m .tl-track::after {
+  content: '';
+  position: absolute;
+  left: -10px;
+  right: -10px;
+  top: -14px;
+  bottom: -14px;
+}
+
+.m .tl-marker {
+  pointer-events: none;
+}
+
+/* ---------- unit detail: a half-height bottom sheet (the planet stays visible above it) ---------- */
+.m .detail {
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  max-width: 720px;
+  height: 52%;
+  max-height: none;
+  margin: 0 auto;
+  padding-bottom: var(--safe-b);
+  border-left: 0;
+  border-top: 3px solid var(--c, var(--cyan));
+  background: rgba(4, 11, 26, 0.97);
+  z-index: 30;
+  animation: sheetIn 0.35s cubic-bezier(0.2, 0.9, 0.2, 1) backwards;
+  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.m .detail.reduced-motion,
+.m .detail.sheet-dragging {
+  transition: none;
+}
+
+.m .detail.reduced-motion {
+  animation: none;
+}
+
+@keyframes sheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+}
+
+.m .detail-body {
+  padding: 2px 14px 14px;
+  overscroll-behavior: contain;
+}
+
+.m .detail-head {
+  padding-right: 50px;
+}
+
+.m .detail-close {
+  top: 4px;
+  right: 6px;
+  width: 44px;
+  height: 44px;
+}
+
+.sheet-handle {
+  position: relative;
+  flex: 0 0 auto;
+  display: block;
+  width: 100%;
+  height: 26px;
+  padding: 0;
+  cursor: grab;
+  touch-action: none;
+  background: none;
+  border: 0;
+}
+
+.sheet-handle::after {
+  content: '';
+  position: absolute;
+  inset: 0 56px -12px 0; /* a taller grab area that stays clear of the close button */
+}
+
+.sheet-handle i {
+  display: block;
+  width: 44px;
+  height: 4px;
+  margin: 10px auto 0;
+  border-radius: 2px;
+  background: rgba(160, 220, 255, 0.55);
+}
+
+/* ---------- phone held sideways (narrower than 768 px): planet left, ranking / sheet right ---------- */
+.m-land .m-front {
+  right: calc(44% + 14px);
+}
+
+.m-land.m-map .m-front {
+  right: var(--safe-r);
+}
+
+.m-land .hud-panel {
+  top: calc(var(--m-bar) + var(--safe-t) + 6px);
+  left: auto;
+  right: calc(8px + var(--safe-r));
+  width: 44%;
+  max-height: none;
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.m-land .hud-banners {
+  right: calc(44% + 16px);
+}
+
+.m-land .intro-card {
+  inset: calc(var(--m-bar) + var(--safe-t)) 0 calc(var(--m-tl) + var(--safe-b) + 12px);
+}
+
+.m-land.m-map .hud-legend {
+  display: none;
+}
+
+.m-land .detail {
+  top: calc(var(--m-bar) + var(--safe-t));
+  left: auto;
+  width: min(440px, 50%);
+  height: auto;
+  max-width: none;
+  margin: 0;
+  padding-right: var(--safe-r);
+  border-top: 0;
+  border-left: 3px solid var(--c, var(--cyan));
+  animation-name: sheetInSide;
+}
+
+@keyframes sheetInSide {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+
+/* ---------- desktop layout in a short window (a phone held sideways, >= 768 px wide) ---------- */
+@media (max-height: 500px) {
+  .hud-root:not(.m) .hud-title {
+    top: 8px;
+    left: 8px;
+    gap: 10px;
+    padding: 6px 12px 6px 10px;
+  }
+  .hud-root:not(.m) .hud-logo {
+    font-size: 19px;
+  }
+  .hud-root:not(.m) .hud-sub {
+    margin-top: 4px;
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+  }
+  .hud-root:not(.m) .hud-date {
+    padding-left: 10px;
+  }
+  .hud-root:not(.m) .hud-digits {
+    font-size: 24px;
+  }
+  .hud-root:not(.m) .hud-tools {
+    top: 8px;
+    right: 8px;
+  }
+  .hud-root:not(.m) .hud-updated,
+  .hud-root:not(.m) .hud-legend {
+    display: none;
+  }
+  .hud-root:not(.m) .hud-back {
+    top: 64px;
+    left: 8px;
+  }
+  .hud-root:not(.m) .hud-panel {
+    top: 52px;
+    right: 8px;
+    bottom: 74px;
+    width: 280px;
+    padding: 8px 10px 4px;
+  }
+  .hud-root:not(.m) .rank-front {
+    margin: 2px 0 4px;
+    padding-bottom: 4px;
+    font-size: 15px;
+  }
+  .hud-root:not(.m) .ranking {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .hud-root:not(.m) .hud-timeline {
+    left: 8px;
+    right: 8px;
+    bottom: 6px;
+    height: 62px;
+  }
+  .hud-root:not(.m) .hud-banners {
+    left: calc((100vw - 296px) / 2);
+    bottom: 76px;
+    width: min(440px, calc(100vw - 312px));
+  }
+  .hud-root:not(.m) .detail,
+  .hud-root:not(.m):has(> #hud-back:not([hidden])) .detail {
+    top: 104px;
+    left: 8px;
+    width: min(360px, calc(100vw - 312px));
+    max-height: calc(100vh - 104px - 76px);
+  }
+  .hud-root:not(.m):has(.detail:not([hidden])) .hud-banners {
+    left: calc(376px + (100vw - 376px - 296px) / 2);
+    width: min(400px, calc(100vw - 376px - 296px - 16px));
+  }
+  .hud-root:not(.m) .intro-card {
+    inset: 52px 296px 76px 0;
+  }
+}

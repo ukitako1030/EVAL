@@ -25,11 +25,19 @@ export interface Hud {
 
 const STATUS_SECONDS = 2;
 
+export interface HudOptions {
+  /**
+   * true → the share button opens the device's share sheet (`navigator.share`) when there is one, falling back to
+   * copying the link (main.ts: the mobile layout, where people pass the link on to social apps)
+   */
+  nativeShare?: () => boolean;
+}
+
 /**
  * The HUD shell: title + month, preliminary tag, last update, language toggle, share, methods link, legend, the
  * "unofficial" line, and the slots for the other components. Subscribes to `store`; `update` re-renders on demand.
  */
-export function mountHud(root: HTMLElement, store: Store<AppState>, world: World): Hud {
+export function mountHud(root: HTMLElement, store: Store<AppState>, world: World, opts: HudOptions = {}): Hud {
   const subtitle = h('div', { class: 'hud-sub' });
   const month = h('div', { id: 'hud-month', class: 'hud-digits' });
   const prelim = h('span', { id: 'hud-preliminary', class: 'hud-prelim', attrs: { hidden: true } });
@@ -47,11 +55,17 @@ export function mountHud(root: HTMLElement, store: Store<AppState>, world: World
   const langJa = langBtn('ja', '日本語', '日本語');
   const langEn = langBtn('en', 'EN', 'English');
   const langGroup = h('div', { id: 'hud-lang', class: 'hud-lang', attrs: { role: 'group' } }, [langJa, langEn]);
+  // one-button switch for narrow screens (styles: shown only in the mobile layout, where the pair is hidden)
+  const langToggleCode = h('span', { class: 'hud-lang-code' });
+  const langToggle = h('button', { id: 'hud-lang-toggle', class: 'hud-btn hud-lang-toggle', attrs: { type: 'button' } }, [
+    h('span', { class: 'hud-globe', attrs: { 'aria-hidden': 'true' } }, ['🌐']),
+    langToggleCode,
+  ]);
 
   const shareBtn = h('button', { id: 'hud-share', class: 'hud-btn', attrs: { type: 'button' } });
   const shareStatus = h('span', { id: 'hud-share-status', class: 'hud-share-status', attrs: { role: 'status', 'aria-live': 'polite' } });
   const methods = h('a', { id: 'hud-methods', class: 'hud-btn hud-link' });
-  const tools = h('nav', { id: 'hud-tools', class: 'hud-tools' }, [updated, langGroup, shareBtn, methods, shareStatus]);
+  const tools = h('nav', { id: 'hud-tools', class: 'hud-tools' }, [updated, langGroup, langToggle, shareBtn, methods, shareStatus]);
 
   const legendItem = (icon: string) => {
     const text = h('span');
@@ -89,6 +103,16 @@ export function mountHud(root: HTMLElement, store: Store<AppState>, world: World
 
   async function share(): Promise<void> {
     const url = location.origin + location.pathname + encodeUrl(store.get(), world);
+    const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+    if (opts.nativeShare?.() && nav && typeof nav.share === 'function') {
+      try {
+        await nav.share({ title: document.title, url });
+        return;
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return; // the reader closed the share sheet
+        // no share target / not allowed here: copy the link instead
+      }
+    }
     let ok = false;
     try {
       const clip = typeof navigator !== 'undefined' ? navigator.clipboard : undefined;
@@ -117,6 +141,9 @@ export function mountHud(root: HTMLElement, store: Store<AppState>, world: World
     if (status) setText(shareStatus, tr(status, l));
     setAttr(langJa, 'aria-pressed', String(l === 'ja'));
     setAttr(langEn, 'aria-pressed', String(l === 'en'));
+    const other: Lang = l === 'ja' ? 'en' : 'ja';
+    setText(langToggleCode, other === 'en' ? 'EN' : 'JA');
+    setAttr(langToggle, 'aria-label', tr('switchLang', l));
     root.ownerDocument.documentElement.lang = l;
   }
 
@@ -132,6 +159,7 @@ export function mountHud(root: HTMLElement, store: Store<AppState>, world: World
 
   langJa.addEventListener('click', () => store.set({ lang: 'ja' }));
   langEn.addEventListener('click', () => store.set({ lang: 'en' }));
+  langToggle.addEventListener('click', () => store.set({ lang: store.get().lang === 'ja' ? 'en' : 'ja' }));
   shareBtn.addEventListener('click', () => void share());
 
   const unsubscribe = store.subscribe((s) => update(s));

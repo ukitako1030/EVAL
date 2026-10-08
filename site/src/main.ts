@@ -5,14 +5,17 @@
  * org highlight, the battle, the banner queue and every flash-budget request, so the budget's "≤ 3 per second" is
  * measured on one timeline. Frames (`frontFrame` for every front) are computed once per animation frame and shared
  * by the galaxy (and through its planets the battle), the ranking and the deployment matrix.
+ *
+ * Below 768 px wide or in portrait orientation the HUD switches to the mobile layout (ui/mobile.ts, spec §8): one
+ * front at a time, its swarm battle pinned inside the large planet, bloom off; the renderer insets follow the mobile
+ * HUD (and an open bottom sheet) so the planet is never hidden.
  */
-import { createRenderer, type Renderer } from './render/app';
+import { createRenderer } from './render/app';
 import { createGalaxy } from './render/galaxy';
 import { createFleets } from './render/fleets';
 import { createHighlight } from './render/highlight';
 import { createBattle } from './render/battle';
 import { FONT_DISP, FONT_JP, FONT_UI } from './render/labels';
-import { isPortrait } from './render/layout';
 import { createQualityGovernor, type QualityLevel } from './fx/quality';
 import { createFlashBudget, logFlashes } from './fx/flashBudget';
 import { tr } from './i18n/strings';
@@ -21,7 +24,7 @@ import { createFrameSource, monthIndex } from './data/timeline';
 import type { FrontId, Lang, World } from './data/types';
 import { createStore, defaultState, type AppState } from './state/store';
 import { decodeUrl } from './state/url';
-import { syncUrl } from './state/urlSync';
+import { nextSearch, syncUrl } from './state/urlSync';
 import { initialPlayback, safeLocalStorage } from './state/intro';
 import { HOLD_SECONDS, MAX_HOLD_SECONDS, createPlayback } from './playback/clock';
 import { createBannerQueue, holdCounts, selectEvents } from './events/queue';
@@ -34,9 +37,15 @@ import { createDetail } from './ui/detail';
 import { createBackButton } from './ui/backButton';
 import { createIntroCard, type IntroCard } from './ui/introCard';
 import { showLoadError } from './ui/loadError';
+import { createMobile, type Mobile, type OverlayHistory } from './ui/mobile';
+import { holdOnScreen, layoutMode, viewportOf, type Insets } from './ui/mobileLayout';
 
-/** Banners stay up this long (s); the focused view shows one at a time, the galaxy two. */
+/** Banners stay up this long (s); the focused view shows one at a time, the galaxy two (one on phones). */
 const BANNER_SECONDS = 4;
+/** The mobile layout never renders above this quality level (1 = no bloom); the fps governor may still go lower. */
+const MOBILE_QUALITY: QualityLevel = 1;
+/** Camera glide when the framed area moves (a bottom sheet opens / closes), ms. */
+const REFRAME_MS = 600;
 
 const mount = document.getElementById('app');
 if (mount) void boot(mount);
@@ -61,7 +70,8 @@ async function boot(mount: HTMLElement) {
     const q = params.get('quality');
     const pinnedQuality = q === '0' || q === '1' || q === '2' || q === '3';
     if (pinnedQuality) renderer.setQuality(Number(q) as QualityLevel);
-    const compact = window.innerWidth < 768 || isPortrait({ w: window.innerWidth, h: window.innerHeight });
+    const compact = layoutMode(window.innerWidth, window.innerHeight) === 'mobile';
+    if (compact && !pinnedQuality) renderer.setQuality(MOBILE_QUALITY); // no bloom from the first frame
     const governor = createQualityGovernor({ targetFps: compact ? 30 : 60, window: 2 });
 
     // every light flash goes through this budget; debug: ?debugFlash logs grants per second (window.__flashStats)
@@ -85,17 +95,61 @@ async function boot(mount: HTMLElement) {
 
     // ---- HUD ----
     const frames = createFrameSource(world);
-    const hud = mountHud(mount, store, world);
-    createRanking(hud.slots.ranking, world, store, { frames });
+    const hud = mountHud(mount, store, world, { nativeShare: () => mobile.active });
+    const ranking = createRanking(hud.slots.ranking, world, store, { frames });
     createDeployment(hud.slots.deployment, world, store, { frames });
     const timeline = createTimelineBar(hud.slots.timeline, world, store);
     const banners = createBanners(hud.slots.banners, world, store);
-    createDetail(hud.slots.detail, world, store);
+    const detail = createDetail(hud.slots.detail, world, store);
     createBackButton(hud.el, store);
 
+    // ---- mobile layout (before anything reads `state.front`: it defaults the phone view to the general front) ----
+    const pixiInput = renderer.app.renderer.events;
+    const mobile: Mobile = createMobile(world, store, {
+      hud,
+      ranking,
+      detail,
+      stage: renderer.app.canvas,
+      // a drag on the stage is a swipe, not a tap: keep PixiJS from turning its release into a unit / planet click
+      suppressTaps: (on) => {
+        pixiInput.features.click = !on;
+      },
+      history: overlayHistory(),
+    });
+    const pinnedFront = (s: AppState) => (mobile.active ? s.front : null);
+    battle.setPinned(pinnedFront(store.get()));
+
     // ---- camera ----
-    applyInsets(renderer);
-    window.addEventListener('resize', () => applyInsets(renderer));
+    let insetsKey = '';
+    /**
+     * Keep the framed area clear of the HUD. `aim` re-targets the camera at the current front (a front change);
+     * `animate` glides there, starting from where the planet is on screen now, so a moving frame does not jump.
+     * Without either only the insets change (resize) and the camera follows the framed area on its own.
+     */
+    const reframe = (o: { aim: boolean; animate: boolean }) => {
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      const ins = mobile.insets() ?? desktopInsets(W, H, hud.el, detail.el);
+      const k = [ins.top, ins.right, ins.bottom, ins.left].map((v) => v.toFixed(1)).join('|');
+      if (k === insetsKey && !o.aim) return;
+      insetsKey = k;
+      const from = holdOnScreen(renderer.camera, renderer.viewport, viewportOf(ins, W, H));
+      renderer.setInsets(ins);
+      if (!o.aim && !o.animate) return;
+      const target = galaxy.cameraTarget(store.get().front);
+      renderer.focus(target, o.animate ? { from, durationMs: o.aim ? undefined : REFRAME_MS } : { instant: true });
+    };
+    reframe({ aim: false, animate: false });
+    const onResize = () => {
+      mobile.refresh();
+      reframe({ aim: false, animate: false });
+    };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    mobile.onLayout(() => {
+      battle.setPinned(pinnedFront(store.get()));
+      reframe({ aim: false, animate: false });
+    });
     const aim = (instant: boolean) => renderer.focus(galaxy.cameraTarget(store.get().front), { instant });
     aim(true);
     galaxy.onLayoutChange(() => aim(true));
@@ -104,7 +158,7 @@ async function boot(mount: HTMLElement) {
     const playbackFor = (front: FrontId | null) => createPlayback({ lastIndex: last, eventMonths: holdCounts(world, front), maxHoldSeconds: MAX_HOLD_SECONDS });
     // a banner yields to waiting news after playback's per-banner hold, so the news keeps pace with the timeline
     const queueFor = (front: FrontId | null) =>
-      createBannerQueue({ maxVisible: front ? 1 : 2, seconds: BANNER_SECONDS, maxPending: 6, stagger: 0.35, minSeconds: HOLD_SECONDS[store.get().speed] });
+      createBannerQueue({ maxVisible: front || mobile.active ? 1 : 2, seconds: BANNER_SECONDS, maxPending: 6, stagger: 0.35, minSeconds: HOLD_SECONDS[store.get().speed] });
     let playback = playbackFor(store.get().front);
     let queue = queueFor(store.get().front);
     let ticking = false; // store writes from the playback tick (anything else moving `t` is the user)
@@ -123,8 +177,12 @@ async function boot(mount: HTMLElement) {
         // the views announce different news and hold on different months
         playback = playbackFor(s.front);
         queue = queueFor(s.front);
-        aim(false);
-      } else if (!ticking && s.t !== prev.t) {
+        battle.setPinned(pinnedFront(s));
+        reframe({ aim: true, animate: true });
+      } else if ((s.selectedUnit === null) !== (prev.selectedUnit === null)) {
+        reframe({ aim: false, animate: true }); // the mobile bottom sheet opened / closed: the planet moves above it
+      }
+      if (s.front === prev.front && !ticking && s.t !== prev.t) {
         queue.clear(); // scrubbed / stepped / skipped: news from the old position is stale
         if (!card) startFromTheTop();
       }
@@ -154,7 +212,8 @@ async function boot(mount: HTMLElement) {
     // ---- frame loop ----
     renderer.onFrame((dt, rawDt) => {
       if (!pinnedQuality) {
-        const level = governor.frame(now(), rawDt);
+        const g = governor.frame(now(), rawDt);
+        const level = mobile.active ? (Math.max(g, MOBILE_QUALITY) as QualityLevel) : g;
         if (level !== renderer.quality) renderer.setQuality(level);
       }
       let s = store.get();
@@ -190,16 +249,16 @@ async function boot(mount: HTMLElement) {
     });
 
     // keep the address bar shareable (front / whole month / language), throttled
-    syncUrl(store, world, {
-      read: () => location.search,
-      write(search) {
-        try {
-          history.replaceState(history.state, '', `${location.pathname}${search}${location.hash}`);
-        } catch {
-          /* sandboxed / opaque origins refuse; the share button still works */
-        }
-      },
-    });
+    const writeSearch = (search: string) => {
+      try {
+        history.replaceState(history.state, '', `${location.pathname}${search}${location.hash}`);
+      } catch {
+        /* sandboxed / opaque origins refuse; the share button still works */
+      }
+    };
+    syncUrl(store, world, { read: () => location.search, write: writeSearch });
+    // back / forward over a mobile overlay entry restores that entry's address: rewrite it from the live state
+    window.addEventListener('popstate', () => writeSearch(nextSearch(store.get(), world, location.search)));
 
     // debug: ?hover=<org> pins the org highlight (screenshots)
     const hover = params.get('hover');
@@ -207,7 +266,7 @@ async function boot(mount: HTMLElement) {
     if (flashLog) Object.assign(window, { __flashStats: flashLog.stats });
     // dev only: handles for poking the app from the console / harness (--eval)
     if (import.meta.env.DEV) {
-      Object.assign(window, { __renderer: renderer, __galaxy: galaxy, __store: store, __world: world, __fleets: fleets, __highlight: highlight, __battle: battle });
+      Object.assign(window, { __renderer: renderer, __galaxy: galaxy, __store: store, __world: world, __fleets: fleets, __highlight: highlight, __battle: battle, __mobile: mobile });
     }
   } catch (err: unknown) {
     console.error('AI WAR failed to start', err);
@@ -216,13 +275,48 @@ async function boot(mount: HTMLElement) {
   }
 }
 
-/** Leave room for the HUD: ranking panel on the right (desktop), top bar and timeline. */
-function applyInsets(renderer: Renderer) {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  if (isPortrait({ w, h })) renderer.setInsets({ top: 56, right: 0, bottom: 96, left: 0 });
-  else if (w >= 1024) renderer.setInsets({ top: 76, right: 360, bottom: 120, left: 0 });
-  else renderer.setInsets({ top: 56, right: 0, bottom: 96, left: 0 });
+/**
+ * Desktop layout: leave room for the HUD. Wide windows use the fixed frame beside the ranking panel; narrower or
+ * short ones (768-1023 px, or a phone held sideways) measure the title, panel, timeline and an open detail panel.
+ */
+function desktopInsets(w: number, h: number, hud: HTMLElement, detail: HTMLElement): Insets {
+  if (w >= 1024 && h > 500) return { top: 76, right: 360, bottom: 120, left: 0 };
+  const box = (sel: string) => hud.querySelector<HTMLElement>(sel);
+  const panel = box('#hud-panel');
+  const timeline = box('#hud-timeline');
+  const title = box('#hud-title');
+  const right = panel && panel.offsetWidth > 0 ? w - panel.offsetLeft + 8 : 0;
+  const top = title ? title.offsetTop + title.offsetHeight + 4 : 56;
+  const bottom = timeline && timeline.offsetHeight > 0 ? h - timeline.offsetTop + 8 : 96;
+  const left = !detail.hidden && detail.offsetWidth > 0 ? detail.offsetLeft + detail.offsetWidth + 8 : 0;
+  return { top, right, bottom, left };
+}
+
+/** Browser history entries for the mobile overlays (bottom sheet, full ranking, galaxy map): back closes them. */
+function overlayHistory(): OverlayHistory {
+  const KEY = 'aiwarOverlay';
+  const isOurs = () => {
+    const st: unknown = history.state;
+    return typeof st === 'object' && st !== null && (st as Record<string, unknown>)[KEY] === true;
+  };
+  return {
+    push() {
+      try {
+        history.pushState({ [KEY]: true }, '', location.href);
+      } catch {
+        /* sandboxed: Esc and the close buttons still work */
+      }
+    },
+    back() {
+      if (!isOurs()) return false;
+      history.back();
+      return true;
+    },
+    onPop(cb) {
+      window.addEventListener('popstate', cb);
+      return () => window.removeEventListener('popstate', cb);
+    },
+  };
 }
 
 function loadFonts(): Promise<unknown> {

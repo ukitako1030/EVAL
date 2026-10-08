@@ -29,6 +29,8 @@ interface Row {
 export interface Ranking {
   el: HTMLElement;
   update(state: AppState): void;
+  /** row pitch in px (default `ROW_H`; the mobile layout uses shorter rows) */
+  setRowHeight(px: number): void;
   destroy(): void;
 }
 
@@ -67,6 +69,7 @@ export function createRanking(root: HTMLElement, world: World, store: Store<AppS
   const rows = new Map<string, Row>();
   let front: FrontId | null = null;
   let lang: Lang | null = null;
+  let rowH = ROW_H;
 
   function makeRow(id: string, unit: { org: string; name: string }): Row {
     const color = world.orgs[unit.org]?.color;
@@ -157,7 +160,7 @@ export function createRanking(root: HTMLElement, world: World, store: Store<AppS
       if (!r) continue;
       shown.add(u.id);
       r.li.hidden = false;
-      setStyle(r.li, 'transform', `translateY(${(u.rank - 1) * ROW_H}px)`);
+      setStyle(r.li, 'transform', `translateY(${(u.rank - 1) * rowH}px)`);
       setStyle(r.li, 'opacity', u.presence.toFixed(2));
       setAttr(r.li, 'data-rank', String(u.rank));
       setAttr(r.li, 'aria-posinset', String(u.rank));
@@ -178,7 +181,7 @@ export function createRanking(root: HTMLElement, world: World, store: Store<AppS
       setText(r.cVal, `${fmt1(u.c)}%`);
     }
     for (const [id, r] of rows) if (!shown.has(id)) r.li.hidden = true;
-    setStyle(list, 'height', `${frame.length * ROW_H}px`);
+    setStyle(list, 'height', `${frame.length * rowH}px`);
     empty.hidden = frame.length > 0;
   }
 
@@ -191,6 +194,11 @@ export function createRanking(root: HTMLElement, world: World, store: Store<AppS
   return {
     el,
     update,
+    setRowHeight(px) {
+      if (!(px > 0) || px === rowH) return;
+      rowH = px;
+      update(store.get());
+    },
     destroy() {
       unsubscribe();
       el.remove();
