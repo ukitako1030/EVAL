@@ -4,7 +4,7 @@ import { parseTtsArena, ttsArena } from '../../src/sources/ttsArena';
 import type { FetchCtx } from '../../src/sources/types';
 
 const read = (f: string) => readFileSync(new URL(`../fixtures/tts-arena/${f}`, import.meta.url), 'utf8');
-const sample = JSON.parse(read('sample.json')) as { rows: { name: string; elo: number; suspended: boolean }[] };
+const sample = JSON.parse(read('sample.json')) as { rows: { id: string; name: string; elo: number; suspended: boolean }[] };
 const now = new Date('2026-10-12T06:00:00Z');
 
 describe('tts-arena parse', () => {
@@ -17,16 +17,38 @@ describe('tts-arena parse', () => {
   });
 
   it('maps concrete rows exactly', () => {
-    expect(obs[0]).toEqual({ series: 'tts-arena', kind: 'elo', model: 'CastleFlow v1.0', date: '2026-10-12', dateKind: 'snapshot', value: 1561 });
-    expect(obs.find((o) => o.model === 'Inworld TTS MAX')?.value).toBe(1558);
-    expect(obs.find((o) => o.model === 'Aurora')?.value).toBe(1566); // elo is not monotonic in rank (ranked by CI lower bound)
+    expect(obs[0]).toEqual({ series: 'tts-arena', kind: 'elo', model: 'async-1', date: '2026-10-12', dateKind: 'snapshot', value: 1561 });
+    expect(obs.find((o) => o.model === 'inworld-max')?.value).toBe(1558);
+    expect(obs.find((o) => o.model === 'luck-dolphin')?.value).toBe(1566); // "Aurora"; elo is not monotonic in rank (ranked by CI lower bound)
     expect(obs.find((o) => o.model === 'star-june-2026')?.value).toBe(1540); // stealth row without url
   });
 
+  it('keys models by the stable id, not the display name (names drift between app versions)', () => {
+    const ids = new Set(sample.rows.filter((r) => !r.suspended).map((r) => r.id));
+    expect(new Set(obs.map((o) => o.model))).toEqual(ids);
+    expect(obs.some((o) => o.model === 'Aurora' || o.model === 'CastleFlow v1.0')).toBe(false);
+    expect(parseTtsArena({ rows: [{ id: 'minimax-speech-02-hd', name: 'MiniMax Speech-02-HD', elo: 1500 }, { id: 'minimax-speech-02-hd', name: 'MiniMax Speech 02 HD', elo: 1501 }] }, now).map((o) => o.model)).toEqual([
+      'minimax-speech-02-hd',
+      'minimax-speech-02-hd',
+    ]);
+  });
+
+  it('falls back to the display name when the id is missing, empty or not a string', () => {
+    const rows = [
+      { name: ' No Id ', elo: 1 },
+      { id: '', name: 'Empty Id', elo: 2 },
+      { id: '  ', name: 'Blank Id', elo: 3 },
+      { id: 7, name: 'Numeric Id', elo: 4 },
+      { id: ' trimmed-id ', name: 'Has Id', elo: 5 },
+      { id: '', name: '', elo: 6 },
+    ];
+    expect(parseTtsArena({ rows }, now).map((o) => o.model)).toEqual(['No Id', 'Empty Id', 'Blank Id', 'Numeric Id', 'trimmed-id']);
+  });
+
   it('leaves out the suspended (vote manipulation) row but keeps retired ones', () => {
-    expect(sample.rows.find((r) => r.suspended)?.name).toBe('Vocu V3.0');
-    expect(obs.some((o) => o.model === 'Vocu V3.0')).toBe(false);
-    expect(obs.some((o) => o.model === 'CastleFlow v1.0')).toBe(true); // active: false
+    expect(sample.rows.find((r) => r.suspended)?.id).toBe('vocu');
+    expect(obs.some((o) => o.model === 'vocu')).toBe(false);
+    expect(obs.some((o) => o.model === 'async-1')).toBe(true); // active: false
   });
 
   it('uses the date of the given clock and accepts JSON text', () => {
@@ -35,7 +57,7 @@ describe('tts-arena parse', () => {
   });
 
   it('skips bad rows and returns [] for an unusable payload', () => {
-    expect(parseTtsArena({ rows: [null, 'x', { name: 'A' }, { elo: 1500 }, { name: 'B', elo: 'n/a' }, { name: 'C', elo: 1400 }] }, now).map((o) => o.model)).toEqual(['C']);
+    expect(parseTtsArena({ rows: [null, 'x', { name: 'A' }, { elo: 1500 }, { id: 'b', name: 'B', elo: 'n/a' }, { name: 'C', elo: 1400 }] }, now).map((o) => o.model)).toEqual(['C']);
     expect(parseTtsArena({ rows: [] }, now)).toEqual([]);
     expect(parseTtsArena({}, now)).toEqual([]);
     expect(parseTtsArena('<html>', now)).toEqual([]);

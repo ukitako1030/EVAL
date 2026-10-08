@@ -11,9 +11,16 @@ function isObject(v: unknown): v is Json {
   return !!v && typeof v === 'object' && !Array.isArray(v);
 }
 
+const trimmed = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+
 /**
  * Pure parser for `{ rows: [...] }` (object or JSON text). The API has no as-of date, so every row is stamped with the
  * fetch day. Suspended rows (rank 0, e.g. for vote manipulation) are left out; retired and preliminary rows keep their rating.
+ *
+ * The model key is the row's stable `id` (e.g. `minimax-speech-02-hd`), because display names drift between app versions
+ * ("MiniMax Speech-02-HD" became "MiniMax Speech 02 HD") and some are pseudonyms ("Aurora" is `luck-dolphin`). Only when a row
+ * has no usable `id` (missing, not a string or blank) does the trimmed `name` stand in. The id carries the product family, so
+ * curated patterns match it (`/^eleven-/`, `/^minimax-speech-/`), not the brand, which it often lacks (`async-1` is CastleFlow).
  */
 export function parseTtsArena(raw: unknown, now: Date): Observation[] {
   let body = raw;
@@ -30,7 +37,7 @@ export function parseTtsArena(raw: unknown, now: Date): Observation[] {
   const out: Observation[] = [];
   for (const row of rows as unknown[]) {
     if (!isObject(row) || row['suspended'] === true) continue;
-    const model = typeof row['name'] === 'string' ? row['name'].trim() : '';
+    const model = trimmed(row['id']) || trimmed(row['name']);
     const value = toNumber(row['elo']);
     if (!model || value === null) continue;
     out.push({ series: 'tts-arena', kind: 'elo', model, date, dateKind: 'snapshot', value });
