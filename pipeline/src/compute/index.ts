@@ -78,6 +78,8 @@ export function computeWorld(opts: ComputeOpts): World {
 
   const strengthObs = new Map<string, Observation[]>();
   const signalObs: SignalObs[] = [];
+  /** source id → latest observation date (strength) or signal month (scale) among its valid raw items */
+  const dataThrough = new Map<string, string>();
   for (const mod of opts.modules) {
     let items: unknown[];
     try {
@@ -89,8 +91,17 @@ export function computeWorld(opts: ComputeOpts): World {
     }
     const valid = mod.role === 'strength' ? items.filter(isObservation) : items.filter(isSignalObs);
     if (valid.length < items.length) warn(`source "${mod.id}": dropped ${items.length - valid.length} of ${items.length} raw items that are not valid ${mod.role === 'strength' ? 'observations' : 'signal observations'}`);
-    if (mod.role === 'strength') strengthObs.set(mod.id, valid as Observation[]);
-    else for (const o of valid as SignalObs[]) signalObs.push(o); // not push(...valid): scale sources can hold 100k+ rows
+    let latest = '';
+    if (mod.role === 'strength') {
+      strengthObs.set(mod.id, valid as Observation[]);
+      for (const o of valid as Observation[]) if (o.date.slice(0, 10) > latest) latest = o.date.slice(0, 10);
+    } else {
+      for (const o of valid as SignalObs[]) {
+        signalObs.push(o); // not push(...valid): scale sources can hold 100k+ rows
+        if (o.month > latest) latest = o.month;
+      }
+    }
+    if (latest) dataThrough.set(mod.id, latest);
   }
   const scaleObs = latestWins(signalObs);
 
@@ -106,15 +117,22 @@ export function computeWorld(opts: ComputeOpts): World {
     breakdown: {},
     scaleBreakdown: {},
     events: [],
-    sources: opts.modules.map((m) => ({
-      id: m.id,
-      group: m.role === 'strength' ? m.group : m.id,
-      name: m.meta.name,
-      url: m.meta.url,
-      license: m.meta.license,
-      credit: m.meta.credit,
-      asOf: latestSnapshotDate(opts.rawDir, m.id),
-    })),
+    // only sources whose raw data was actually loaded are credited
+    sources: opts.modules
+      .filter((m) => dataThrough.has(m.id))
+      .map((m) => {
+        const asOf = latestSnapshotDate(opts.rawDir, m.id);
+        return {
+          id: m.id,
+          group: m.role === 'strength' ? m.group : m.id,
+          name: m.meta.name,
+          url: m.meta.url,
+          license: m.meta.license,
+          credit: m.meta.credit.replaceAll('<date>', asOf ?? ''),
+          asOf,
+          dataThrough: dataThrough.get(m.id)!,
+        };
+      }),
   };
 
   for (const front of FRONT_IDS) {

@@ -13,7 +13,9 @@ const minimal: World = {
   breakdown: { general: { gpt: { '2026-10': [{ source: 'arena-text', value: 100, weight: 0.5, kind: 'measured', model: 'gpt-5', share: 1 }] } } },
   scaleBreakdown: { general: { gpt: { '2026-10': [{ component: 'consumer', share: 100, signals: ['crux', 'tranco'] }] } } },
   events: [{ month: '2026-10', front: 'general', unit: 'gpt', type: 'new_unit', text: { ja: 'a', en: 'a' }, major: false }],
-  sources: [{ id: 'arena-text', group: 'arena-text', name: 'Arena', url: 'https://arena.ai', license: 'CC BY 4.0', credit: 'Arena', asOf: '2026-10-07' }],
+  sources: [
+    { id: 'arena-text', group: 'arena-text', name: 'Arena', url: 'https://arena.ai', license: 'CC BY 4.0', credit: 'Arena', asOf: '2026-10-07', dataThrough: '2026-10-02' },
+  ],
 };
 
 /** Deep-clones the minimal world, lets the caller break it, and returns the issue paths (dot-joined). */
@@ -164,6 +166,12 @@ describe('WorldSchema', () => {
   });
 
   describe('sources and orgs', () => {
+    it('dataThrough is a YYYY-MM-DD date, a YYYY-MM month or null', () => {
+      expect(paths((w) => (w.sources[0].dataThrough = '2026-09'))).toEqual([]);
+      expect(paths((w) => (w.sources[0].dataThrough = null))).toEqual([]);
+      expect(paths((w) => (w.sources[0].dataThrough = '2026'))).toEqual(['sources.0.dataThrough']);
+      expect(paths((w) => delete (w.sources[0] as Partial<World['sources'][number]>).dataThrough)).toEqual(['sources.0.dataThrough']);
+    });
     it('source url must be http(s)', () => {
       expect(paths((w) => (w.sources[0].url = 'ftp://arena.ai'))).toEqual(['sources.0.url']);
       expect(paths((w) => (w.sources[0].url = 'arena.ai'))).toEqual(['sources.0.url']);

@@ -120,6 +120,8 @@ describe('computeWorld', () => {
     expect(w.events.find((e) => e.type === 'custom')?.text.ja).toBe('開戦');
     expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki']);
     expect(w.sources[0].asOf).toBe('2026-10-05');
+    expect(w.sources[0].dataThrough).toBe('2023-05-31'); // latest observation date
+    expect(w.sources[1].dataThrough).toBe('2023-05'); // latest signal month
     expect(w.fronts).toHaveLength(7);
   });
   it('lists per month each source group with its model, effective weight and share of the unit\'s total weight', () => {
@@ -173,6 +175,21 @@ describe('computeWorld', () => {
     expect(Object.keys(w.scaleBreakdown.general.gpt)).toEqual(w.months);
     expect(Object.keys(w.scaleBreakdown.general.claude)).toEqual(['2023-03', '2023-04', '2023-05', '2023-06']);
     expect(w.scaleBreakdown.code).toEqual({});
+  });
+  it('lists only sources with raw data, and fills the <date> placeholder of a credit with the snapshot date', () => {
+    const noData: SourceModule = { ...wiki, id: 'fake-nodata' };
+    const corrupt: SourceModule = { ...arena, id: 'fake-corrupt' };
+    const dated: SourceModule = { ...wiki, meta: { ...meta, credit: 'Source: Fake, as of <date> (<date>)' } };
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena, noData, corrupt, dated],
+      now: new Date('2023-06-15T00:00:00Z'),
+      onWarn: () => {},
+    });
+    expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki']);
+    expect(w.sources[1].credit).toBe('Source: Fake, as of 2026-10-05 (2026-10-05)');
   });
   it('describes each unit with its org, name, first month and announcements series', () => {
     const w = computeWorld({

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FrontIdSchema, LocalizedSchema, MonthStr, EventTypeSchema, SignalIdSchema } from '../config/schemas';
+import { DateStr, FrontIdSchema, LocalizedSchema, MonthStr, EventTypeSchema, SignalIdSchema } from '../config/schemas';
 
 const ConfidenceSchema = z.enum(['high', 'medium', 'reconstructed', 'estimated']);
 
@@ -101,7 +101,18 @@ export const WorldSchema = z
       }),
     ),
     sources: z.array(
-      z.object({ id: z.string(), group: z.string(), name: z.string(), url: z.string(), license: z.string(), credit: z.string(), asOf: z.string().nullable() }),
+      z.object({
+        id: z.string(),
+        group: z.string(),
+        name: z.string(),
+        url: z.string(),
+        license: z.string(),
+        credit: z.string(),
+        /** date of the latest raw snapshot file */
+        asOf: z.string().nullable(),
+        /** latest observation date (strength) or signal month (scale) in the source's data */
+        dataThrough: z.union([DateStr, MonthStr]).nullable(),
+      }),
     ),
   })
   .superRefine((w, ctx) => {
