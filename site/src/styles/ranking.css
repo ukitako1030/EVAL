@@ -244,6 +244,15 @@
 }
 
 /* ---------- deployment ---------- */
+/* its slot takes the panel's remaining height, so the matrix scrolls (and fades) inside it instead of being cut
+   off by the panel */
+#hud-deployment {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .deployment {
   flex: 1 1 auto;
   min-height: 0;
