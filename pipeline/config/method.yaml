@@ -29,4 +29,4 @@ scale:
     business: { weight: 0.20, signals: [ramp, openrouter] }
     attention: { weight: 0.10, signals: [wikipedia, itunes] }
   base: [consumer, attention]
-events: { newModelMinDelta: 3, surgeStrength: 5, surgeScale: 5, leadHysteresis: 1, maxPerFrontMonth: 3 }
+events: { newModelMinDelta: 3, surgeStrength: 8, surgeScale: 5, leadHysteresis: 1, maxPerFrontMonth: 3 }

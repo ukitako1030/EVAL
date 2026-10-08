@@ -46,6 +46,7 @@ export const WorldSchema = z
         text: LocalizedSchema,
         model: z.string().optional(),
         from: z.string().optional(),
+        major: z.boolean(),
       }),
     ),
     sources: z.array(

@@ -4,11 +4,13 @@ import { detectEvents, prettyModel, type FrontCells } from '../../src/compute/ev
 const params = { newModelMinDelta: 3, surgeStrength: 5, surgeScale: 5, leadHysteresis: 1, maxPerFrontMonth: 3 };
 const front = { id: 'general' as const, name: { ja: '総合戦線', en: 'General Front' } };
 
-const cells = (data: Record<string, (null | [number, number, string | null] | [number, number, string | null, string])[]>): FrontCells =>
+type CellTuple = [number, number, string | null] | [number, number, string | null, string] | [number, number, string | null, string, string[]];
+/** [s, c, bestModel, q = 'high', groups = ['g']] */
+const cells = (data: Record<string, (null | CellTuple)[]>): FrontCells =>
   new Map(
     Object.entries(data).map(([u, arr]) => [
       u,
-      arr.map((v) => (v ? { s: v[0], c: v[1], bestModel: v[2], q: (v[3] ?? 'high') as 'high' | 'estimated' } : null)),
+      arr.map((v) => (v ? { s: v[0], c: v[1], bestModel: v[2], q: (v[3] ?? 'high') as 'high' | 'estimated', groups: v[4] ?? ['g'] } : null)),
     ]),
   );
 
@@ -59,21 +61,32 @@ describe('prettyModel fallback', () => {
     expect(pm('claude-opus-5-5_unknown')).toBe('Claude Opus 5.5');
     expect(pm('gpt-5.5_UNKNOWN')).toBe('GPT 5.5');
   });
-  it('turns a trailing _<effort> into a parenthesised, capitalised suffix', () => {
-    expect(pm('claude-sonnet-5-5_max')).toBe('Claude Sonnet 5.5 (Max)');
-    expect(pm('gpt-5.2-2025-12-11_high')).toBe('GPT 5.2 (High)');
-    expect(pm('gpt-5.4-2026-03-05_xhigh')).toBe('GPT 5.4 (Xhigh)');
-    expect(pm('o4-mini-2025-04-16_medium')).toBe('o4 Mini (Medium)');
-    expect(pm('gpt-5-nano_low')).toBe('GPT 5 Nano (Low)');
-    expect(pm('gpt-5_minimal')).toBe('GPT 5 (Minimal)');
-    expect(pm('glm-5.2_MAX')).toBe('Glm 5.2 (Max)');
+  it('turns a trailing _<effort> into a parenthesised lower-case suffix', () => {
+    expect(pm('claude-sonnet-5-5_max')).toBe('Claude Sonnet 5.5 (max)');
+    expect(pm('gpt-5.2-2025-12-11_high')).toBe('GPT 5.2 (high)');
+    expect(pm('gpt-5.4-2026-03-05_xhigh')).toBe('GPT 5.4 (xhigh)');
+    expect(pm('o4-mini-2025-04-16_medium')).toBe('o4 Mini (medium)');
+    expect(pm('gpt-5-nano_low')).toBe('GPT 5 Nano (low)');
+    expect(pm('gpt-5_minimal')).toBe('GPT 5 (minimal)');
+    expect(pm('glm-5.2_MAX')).toBe('Glm 5.2 (max)');
+  });
+  it('also turns a trailing -<effort> into a suffix, except -max (a model name: Codex Max, FLUX.2 Max)', () => {
+    expect(pm('claude-sonnet-5.5-xhigh')).toBe('Claude Sonnet 5.5 (xhigh)');
+    expect(pm('gpt-5-high')).toBe('GPT 5 (high)');
+    expect(pm('gemini-3.5-flash-medium')).toBe('Gemini 3.5 Flash (medium)');
+    expect(pm('gpt-5-mini-2025-08-07-low')).toBe('GPT 5 Mini (low)');
+    expect(pm('gpt-5-minimal')).toBe('GPT 5 (minimal)');
+    expect(pm('o3-mini-HIGH')).toBe('o3 Mini (high)');
+    expect(pm('gpt-5.1-codex-max')).toBe('GPT 5.1 Codex Max');
+    expect(pm('flux-2-max')).toBe('Flux 2 Max');
   });
   it('handles _unknown together with an effort, and leaves other suffixes and lone words alone', () => {
-    expect(pm('gpt-5.5_high_unknown')).toBe('GPT 5.5 (High)');
+    expect(pm('gpt-5.5_high_unknown')).toBe('GPT 5.5 (high)');
     expect(pm('claude-opus-4-5-20251101_16K')).toBe('Claude Opus 4.5');
     expect(pm('high')).toBe('High');
     expect(pm('_high')).toBe('High');
-    expect(pm('gpt-5-high')).toBe('GPT 5 High'); // only an underscore-separated suffix is an effort
+    expect(pm('-high')).toBe('High');
+    expect(pm('gpt-5-highest')).toBe('GPT 5 Highest');
   });
   it('lets release display names take precedence', () => {
     expect(pm('claude-3-5-sonnet-20240620')).toBe('Claude 3.5 Sonnet');
@@ -84,7 +97,7 @@ describe('prettyModel fallback', () => {
 describe('detectEvents', () => {
   const months = ['2024-01', '2024-02', '2024-03', '2024-04'];
   const names = { gpt: 'GPT', claude: 'Claude' };
-  // 2024-03: claude overtakes on strength (+10, new model), gpt drops 6 (surge down).
+  // 2024-03: claude overtakes on strength (+10, new model), gpt drops 6 (a fall: never an event).
   // 2024-04: claude overtakes on scale (42 vs 35) without a +5 scale jump of its own.
   const c = cells({
     gpt: [[100, 80, 'gpt-4'], [100, 78, 'gpt-4'], [94, 60, 'gpt-4'], [94, 35, 'gpt-4']],
@@ -96,8 +109,17 @@ describe('detectEvents', () => {
   it('detects arrivals, model jumps, lead and scale-lead changes', () => {
     expect(types('2024-01')).toEqual([]); // first month: initial leaders, no events; gpt existing from start is not "new"
     expect(types('2024-02')).toEqual(['new_unit:claude']);
-    expect(types('2024-03')).toEqual(['lead_change:claude', 'new_model:claude', 'surge:gpt']);
+    expect(types('2024-03')).toEqual(['lead_change:claude', 'new_model:claude']);
     expect(types('2024-04')).toEqual(['scale_lead_change:claude']);
+  });
+  it('marks lead changes, scale lead changes and the new model of the month\'s strength leader as major', () => {
+    const major = ev.map((e) => `${e.month}:${e.type}:${e.major}`);
+    expect(major).toEqual([
+      '2024-02:new_unit:false',
+      '2024-03:lead_change:true',
+      '2024-03:new_model:true', // claude leads in 2024-03
+      '2024-04:scale_lead_change:true',
+    ]);
   });
   it('stores the previous leader unit id (not its display name) in from', () => {
     const lead = ev.find((e) => e.type === 'lead_change')!;
@@ -125,14 +147,116 @@ describe('detectEvents', () => {
       params,
       releases: [],
       overrides: [
-        { month: '2024-03', front: 'general', unit: 'gpt', type: 'surge', hide: true },
+        { month: '2024-03', front: 'general', unit: 'claude', type: 'new_model', hide: true },
         { month: '2024-02', front: 'general', unit: 'claude', type: 'new_unit', text: { ja: 'Claude 2 参戦', en: 'Claude 2 joins' } },
       ],
       custom: [{ month: '2024-01', front: 'general', unit: 'gpt', text: { ja: '開戦', en: 'War begins' } }],
     });
-    expect(ev2.some((e) => e.type === 'surge')).toBe(false);
+    expect(ev2.some((e) => e.type === 'new_model')).toBe(false);
     expect(ev2.find((e) => e.type === 'new_unit')!.text.ja).toBe('Claude 2 参戦');
-    expect(ev2.find((e) => e.type === 'custom')!.month).toBe('2024-01');
+    expect(ev2.find((e) => e.type === 'new_unit')!.major).toBe(false);
+    expect(ev2.find((e) => e.type === 'custom')).toMatchObject({ month: '2024-01', major: true });
+  });
+  it('emits only upward surges (strength or scale), never "falls back"', () => {
+    const c2 = cells({
+      a: [[100, 50, 'a-1'], [100, 50, 'a-1'], [100, 50, 'a-1'], [100, 30, 'a-1']],
+      b: [[80, 10, 'b-1'], [60, 10, 'b-1'], [70, 10, 'b-1'], [70, 30, 'b-1']], // −20, then +10, then scale +20
+    });
+    const e = detectEvents({ front, months, cells: c2, unitNames: { a: 'A', b: 'B' }, params, releases: [], overrides: [], custom: [] });
+    expect(e.filter((x) => x.type === 'surge').map((x) => `${x.month}:${x.unit}`)).toEqual(['2024-03:b', '2024-04:b']);
+    expect(e.find((x) => x.type === 'surge')!.text.en).toBe('B surges — General Front');
+    expect(e.find((x) => x.type === 'surge')!.major).toBe(false);
+  });
+  describe('source-mix changes (a unit\'s set of contributing groups differs from the previous month)', () => {
+    /** a cell with per-group values; weights default to 0.5 */
+    const cell = (s: number, parts: Record<string, number>, weights: Record<string, number> = {}) => ({
+      s,
+      c: 10,
+      bestModel: null,
+      q: 'high' as const,
+      groups: Object.keys(parts),
+      parts: Object.fromEntries(Object.entries(parts).map(([g, value]) => [g, { value, weight: weights[g] ?? 0.5 }])),
+    });
+    it('judges a strength surge also on the groups present in both months (a source appearing or fading out is no surge)', () => {
+      const fc: FrontCells = new Map([
+        ['a', [cell(100, { x: 100, y: 100 }), cell(100, { x: 100, y: 100 }), cell(100, { x: 100, y: 100 })]],
+        // 2024-02: y appears with a high value (+15 overall, x unchanged) → no surge;
+        // 2024-03: y fades out completely while x jumps +30 (+15 overall) → surge
+        ['b', [cell(60, { x: 60 }), cell(75, { x: 60, y: 90 }), cell(90, { x: 90 })]],
+        // 2024-03: z disappears, which lifts c by 20 although its remaining source did not move → no surge
+        ['c', [cell(50, { x: 70, z: 30 }), cell(50, { x: 70, z: 30 }), cell(70, { x: 70 })]],
+        // 2024-03: x rises 10 but the displayed strength falls (a strong source faded out) → no surge
+        ['d', [cell(70, { x: 50, y: 90 }), cell(70, { x: 50, y: 90 }), cell(60, { x: 60 })]],
+      ]);
+      const e = detectEvents({ front, months: months.slice(0, 3), cells: fc, unitNames: {}, params: { ...params, surgeStrength: 8 }, releases: [], overrides: [], custom: [] });
+      expect(e.map((x) => `${x.month}:${x.type}:${x.unit}`)).toEqual(['2024-03:surge:b']);
+    });
+    it('reports a lead change despite a source-mix change when it also holds on a like-for-like basis', () => {
+      // 2024-02: b's new model lifts x from 90 to 100 and b is also scored by a new source y; a stays put.
+      // On x alone b went 90 → 100 and overtook a (95): a real lead change.
+      const fc: FrontCells = new Map([
+        ['a', [cell(95, { x: 95 }), cell(95, { x: 95 })]],
+        ['b', [cell(90, { x: 90 }), cell(98, { x: 100, y: 96 })]],
+      ]);
+      const e = detectEvents({ front, months: months.slice(0, 2), cells: fc, unitNames: {}, params: { ...params, surgeStrength: 20 }, releases: [], overrides: [], custom: [] });
+      expect(e.map((x) => `${x.month}:${x.type}:${x.unit}`)).toEqual(['2024-02:lead_change:b']);
+    });
+    it('hands the lead over silently when it only changed because a source faded out of the leader\'s mix', () => {
+      // a led thanks to source y; y fades out of a's mix in 2024-02 and b, unchanged, is now ahead
+      const fc: FrontCells = new Map([
+        ['a', [cell(97, { x: 94, y: 100 }), cell(94, { x: 94 }), cell(94, { x: 94 })]],
+        ['b', [cell(96, { x: 96 }), cell(96, { x: 96 }), cell(96, { x: 96 })]],
+      ]);
+      const e = detectEvents({ front, months: months.slice(0, 3), cells: fc, unitNames: {}, params, releases: [], overrides: [], custom: [] });
+      expect(e.filter((x) => x.type === 'lead_change')).toEqual([]);
+    });
+    it('suppresses surges of that unit when no per-group values are known', () => {
+      const c2 = cells({
+        a: [[100, 50, 'a-1', 'high', ['x', 'y']], [100, 50, 'a-1', 'high', ['x', 'y']], [100, 50, 'a-1', 'high', ['x', 'y']]],
+        // +15 when y appears, then +15 with the same groups (listed in another order)
+        b: [[60, 10, 'b-1', 'high', ['x']], [75, 10, 'b-1', 'high', ['x', 'y']], [90, 10, 'b-1', 'high', ['y', 'x']]],
+      });
+      const e = detectEvents({ front, months: months.slice(0, 3), cells: c2, unitNames: {}, params, releases: [], overrides: [], custom: [] });
+      expect(e.map((x) => `${x.month}:${x.type}:${x.unit}`)).toEqual(['2024-03:surge:b']);
+    });
+    it('without per-group values, suppresses a lead change when the new leader\'s groups changed, and hands the lead over silently', () => {
+      const c2 = cells({
+        a: [[100, 50, 'a-1', 'high', ['x']], [100, 50, 'a-1', 'high', ['x']], [100, 50, 'a-1', 'high', ['x']], [100, 50, 'a-1', 'high', ['x']]],
+        b: [[90, 10, 'b-1', 'high', ['x']], [103, 10, 'b-1', 'high', ['x', 'y']], [103, 10, 'b-1', 'high', ['x', 'y']], [99, 10, 'b-1', 'high', ['x', 'y']]],
+      });
+      const e = detectEvents({ front, months, cells: c2, unitNames: {}, params, releases: [], overrides: [], custom: [] });
+      // 2024-02: no lead change, no surge (b's sources changed); 2024-03: b already leads; 2024-04: a is back ahead by 1 → real lead change
+      expect(e.map((x) => `${x.month}:${x.type}:${x.unit}`)).toEqual(['2024-04:lead_change:a']);
+    });
+    it('without per-group values, suppresses a lead change when the previous leader\'s groups changed', () => {
+      const c2 = cells({
+        a: [[100, 50, 'a-1', 'high', ['x', 'y']], [95, 50, 'a-1', 'high', ['x']], [95, 50, 'a-1', 'high', ['x']]],
+        b: [[98, 10, 'b-1', 'high', ['x', 'y']], [98, 10, 'b-1', 'high', ['x', 'y']], [98, 10, 'b-1', 'high', ['x', 'y']]],
+      });
+      const e = detectEvents({ front, months: months.slice(0, 3), cells: c2, unitNames: {}, params, releases: [], overrides: [], custom: [] });
+      expect(e.filter((x) => x.type === 'lead_change')).toEqual([]);
+    });
+    it('still reports a lead change taken by a unit that was absent the month before', () => {
+      const c2 = cells({
+        a: [[100, 50, 'a-1'], [100, 50, 'a-1']],
+        b: [null, [110, 10, 'b-1', 'high', ['x', 'y']]],
+      });
+      const e = detectEvents({ front, months: months.slice(0, 2), cells: c2, unitNames: {}, params, releases: [], overrides: [], custom: [] });
+      expect(e.map((x) => `${x.month}:${x.type}:${x.unit}`)).toEqual(['2024-02:lead_change:b', '2024-02:new_unit:b']);
+    });
+  });
+  it('reports new models only for units ranked in the top 3 by strength that month; only the leader\'s is major', () => {
+    const c2 = cells({
+      a: [[100, 40, 'a-1'], [100, 40, 'a-2']], // leader, new model (+0: below newModelMinDelta)
+      b: [[90, 30, 'b-1'], [94, 30, 'b-2']], // 2nd, new model +4
+      c: [[86, 20, 'c-1'], [90, 20, 'c-2']], // 3rd, new model +4
+      d: [[82, 10, 'd-1'], [86, 10, 'd-2']], // 4th, new model +4 → not reported
+    });
+    const e = detectEvents({ front, months: months.slice(0, 2), cells: c2, unitNames: {}, params, releases: [], overrides: [], custom: [] });
+    expect(e.map((x) => `${x.type}:${x.unit}:${x.major}`)).toEqual(['new_model:b:false', 'new_model:c:false']);
+    const lead = cells({ a: [[100, 40, 'a-1'], [104, 40, 'a-2']], b: [[90, 30, 'b-1'], [90, 30, 'b-1']] });
+    const e2 = detectEvents({ front, months: months.slice(0, 2), cells: lead, unitNames: {}, params, releases: [], overrides: [], custom: [] });
+    expect(e2.map((x) => `${x.type}:${x.unit}:${x.major}`)).toEqual(['new_model:a:true']);
   });
   it('ignores estimated cells for lead changes, model jumps and surges', () => {
     const est = cells({

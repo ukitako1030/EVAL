@@ -186,16 +186,18 @@ export function computeWorld(opts: ComputeOpts): World {
       world.series[front][u] = arr;
       cells.set(
         u,
-        months.map((m, i) =>
-          arr[i]
-            ? {
-                s: arr[i]!.s,
-                c: arr[i]!.c,
-                q: arr[i]!.q,
-                bestModel: strength.get(u)!.get(m)!.breakdown.find((g) => g.group === eventGroup)?.model ?? null,
-              }
-            : null,
-        ),
+        months.map((m, i) => {
+          if (!arr[i]) return null;
+          const breakdown = strength.get(u)!.get(m)!.breakdown;
+          return {
+            s: arr[i]!.s,
+            c: arr[i]!.c,
+            q: arr[i]!.q,
+            bestModel: breakdown.find((g) => g.group === eventGroup)?.model ?? null,
+            groups: breakdown.map((g) => g.group),
+            parts: Object.fromEntries(breakdown.map((g) => [g.group, { value: g.score, weight: g.weight }])),
+          };
+        }),
       );
       const bd: World['breakdown'][string][string] = {};
       for (const m of months) {

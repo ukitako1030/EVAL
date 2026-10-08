@@ -10,7 +10,7 @@ const minimal: World = {
   units: { general: { gpt: { org: 'openai', name: 'GPT' } } },
   series: { general: { gpt: [null, { s: 100, c: 100, q: 'medium' }] } },
   breakdown: { general: { gpt: { '2026-10': [{ source: 'arena-text', value: 100, weight: 0.5, kind: 'measured' }] } } },
-  events: [{ month: '2026-10', front: 'general', unit: 'gpt', type: 'new_unit', text: { ja: 'a', en: 'a' } }],
+  events: [{ month: '2026-10', front: 'general', unit: 'gpt', type: 'new_unit', text: { ja: 'a', en: 'a' }, major: false }],
   sources: [{ id: 'arena-text', group: 'arena-text', name: 'Arena', url: 'https://arena.ai', license: 'CC BY 4.0', credit: 'Arena', asOf: '2026-10-07' }],
 };
 
@@ -85,6 +85,10 @@ describe('WorldSchema', () => {
   });
 
   describe('events', () => {
+    it('every event says whether it is major', () => {
+      expect(paths((w) => delete (w.events[0] as Partial<World['events'][number]>).major)).toEqual(['events.0.major']);
+      expect(paths((w) => (w.events[0].major = true))).toEqual([]);
+    });
     it('month must be one of the months', () => {
       expect(paths((w) => (w.events[0].month = '2020-01'))).toEqual(['events.0.month']);
     });

@@ -9,4 +9,7 @@ describe('config/method.yaml', () => {
   it('lets stale strength sources fade out over 6 months', () => {
     expect(method.strength.fadeMonths).toBe(6);
   });
+  it('reports a strength surge from +8 points', () => {
+    expect(method.events.surgeStrength).toBe(8);
+  });
 });
