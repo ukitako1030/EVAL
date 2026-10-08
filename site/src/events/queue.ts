@@ -1,9 +1,23 @@
 import type { FrontId, World, WorldEvent } from '../data/types';
 
-/** Battle news to announce when playback enters month `i`. Galaxy view hides other fronts' surges (too chatty). */
+/** Galaxy view (`front === null`) announces only major events; a focused view announces every event of its front. */
+const shownIn = (e: WorldEvent, front: FrontId | null): boolean => (front ? e.front === front : e.major);
+
+/** Battle news to announce when playback enters month `i`. */
 export function selectEvents(world: World, i: number, front: FrontId | null): WorldEvent[] {
   const month = world.months[i];
-  return world.events.filter((e) => e.month === month && (front ? e.front === front : e.type !== 'surge' || e.front === 'general'));
+  return world.events.filter((e) => e.month === month && shownIn(e, front));
+}
+
+/** Month indices at which `selectEvents` returns something for this view — the only months playback should pause on. */
+export function holdMonths(world: World, front: FrontId | null): Set<number> {
+  const index = new Map(world.months.map((m, i) => [m, i] as const));
+  const out = new Set<number>();
+  for (const e of world.events) {
+    const i = index.get(e.month);
+    if (i !== undefined && shownIn(e, front)) out.add(i);
+  }
+  return out;
 }
 
 export interface Banner {

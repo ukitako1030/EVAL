@@ -4,6 +4,7 @@ export function makeWorld(): World {
   const fronts = ['general', 'code', 'agent', 'image', 'video', 'speech', 'music'] as const;
   const empty = Object.fromEntries(fronts.map((f) => [f, {}])) as World['units'];
   const w: World = {
+    schemaVersion: 2,
     generatedAt: '2025-04-15T00:00:00.000Z',
     months: ['2025-01', '2025-02', '2025-03', '2025-04'],
     partialMonth: '2025-04',
@@ -12,23 +13,31 @@ export function makeWorld(): World {
     units: { ...empty },
     series: structuredClone(empty) as unknown as World['series'],
     breakdown: structuredClone(empty) as unknown as World['breakdown'],
+    scaleBreakdown: structuredClone(empty) as unknown as World['scaleBreakdown'],
+    announcements: {},
     events: [
-      { month: '2025-01', front: 'general', unit: 'gpt', type: 'custom', text: { ja: '開戦', en: 'War begins' } },
-      { month: '2025-03', front: 'general', unit: 'claude', type: 'lead_change', text: { ja: '首位交代', en: 'Lead change' }, from: 'gpt' },
-      { month: '2025-03', front: 'image', unit: 'nb', type: 'new_unit', text: { ja: 'NB 参戦', en: 'NB enters' } },
-      { month: '2025-04', front: 'general', unit: 'gemini', type: 'surge', text: { ja: '急伸', en: 'Surge' } },
+      { month: '2025-01', front: 'general', unit: 'gpt', type: 'custom', major: true, text: { ja: '開戦', en: 'War begins' } },
+      { month: '2025-03', front: 'general', unit: 'claude', type: 'lead_change', major: true, text: { ja: '首位交代', en: 'Lead change' }, from: 'gpt' },
+      { month: '2025-03', front: 'image', unit: 'nb', type: 'new_unit', major: false, text: { ja: 'NB 参戦', en: 'NB enters' } },
+      { month: '2025-04', front: 'general', unit: 'gemini', type: 'surge', major: false, text: { ja: '急伸', en: 'Surge' } },
     ],
-    sources: [{ id: 'arena-text', group: 'arena-text', name: 'Arena', url: 'https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset', license: 'CC BY 4.0', credit: 'Arena, CC BY 4.0', asOf: '2025-04-10' }],
+    sources: [{ id: 'arena-text', group: 'arena-text', name: 'Arena', url: 'https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset', license: 'CC BY 4.0', credit: 'Arena, CC BY 4.0', asOf: '2025-04-10', dataThrough: '2025-04-10' }],
+    dataLicense: 'Derived data: CC BY 4.0 (see per-source credits).',
+    dataLicenseJa: '派生データ: CC BY 4.0（出典ごとのクレジットを参照）。',
   };
-  w.units.general = { gpt: { org: 'openai', name: 'GPT' }, claude: { org: 'anthropic', name: 'Claude' }, gemini: { org: 'google', name: 'Gemini' } };
+  w.units.general = {
+    gpt: { org: 'openai', name: 'GPT', since: '2025-01' },
+    claude: { org: 'anthropic', name: 'Claude', since: '2025-01' },
+    gemini: { org: 'google', name: 'Gemini', since: '2025-03' },
+  };
   w.series.general = {
-    gpt: [{ s: 100, c: 70, q: 'high' }, { s: 100, c: 66, q: 'high' }, { s: 90, c: 60, q: 'high' }, { s: 92, c: 58, q: 'high' }],
-    claude: [{ s: 80, c: 30, q: 'medium' }, { s: 90, c: 30, q: 'medium' }, { s: 100, c: 28, q: 'high' }, { s: 100, c: 27, q: 'high' }],
-    gemini: [null, null, { s: 70, c: 12, q: 'estimated' }, { s: 85, c: 15, q: 'reconstructed' }],
+    gpt: [{ s: 100, c: 70, q: 'high', qs: 'high', qc: 'high' }, { s: 100, c: 66, q: 'high', qs: 'high', qc: 'high' }, { s: 90, c: 60, q: 'high', qs: 'high', qc: 'high' }, { s: 92, c: 58, q: 'high', qs: 'high', qc: 'high' }],
+    claude: [{ s: 80, c: 30, q: 'medium', qs: 'medium', qc: 'medium' }, { s: 90, c: 30, q: 'medium', qs: 'medium', qc: 'medium' }, { s: 100, c: 28, q: 'high', qs: 'high', qc: 'high' }, { s: 100, c: 27, q: 'high', qs: 'high', qc: 'high' }],
+    gemini: [null, null, { s: 70, c: 12, q: 'estimated', qs: 'estimated', qc: 'estimated' }, { s: 85, c: 15, q: 'reconstructed', qs: 'reconstructed', qc: 'reconstructed' }],
   };
-  w.units.image = { nb: { org: 'google', name: 'Nano Banana' } };
-  w.series.image = { nb: [null, null, { s: 100, c: 100, q: 'medium' }, { s: 100, c: 100, q: 'medium' }] };
-  w.breakdown.general = { gpt: { '2025-01': [{ source: 'arena-text', value: 100, weight: 0.5, kind: 'measured' }] }, claude: {}, gemini: {} };
+  w.units.image = { nb: { org: 'google', name: 'Nano Banana', since: '2025-03' } };
+  w.series.image = { nb: [null, null, { s: 100, c: 100, q: 'medium', qs: 'medium', qc: 'medium' }, { s: 100, c: 100, q: 'medium', qs: 'medium', qc: 'medium' }] };
+  w.breakdown.general = { gpt: { '2025-01': [{ source: 'arena-text', model: 'gpt-4o', value: 100, weight: 0.5, share: 1, kind: 'measured' }] }, claude: {}, gemini: {} };
   w.breakdown.image = { nb: {} };
   return w;
 }
