@@ -1,0 +1,1581 @@
+{
+ "source": "huggingface space TIGER-Lab/GenAI-Arena, path arena_elo/results/",
+ "treeApi": "https://huggingface.co/api/spaces/TIGER-Lab/GenAI-Arena/tree/main/arena_elo/results?recursive=true&expand=false",
+ "resolveUrlTemplate": "https://huggingface.co/spaces/TIGER-Lab/GenAI-Arena/resolve/main/arena_elo/results/{folder}/{file}",
+ "observedAt": "2026-10-08",
+ "repoSha": "4197b3a6b50aca8fae6c01d5968f08c3537024d1",
+ "note": "Folder name = US/Pacific date (YYYYMMDD) of the last battle included for the task(s) written into it. Not every folder contains every task. latest mirrors the newest dated file of each task.",
+ "dateFolderCount": 179,
+ "firstDate": "20240220",
+ "lastDate": "20250324",
+ "countsByFile": {
+  "elo_results_image_editing.pkl": {
+   "count": 41,
+   "first": "20240220",
+   "last": "20250309"
+  },
+  "elo_results_t2i_generation.pkl": {
+   "count": 149,
+   "first": "20240220",
+   "last": "20250324"
+  },
+  "image_editing_leaderboard.csv": {
+   "count": 41,
+   "first": "20240220",
+   "last": "20250309"
+  },
+  "t2i_generation_leaderboard.csv": {
+   "count": 149,
+   "first": "20240220",
+   "last": "20250324"
+  },
+  "clean_battle_image_editing.json": {
+   "count": 42,
+   "first": "20240315",
+   "last": "20250309"
+  },
+  "clean_battle_t2i_generation.json": {
+   "count": 149,
+   "first": "20240327",
+   "last": "20250324"
+  },
+  "clean_battle_video_generation.json": {
+   "count": 98,
+   "first": "20240526",
+   "last": "20250322"
+  },
+  "elo_results_video_generation.pkl": {
+   "count": 95,
+   "first": "20240526",
+   "last": "20250322"
+  },
+  "video_generation_leaderboard.csv": {
+   "count": 95,
+   "first": "20240526",
+   "last": "20250322"
+  }
+ },
+ "leaderboardCsvDates": {
+  "image": [
+   "20240220",
+   "20240327",
+   "20240330",
+   "20240408",
+   "20240411",
+   "20240501",
+   "20240517",
+   "20240525",
+   "20240526",
+   "20240527",
+   "20240528",
+   "20240601",
+   "20240603",
+   "20240604",
+   "20240605",
+   "20240619",
+   "20240807",
+   "20240808",
+   "20240809",
+   "20240811",
+   "20240812",
+   "20240814",
+   "20240816",
+   "20240817",
+   "20240818",
+   "20240820",
+   "20240821",
+   "20240822",
+   "20240823",
+   "20240826",
+   "20240829",
+   "20240830",
+   "20240831",
+   "20240904",
+   "20240905",
+   "20240907",
+   "20240916",
+   "20240917",
+   "20240918",
+   "20240920",
+   "20240921",
+   "20240923",
+   "20240924",
+   "20240925",
+   "20240926",
+   "20240927",
+   "20240929",
+   "20240930",
+   "20241001",
+   "20241002",
+   "20241004",
+   "20241005",
+   "20241007",
+   "20241008",
+   "20241009",
+   "20241020",
+   "20241021",
+   "20241022",
+   "20241023",
+   "20241031",
+   "20241101",
+   "20241103",
+   "20241104",
+   "20241106",
+   "20241107",
+   "20241108",
+   "20241109",
+   "20241110",
+   "20241111",
+   "20241113",
+   "20241114",
+   "20241115",
+   "20241118",
+   "20241120",
+   "20241121",
+   "20241122",
+   "20241123",
+   "20241126",
+   "20241127",
+   "20241129",
+   "20241201",
+   "20241202",
+   "20241203",
+   "20241204",
+   "20241205",
+   "20241206",
+   "20241207",
+   "20241208",
+   "20241209",
+   "20241210",
+   "20241211",
+   "20241213",
+   "20241214",
+   "20241215",
+   "20241216",
+   "20241217",
+   "20241218",
+   "20241219",
+   "20241220",
+   "20241222",
+   "20250102",
+   "20250104",
+   "20250106",
+   "20250107",
+   "20250109",
+   "20250111",
+   "20250113",
+   "20250114",
+   "20250117",
+   "20250119",
+   "20250120",
+   "20250121",
+   "20250123",
+   "20250124",
+   "20250126",
+   "20250127",
+   "20250128",
+   "20250129",
+   "20250131",
+   "20250201",
+   "20250205",
+   "20250207",
+   "20250209",
+   "20250211",
+   "20250212",
+   "20250213",
+   "20250215",
+   "20250217",
+   "20250218",
+   "20250220",
+   "20250221",
+   "20250222",
+   "20250223",
+   "20250225",
+   "20250227",
+   "20250301",
+   "20250302",
+   "20250303",
+   "20250304",
+   "20250306",
+   "20250308",
+   "20250309",
+   "20250310",
+   "20250311",
+   "20250317",
+   "20250318",
+   "20250320",
+   "20250322",
+   "20250324"
+  ],
+  "video": [
+   "20240526",
+   "20240527",
+   "20240528",
+   "20240601",
+   "20240603",
+   "20240604",
+   "20240605",
+   "20240619",
+   "20240807",
+   "20240808",
+   "20240809",
+   "20240810",
+   "20240814",
+   "20240816",
+   "20240817",
+   "20240818",
+   "20240819",
+   "20240821",
+   "20240822",
+   "20240830",
+   "20240916",
+   "20240925",
+   "20240927",
+   "20240928",
+   "20241001",
+   "20241006",
+   "20241008",
+   "20241019",
+   "20241031",
+   "20241101",
+   "20241102",
+   "20241103",
+   "20241106",
+   "20241108",
+   "20241110",
+   "20241111",
+   "20241112",
+   "20241114",
+   "20241116",
+   "20241122",
+   "20241123",
+   "20241126",
+   "20241129",
+   "20241201",
+   "20241203",
+   "20241204",
+   "20241206",
+   "20241209",
+   "20241211",
+   "20241212",
+   "20241214",
+   "20241215",
+   "20241217",
+   "20241219",
+   "20241220",
+   "20250102",
+   "20250104",
+   "20250106",
+   "20250107",
+   "20250109",
+   "20250111",
+   "20250114",
+   "20250115",
+   "20250120",
+   "20250122",
+   "20250123",
+   "20250125",
+   "20250127",
+   "20250130",
+   "20250201",
+   "20250203",
+   "20250205",
+   "20250206",
+   "20250207",
+   "20250208",
+   "20250209",
+   "20250210",
+   "20250212",
+   "20250213",
+   "20250214",
+   "20250216",
+   "20250218",
+   "20250220",
+   "20250221",
+   "20250225",
+   "20250227",
+   "20250301",
+   "20250302",
+   "20250303",
+   "20250304",
+   "20250305",
+   "20250310",
+   "20250311",
+   "20250320",
+   "20250322"
+  ],
+  "image_editing": [
+   "20240220",
+   "20240315",
+   "20240328",
+   "20240411",
+   "20240428",
+   "20240516",
+   "20240525",
+   "20240526",
+   "20240527",
+   "20240601",
+   "20240602",
+   "20240605",
+   "20240614",
+   "20240627",
+   "20240807",
+   "20240809",
+   "20240903",
+   "20240906",
+   "20240918",
+   "20240926",
+   "20240929",
+   "20241009",
+   "20241103",
+   "20241104",
+   "20241105",
+   "20241107",
+   "20241112",
+   "20241126",
+   "20241205",
+   "20241211",
+   "20241214",
+   "20241217",
+   "20250124",
+   "20250126",
+   "20250130",
+   "20250206",
+   "20250210",
+   "20250217",
+   "20250303",
+   "20250304",
+   "20250309"
+  ]
+ },
+ "latest": [
+  "clean_battle_image_editing.json",
+  "clean_battle_t2i_generation.json",
+  "clean_battle_video_generation.json",
+  "elo_results_image_editing.pkl",
+  "elo_results_t2i_generation.pkl",
+  "elo_results_video_generation.pkl",
+  "image_editing_leaderboard.csv",
+  "t2i_generation_leaderboard.csv",
+  "video_generation_leaderboard.csv"
+ ],
+ "folders": {
+  "20240220": [
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240315": [
+   "clean_battle_image_editing.json",
+   "elo_results_image_editing.pkl",
+   "image_editing_leaderboard.csv"
+  ],
+  "20240327": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240328": [
+   "clean_battle_image_editing.json",
+   "elo_results_image_editing.pkl",
+   "image_editing_leaderboard.csv"
+  ],
+  "20240330": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240408": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240411": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240428": [
+   "clean_battle_image_editing.json",
+   "elo_results_image_editing.pkl",
+   "image_editing_leaderboard.csv"
+  ],
+  "20240501": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240516": [
+   "clean_battle_image_editing.json",
+   "elo_results_image_editing.pkl",
+   "image_editing_leaderboard.csv"
+  ],
+  "20240517": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240525": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240526": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240527": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240528": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240601": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240602": [
+   "clean_battle_image_editing.json",
+   "elo_results_image_editing.pkl",
+   "image_editing_leaderboard.csv"
+  ],
+  "20240603": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240604": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240605": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240614": [
+   "clean_battle_image_editing.json",
+   "elo_results_image_editing.pkl",
+   "image_editing_leaderboard.csv"
+  ],
+  "20240619": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240627": [
+   "clean_battle_image_editing.json",
+   "elo_results_image_editing.pkl",
+   "image_editing_leaderboard.csv"
+  ],
+  "20240807": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240808": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240809": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240810": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240811": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240812": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240814": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240816": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240817": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240818": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240819": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240820": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240821": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240822": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240823": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240826": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240829": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240830": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240831": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240903": [
+   "clean_battle_image_editing.json",
+   "elo_results_image_editing.pkl",
+   "image_editing_leaderboard.csv"
+  ],
+  "20240904": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240905": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240906": [
+   "clean_battle_image_editing.json",
+   "elo_results_image_editing.pkl",
+   "image_editing_leaderboard.csv"
+  ],
+  "20240907": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240916": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240917": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240918": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240920": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240921": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240923": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240924": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240925": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240926": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240927": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240928": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20240929": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20240930": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241001": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241002": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241004": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241005": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241006": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241007": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241008": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241009": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241019": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241020": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241021": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241022": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241023": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241031": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241101": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241102": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241103": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241104": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241105": [
+   "clean_battle_image_editing.json",
+   "elo_results_image_editing.pkl",
+   "image_editing_leaderboard.csv"
+  ],
+  "20241106": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241107": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241108": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241109": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241110": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241111": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241112": [
+   "clean_battle_image_editing.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241113": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241114": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241115": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241116": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241118": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241120": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241121": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241122": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241123": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241126": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241127": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241129": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241201": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241202": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241203": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241204": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241205": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241206": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241207": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241208": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241209": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241210": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241211": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241212": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241213": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241214": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241215": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241216": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241217": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241218": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20241219": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241220": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20241222": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250102": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250104": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250106": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250107": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250109": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250111": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250113": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250114": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250115": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250117": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250119": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250120": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250121": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250122": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250123": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250124": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250125": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250126": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250127": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250128": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250129": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250130": [
+   "clean_battle_image_editing.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250131": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250201": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250203": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250205": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250206": [
+   "clean_battle_image_editing.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250207": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250208": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250209": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250210": [
+   "clean_battle_image_editing.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250211": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250212": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250213": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250214": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250215": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250216": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250217": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250218": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250220": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250221": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250222": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250223": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250225": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250227": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250301": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250302": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250303": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250304": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250305": [
+   "clean_battle_video_generation.json",
+   "elo_results_video_generation.pkl",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250306": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250308": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250309": [
+   "clean_battle_image_editing.json",
+   "clean_battle_t2i_generation.json",
+   "elo_results_image_editing.pkl",
+   "elo_results_t2i_generation.pkl",
+   "image_editing_leaderboard.csv",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250310": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250311": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250317": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250318": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ],
+  "20250320": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250322": [
+   "clean_battle_t2i_generation.json",
+   "clean_battle_video_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "elo_results_video_generation.pkl",
+   "t2i_generation_leaderboard.csv",
+   "video_generation_leaderboard.csv"
+  ],
+  "20250324": [
+   "clean_battle_t2i_generation.json",
+   "elo_results_t2i_generation.pkl",
+   "t2i_generation_leaderboard.csv"
+  ]
+ }
+}

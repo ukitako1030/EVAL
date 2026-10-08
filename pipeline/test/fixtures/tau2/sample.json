@@ -1,0 +1,898 @@
+[
+  {
+    "path": "web/leaderboard/public/submissions/gpt-5-2_sierra_2026-02-26/submission.json",
+    "submission": {
+      "model_name": "GPT-5.2",
+      "model_organization": "OpenAI",
+      "submitting_organization": "Sierra",
+      "submission_date": "2026-02-26",
+      "contact_info": {
+        "email": "<redacted>, <redacted>",
+        "name": "Sierra Research Team"
+      },
+      "is_new": false,
+      "submission_type": "standard",
+      "trajectories_available": true,
+      "trajectory_files": {
+        "airline": "gpt-5.2_high_airline_gpt-5.2_4trials.json",
+        "retail": "gpt-5.2_high_retail_gpt-5.2_4trials.json",
+        "telecom": "gpt-5.2_high_telecom_gpt-5.2_4trials.json",
+        "banking_knowledge": "gpt-5.2_high_banking_knowledge_gpt-5.2_4trials.json"
+      },
+      "references": [],
+      "results": {
+        "airline": {
+          "pass_1": 83.0,
+          "pass_2": 78.33,
+          "pass_3": 75.0,
+          "pass_4": 72.0,
+          "cost": 0.11379
+        },
+        "retail": {
+          "pass_1": 81.58,
+          "pass_2": 69.59,
+          "pass_3": 59.87,
+          "pass_4": 51.75,
+          "cost": 0.07156
+        },
+        "telecom": {
+          "pass_1": 89.69,
+          "pass_2": 82.46,
+          "pass_3": 76.75,
+          "pass_4": 71.93,
+          "cost": 0.09312
+        },
+        "banking_knowledge": {
+          "pass_1": 32.22,
+          "pass_2": 23.88,
+          "pass_3": 20.62,
+          "pass_4": 18.56,
+          "cost": null,
+          "retrieval_config": "alltools"
+        }
+      },
+      "reasoning_effort": "high",
+      "methodology": {
+        "evaluation_date": "2026-05-05",
+        "tau2_bench_version": "1.0.1",
+        "user_simulator": "gpt-5.2",
+        "notes": "Evaluated using AllTools retrieval (BM25 + dense OpenAI text-embedding-3-large + sandboxed shell). User simulator: gpt-5.2 with reasoning_effort: low. 4 trials. Seed: 300. Banking_knowledge domain only — other domains intentionally excluded from this comparison; the AllTools setting standardizes retrieval across models. banking_knowledge re-graded under tau2-bench v1.0.1 grading fixes on 2026-07-15 (extra-read logging #329, numeric-argument normalization #397, T077-T086 gold trajectories #402); scores prior to v1.0.1 are not comparable.",
+        "verification": {
+          "modified_prompts": false,
+          "omitted_questions": false,
+          "details": "Verified evaluation with full trajectory data available. Standard tau-bench scaffold."
+        }
+      },
+      "model_release": {
+        "release_date": "2025-12-11",
+        "announcement_url": "https://openai.com/index/introducing-gpt-5-2/",
+        "announcement_title": "Introducing GPT-5.2"
+      }
+    }
+  },
+  {
+    "path": "web/leaderboard/public/submissions/claude-opus-5_sierra_2026-08-04/submission.json",
+    "submission": {
+      "model_name": "Claude Opus 5",
+      "model_organization": "Anthropic",
+      "submitting_organization": "Sierra",
+      "submission_date": "2026-08-04",
+      "submission_type": "standard",
+      "modality": "text",
+      "contact_info": {
+        "email": "<redacted>",
+        "name": "Sierra Research Team"
+      },
+      "results": {
+        "airline": null,
+        "retail": null,
+        "telecom": null,
+        "banking_knowledge": {
+          "pass_1": 48.71134020618557,
+          "pass_2": 39.175257731958766,
+          "pass_3": 34.5360824742268,
+          "pass_4": 31.958762886597935,
+          "cost": null,
+          "retrieval_config": "alltools"
+        }
+      },
+      "is_new": true,
+      "trajectories_available": true,
+      "trajectory_files": {
+        "banking_knowledge": "banking_knowledge_results.json"
+      },
+      "references": [],
+      "reasoning_effort": "max",
+      "methodology": {
+        "evaluation_date": "2026-08-03",
+        "tau2_bench_version": "1.0.1",
+        "user_simulator": "gpt-5.2",
+        "notes": "Banking_knowledge evaluation with AllTools retrieval, GPT-5.2 low-reasoning user simulation, four trials, and seed 300.",
+        "verification": {
+          "modified_prompts": false,
+          "omitted_questions": false
+        }
+      },
+      "model_release": {
+        "release_date": "2026-07-24",
+        "announcement_url": "https://www.anthropic.com/news/claude-opus-5",
+        "announcement_title": "Introducing Claude Opus 5"
+      }
+    }
+  },
+  {
+    "path": "web/leaderboard/public/submissions/gemini-3-pro_google_2025-11-18/submission.json",
+    "submission": {
+      "model_name": "Gemini 3.0 Pro",
+      "model_organization": "Google",
+      "submitting_organization": "Sierra",
+      "submission_date": "2025-11-18",
+      "contact_info": {},
+      "is_new": false,
+      "trajectories_available": false,
+      "references": [
+        {
+          "title": "Gemini Eval Documentation",
+          "url": "https://storage.googleapis.com/deepmind-media/gemini/gemini_3_pro_model_evaluation.pdf",
+          "type": "documentation"
+        }
+      ],
+      "results": {
+        "retail": {
+          "pass_1": 85.3,
+          "pass_2": null,
+          "pass_3": null,
+          "pass_4": null,
+          "cost": null
+        },
+        "airline": {
+          "pass_1": 73.0,
+          "pass_2": null,
+          "pass_3": null,
+          "pass_4": null,
+          "cost": null
+        },
+        "telecom": {
+          "pass_1": 98.0,
+          "pass_2": null,
+          "pass_3": null,
+          "pass_4": null,
+          "cost": null
+        }
+      },
+      "methodology": {
+        "evaluation_date": "2025-11-18",
+        "tau2_bench_version": "v0.1.3",
+        "user_simulator": "Gemini-3.0-Pro",
+        "notes": "τ2-bench results for Gemini use standard sierra framework with a prompt adjustment to provide instructions relevant to each environment. The user model uses Gemini with a system instruction. ",
+        "verification": {
+          "modified_prompts": true,
+          "omitted_questions": false,
+          "details": "Prompt adjustments made to provide instructions relevant to each environment. User model uses Gemini with system instruction."
+        }
+      },
+      "model_release": {
+        "release_date": "2025-11-18",
+        "announcement_url": "https://blog.google/products/gemini/gemini-3/",
+        "announcement_title": "Gemini 3: Introducing the latest Gemini AI model from Google"
+      }
+    }
+  },
+  {
+    "path": "web/leaderboard/public/submissions/grok-4-5_sierra_2026-08-04/submission.json",
+    "submission": {
+      "model_name": "Grok 4.5",
+      "model_organization": "xAI",
+      "submitting_organization": "Sierra",
+      "submission_date": "2026-08-04",
+      "submission_type": "standard",
+      "modality": "text",
+      "contact_info": {
+        "email": "<redacted>",
+        "name": "Sierra Research Team"
+      },
+      "results": {
+        "airline": null,
+        "retail": null,
+        "telecom": null,
+        "banking_knowledge": {
+          "pass_1": 47.93814432989691,
+          "pass_2": 39.51890034364261,
+          "pass_3": 35.30927835051546,
+          "pass_4": 31.958762886597935,
+          "cost": null,
+          "retrieval_config": "alltools"
+        }
+      },
+      "is_new": true,
+      "trajectories_available": true,
+      "trajectory_files": {
+        "banking_knowledge": "banking_knowledge_results.json"
+      },
+      "references": [],
+      "reasoning_effort": "high",
+      "methodology": {
+        "evaluation_date": "2026-07-24",
+        "tau2_bench_version": "1.0.1",
+        "user_simulator": "gpt-5.2",
+        "notes": "Banking_knowledge evaluation with AllTools retrieval, GPT-5.2 low-reasoning user simulation, four trials, and seed 300.",
+        "verification": {
+          "modified_prompts": false,
+          "omitted_questions": false
+        }
+      },
+      "model_release": {
+        "release_date": "2026-07-16",
+        "announcement_url": "https://x.ai/news/grok-4-5",
+        "announcement_title": "Introducing Grok 4.5"
+      }
+    }
+  },
+  {
+    "path": "web/leaderboard/public/submissions/deepseek-v3.2_deepseek_2025-12-01/submission.json",
+    "submission": {
+      "model_name": "DeepSeek-V3.2",
+      "model_organization": "DeepSeek",
+      "submitting_organization": "DeepSeek",
+      "submission_date": "2025-12-01",
+      "contact_info": {
+        "email": "<redacted>"
+      },
+      "is_new": false,
+      "trajectories_available": false,
+      "references": [
+        {
+          "title": "DeepSeek-V3.2: Pushing the Frontier of Open Large Language Models",
+          "url": "https://huggingface.co/deepseek-ai/DeepSeek-V3.2/resolve/main/assets/paper.pdf",
+          "type": "technical_report"
+        }
+      ],
+      "results": {
+        "retail": {
+          "pass_1": 81.1,
+          "pass_2": null,
+          "pass_3": null,
+          "pass_4": null,
+          "cost": null
+        },
+        "airline": {
+          "pass_1": 63.8,
+          "pass_2": null,
+          "pass_3": null,
+          "pass_4": null,
+          "cost": null
+        },
+        "telecom": {
+          "pass_1": 96.2,
+          "pass_2": null,
+          "pass_3": null,
+          "pass_4": null,
+          "cost": null
+        }
+      },
+      "methodology": {
+        "evaluation_date": "2025-12-01",
+        "tau2_bench_version": "v0.1.3",
+        "user_simulator": "DeepSeek-V3.2",
+        "notes": "",
+        "verification": {
+          "modified_prompts": null,
+          "omitted_questions": null,
+          "details": "Unverified submission - results from technical report, no trajectory data available, exact evaluation methodology not specified"
+        }
+      },
+      "model_release": {
+        "release_date": "2025-12-01",
+        "announcement_url": "https://api-docs.deepseek.com/news/news251201",
+        "announcement_title": "DeepSeek-V3.2 Release"
+      }
+    }
+  },
+  {
+    "path": "web/leaderboard/public/submissions/qwen3.5-397b-a17b-think_sierra_2026-03-02/submission.json",
+    "submission": {
+      "model_name": "Qwen3.5-397B-A17B",
+      "model_organization": "Alibaba Cloud",
+      "submitting_organization": "Sierra",
+      "submission_date": "2026-03-02",
+      "contact_info": {
+        "email": "<redacted>, <redacted>",
+        "name": "Sierra Research Team"
+      },
+      "is_new": false,
+      "submission_type": "standard",
+      "trajectories_available": true,
+      "trajectory_files": {
+        "airline": "qwen3.5-397b-a17b_enabled_airline_gpt-5.2_4trials.json",
+        "retail": "qwen3.5-397b-a17b_enabled_retail_gpt-5.2_4trials.json",
+        "telecom": "qwen3.5-397b-a17b_enabled_telecom_gpt-5.2_4trials.json",
+        "banking_knowledge": "qwen3.5-397b-a17b_enabled_banking_knowledge_gpt-5.2_4trials.json"
+      },
+      "references": [],
+      "results": {
+        "airline": {
+          "pass_1": 81.5,
+          "pass_2": 75.67,
+          "pass_3": 71.5,
+          "pass_4": 68.0,
+          "cost": null
+        },
+        "retail": {
+          "pass_1": 84.43,
+          "pass_2": 74.42,
+          "pass_3": 66.45,
+          "pass_4": 59.65,
+          "cost": null
+        },
+        "telecom": {
+          "pass_1": 97.81,
+          "pass_2": 95.76,
+          "pass_3": 93.86,
+          "pass_4": 92.11,
+          "cost": null
+        },
+        "banking_knowledge": {
+          "pass_1": 9.79,
+          "pass_2": 6.36,
+          "pass_3": 5.41,
+          "pass_4": 5.15,
+          "cost": null,
+          "retrieval_config": "text-emb-3-large"
+        }
+      },
+      "reasoning_effort": "enabled",
+      "methodology": {
+        "evaluation_date": "2026-02-27",
+        "tau2_bench_version": "1.0.1",
+        "user_simulator": "gpt-5.2",
+        "notes": "Evaluated using Qwen3.5-397B-A17B with thinking enabled. User simulator: gpt-5.2 with reasoning_effort: low. 4 trials. Seed: 300. Temperature: 1.0, top_p: 0.95. Self-hosted via vLLM. banking_knowledge re-graded under tau2-bench v1.0.1 grading fixes on 2026-07-15 (extra-read logging #329, numeric-argument normalization #397, T077-T086 gold trajectories #402); scores prior to v1.0.1 are not comparable.",
+        "verification": {
+          "modified_prompts": false,
+          "omitted_questions": false,
+          "details": "Standard tau-bench scaffold. Clean 4-trial runs with no infrastructure errors across all domains."
+        }
+      },
+      "model_release": {
+        "release_date": "2026-02-16",
+        "announcement_url": "https://www.alibabacloud.com/blog/qwen3-5-towards-native-multimodal-agents_602894",
+        "announcement_title": "Qwen3.5: Towards Native Multimodal Agents"
+      }
+    }
+  },
+  {
+    "path": "web/leaderboard/public/submissions/qwen3-max_qwen_2024_09_23/submission.json",
+    "submission": {
+      "model_name": "Qwen3-Max",
+      "model_organization": "Qwen",
+      "submitting_organization": "Alibaba",
+      "submission_date": "2024-09-23",
+      "contact_info": {
+        "email": "<redacted>",
+        "name": "W. Zhao"
+      },
+      "is_new": false,
+      "trajectories_available": false,
+      "references": [
+        {
+          "title": "Qwen3-Max: Just Scale it",
+          "url": "https://qwen.ai/blog?id=241398b9cd6353de490b0f82806c7848c5d2777d&from=research.latest-advancements-list",
+          "type": "blog"
+        }
+      ],
+      "results": {
+        "retail": {
+          "pass_1": 72.2,
+          "pass_2": 67.5,
+          "pass_3": null,
+          "pass_4": 57.0
+        },
+        "airline": {
+          "pass_1": 59.5,
+          "pass_2": 55.0,
+          "pass_3": null,
+          "pass_4": 46.0
+        },
+        "telecom": {
+          "pass_1": 84.2,
+          "pass_2": 77.6,
+          "pass_3": null,
+          "pass_4": 61.4
+        }
+      },
+      "methodology": {
+        "evaluation_date": "2024-09-23",
+        "tau2_bench_version": "0.1.3",
+        "user_simulator": null,
+        "notes": "Only average results are in the blog post. Evaluation limited to Pass^1, Pass^2 and Pass^4 scores only",
+        "verification": {
+          "modified_prompts": null,
+          "omitted_questions": null,
+          "details": "Unverified submission - no trajectory data available, unknown evaluation methodology, incomplete evaluation (Pass^1, Pass^2 and Pass^4 only)"
+        }
+      },
+      "model_release": {
+        "release_date": "2025-09-23",
+        "announcement_url": "https://qwen.ai/blog?id=241398b9cd6353de490b0f82806c7848c5d2777d&from=research.latest-advancements-list",
+        "announcement_title": "Qwen3-Max: Just Scale it"
+      }
+    }
+  },
+  {
+    "path": "web/leaderboard/public/submissions/muse-spark-1-1_sierra_2026-08-04/submission.json",
+    "submission": {
+      "model_name": "Muse Spark 1.1",
+      "model_organization": "Meta",
+      "submitting_organization": "Sierra",
+      "submission_date": "2026-08-04",
+      "submission_type": "standard",
+      "modality": "text",
+      "contact_info": {
+        "email": "<redacted>",
+        "name": "Sierra Research Team"
+      },
+      "results": {
+        "airline": null,
+        "retail": null,
+        "telecom": null,
+        "banking_knowledge": {
+          "pass_1": 40.4639175257732,
+          "pass_2": 29.55326460481099,
+          "pass_3": 23.969072164948454,
+          "pass_4": 20.618556701030926,
+          "cost": null,
+          "retrieval_config": "alltools"
+        }
+      },
+      "is_new": true,
+      "trajectories_available": true,
+      "trajectory_files": {
+        "banking_knowledge": "banking_knowledge_results.json"
+      },
+      "references": [],
+      "reasoning_effort": "xhigh",
+      "methodology": {
+        "evaluation_date": "2026-07-23",
+        "tau2_bench_version": "1.0.1",
+        "user_simulator": "gpt-5.2",
+        "notes": "Banking_knowledge evaluation with AllTools retrieval, GPT-5.2 low-reasoning user simulation, four trials, and seed 300.",
+        "verification": {
+          "modified_prompts": false,
+          "omitted_questions": false
+        }
+      },
+      "model_release": {
+        "release_date": "2026-07-09",
+        "announcement_url": "https://ai.meta.com/blog/introducing-muse-spark-meta-model-api/",
+        "announcement_title": "Introducing Muse Spark 1.1"
+      }
+    }
+  },
+  {
+    "path": "web/leaderboard/public/submissions/distyl-buttonagent_distyl_2026-03-25/submission.json",
+    "submission": {
+      "model_name": "Distyl ButtonAgent",
+      "model_organization": "Distyl AI",
+      "submitting_organization": "Distyl AI",
+      "submission_date": "2026-03-25",
+      "submission_type": "custom",
+      "contact_info": {
+        "email": "<redacted>",
+        "name": "Durga Sandeep Saluru"
+      },
+      "reasoning_effort": "high",
+      "is_new": true,
+      "trajectories_available": true,
+      "trajectory_files": {
+        "banking_knowledge": "distyl-buttonagent_banking_knowledge_4trials.json"
+      },
+      "results": {
+        "banking_knowledge": {
+          "pass_1": 31.19,
+          "pass_2": 21.47,
+          "pass_3": 16.19,
+          "pass_4": 13.4,
+          "cost": null,
+          "retrieval_config": "mixedbread"
+        }
+      },
+      "references": [
+        {
+          "title": "Mixedbread Semantic Search",
+          "url": "https://www.mixedbread.com/docs/stores/overview",
+          "type": "documentation"
+        },
+        {
+          "title": "Trajectory Data (Google Drive)",
+          "url": "https://drive.google.com/file/d/1fxCProuEbaqwRkmFapObYhjDUVx6ch6o/view?usp=sharing",
+          "type": "trajectories"
+        }
+      ],
+      "methodology": {
+        "evaluation_date": "2026-03-25",
+        "tau2_bench_version": "0.2.1-dev",
+        "user_simulator": "gpt-5.2",
+        "notes": "Distyl ButtonAgent uses GPT-5.4 with high reasoning effort and a custom agentic retrieval pipeline powered by Mixedbread semantic search (mxbai-wholembed-v3). The 698 banking knowledge documents are indexed in a hosted Mixedbread vector store and retrieved dynamically during conversation. 4 trials. Seed: 300.",
+        "verification": {
+          "modified_prompts": false,
+          "omitted_questions": false,
+          "details": "Full evaluation on all 97 banking_knowledge tasks with 4 trials each. No prompts were modified for the banking domain."
+        }
+      }
+    }
+  },
+  {
+    "path": "web/leaderboard/public/submissions/toolorchestra_nvidia_2025-12-02/submission.json",
+    "submission": {
+      "model_name": "Nemotron-Orchestrator-8B",
+      "model_organization": "NVIDIA",
+      "submitting_organization": "NVIDIA",
+      "submission_date": "2025-12-18",
+      "contact_info": {
+        "email": "<redacted>",
+        "name": "Shizhe Diao"
+      },
+      "is_new": false,
+      "trajectories_available": false,
+      "results": {
+        "retail": {
+          "pass_1": 84.2,
+          "pass_2": null,
+          "pass_3": null,
+          "pass_4": null
+        },
+        "airline": {
+          "pass_1": 56.0,
+          "pass_2": null,
+          "pass_3": null,
+          "pass_4": null
+        },
+        "telecom": {
+          "pass_1": 88.6,
+          "pass_2": null,
+          "pass_3": null,
+          "pass_4": null
+        }
+      },
+      "submission_type": "custom",
+      "methodology": {
+        "evaluation_date": "2025-09-15",
+        "tau2_bench_version": "0.1.3",
+        "user_simulator": "gpt-5",
+        "notes": "This submission uses an orchestrator that selects between strong and weak models based on task complexity. See our GitHub repo for full implementation details.",
+        "verification": {
+          "modified_prompts": true,
+          "omitted_questions": false,
+          "details": "Modified the agent system prompt to support orchestrator framework. No questions were omitted."
+        }
+      },
+      "references": [
+        {
+          "title": "ToolOrchestra: Elevating Intelligence via Efficient Model and Tool Orchestration",
+          "url": "https://arxiv.org/abs/2511.21689",
+          "type": "paper"
+        },
+        {
+          "title": "ToolOrchestra GitHub Repository",
+          "url": "https://github.com/NVlabs/ToolOrchestra",
+          "type": "github"
+        }
+      ],
+      "model_release": {
+        "release_date": "2025-11-26",
+        "announcement_url": "https://research.nvidia.com/labs/lpr/ToolOrchestra/",
+        "announcement_title": "ToolOrchestra"
+      }
+    }
+  },
+  {
+    "path": "web/leaderboard/public/submissions/gpt-realtime-2_openai_2026-06-24/submission.json",
+    "submission": {
+      "model_name": "gpt-realtime-2",
+      "model_organization": "OpenAI",
+      "submitting_organization": "Sierra",
+      "submission_date": "2026-06-29",
+      "submission_type": "custom",
+      "modality": "voice",
+      "contact_info": {
+        "email": "<redacted>",
+        "name": "Sierra Research Team"
+      },
+      "results": {
+        "retail": {
+          "pass_1": 50.0
+        },
+        "airline": {
+          "pass_1": 66.0
+        },
+        "telecom": {
+          "pass_1": 37.719298245614034
+        }
+      },
+      "reasoning_effort": "xhigh",
+      "is_new": true,
+      "trajectories_available": true,
+      "trajectory_files": {
+        "airline": "gpt-realtime-2_voice_xhigh_usersim-gpt55xhigh_airline",
+        "retail": "gpt-realtime-2_voice_xhigh_usersim-gpt55xhigh_retail",
+        "telecom": "gpt-realtime-2_voice_xhigh_usersim-gpt55_telecom"
+      },
+      "methodology": {
+        "evaluation_date": "2026-06-29",
+        "tau2_bench_version": "1.0.0",
+        "user_simulator": "gpt-5.5-2026-04-23 (xhigh)",
+        "notes": "Custom submission: identical to the standard gpt-realtime-2 voice evaluation (audio-native, regular speech complexity, ElevenLabs eleven_v3 TTS, agent reasoning_effort=xhigh) EXCEPT the user simulator LLM is gpt-5.5-2026-04-23 run at reasoning_effort=xhigh instead of the leaderboard-standard v1.0 (gpt-4.1). Because telecom's user simulator uses function tools, gpt-5.5 rejects reasoning_effort=none with tools, so all domains use xhigh for consistency. Not comparable to standard-user-simulator leaderboard entries.",
+        "verification": {
+          "modified_prompts": false,
+          "omitted_questions": false
+        }
+      },
+      "voice_config": {
+        "provider": "OpenAI",
+        "model": "gpt-realtime-2",
+        "tick_duration_seconds": 0.2,
+        "max_steps_seconds": 1200.0,
+        "user_tts_provider": "elevenlabs/eleven_v3"
+      },
+      "model_release": {
+        "release_date": "2026-05-07",
+        "announcement_url": "https://openai.com/index/advancing-voice-intelligence-with-new-models-in-the-api/",
+        "announcement_title": "Advancing voice intelligence with new models in the API"
+      },
+      "interaction_metrics": {
+        "version": "1.0",
+        "config": {
+          "tick_duration_sec": 0.2,
+          "no_yield_window_sec": 2.0,
+          "backchannel_yield_window_sec": 1.0,
+          "vocal_tic_yield_window_sec": 1.0,
+          "non_directed_yield_window_sec": 1.0,
+          "vocal_tic_response_window_sec": 2.0,
+          "non_directed_response_window_sec": 2.0
+        },
+        "domains": {
+          "airline": {
+            "response_latency_mean": 2.1115973741794303,
+            "yield_latency_mean": 0.6211267605633803,
+            "response_rate": 0.9481327800829875,
+            "yield_rate": 1.0,
+            "agent_interruption_rate": 0.21991701244813278,
+            "selectivity_backchannel": 0.0,
+            "selectivity_vocal_tic": 0.13043478260869568,
+            "selectivity_non_directed": 0.31999999999999995,
+            "counts": {
+              "n_simulations": 50,
+              "response_total": 482,
+              "yield_total": 284,
+              "backchannel_total": 29,
+              "vocal_tic_total": 46,
+              "non_directed_total": 50,
+              "agent_interrupts_count": 106
+            }
+          },
+          "retail": {
+            "response_latency_mean": 1.8020682523267835,
+            "yield_latency_mean": 0.5992673992673994,
+            "response_rate": 0.9757820383451059,
+            "yield_rate": 0.9981718464351006,
+            "agent_interruption_rate": 0.2401614530776993,
+            "selectivity_backchannel": 0.0,
+            "selectivity_vocal_tic": 0.09890109890109888,
+            "selectivity_non_directed": 0.16891891891891897,
+            "counts": {
+              "n_simulations": 114,
+              "response_total": 991,
+              "yield_total": 547,
+              "backchannel_total": 55,
+              "vocal_tic_total": 91,
+              "non_directed_total": 148,
+              "agent_interrupts_count": 238
+            }
+          },
+          "telecom": {
+            "response_latency_mean": 1.9037001441614605,
+            "yield_latency_mean": 0.5997118155619595,
+            "response_rate": 0.9848556554661618,
+            "yield_rate": 0.9971264367816092,
+            "agent_interruption_rate": 0.17132039753904402,
+            "selectivity_backchannel": 0.03389830508474578,
+            "selectivity_vocal_tic": 0.11055276381909551,
+            "selectivity_non_directed": 0.12077294685990336,
+            "counts": {
+              "n_simulations": 114,
+              "response_total": 2113,
+              "yield_total": 1392,
+              "backchannel_total": 59,
+              "vocal_tic_total": 199,
+              "non_directed_total": 207,
+              "agent_interrupts_count": 362
+            }
+          }
+        },
+        "overall": {
+          "response_latency_mean": 1.9391219235558914,
+          "yield_latency_mean": 0.6067019917975798,
+          "response_rate": 0.9695901579647517,
+          "yield_rate": 0.9984327610722366,
+          "agent_interruption_rate": 0.21046628768829204,
+          "selectivity_backchannel": 0.011299435028248594,
+          "selectivity_vocal_tic": 0.11329621510963002,
+          "selectivity_non_directed": 0.20323062192627409,
+          "counts": {
+            "agent_interrupts_count": 706,
+            "backchannel_total": 143,
+            "n_simulations": 278,
+            "non_directed_total": 405,
+            "response_total": 3586,
+            "vocal_tic_total": 336,
+            "yield_total": 2223
+          }
+        }
+      }
+    }
+  },
+  {
+    "path": "web/leaderboard/public/submissions/grok-voice-think-fast-1-0-tool-mentor_pickle_2026-07-07/submission.json",
+    "submission": {
+      "model_name": "grok-voice-think-fast-1.0 + tool-mentor",
+      "model_organization": "Pickle",
+      "submitting_organization": "Pickle",
+      "submission_date": "2026-07-07",
+      "submission_type": "custom",
+      "modality": "voice",
+      "contact_info": {
+        "email": "<redacted>",
+        "name": "Hojin Yu",
+        "github": "pickle-com"
+      },
+      "results": {
+        "retail": {
+          "pass_1": 76.31578947368422
+        },
+        "airline": {
+          "pass_1": 70.0
+        },
+        "telecom": {
+          "pass_1": 78.0701754385965
+        }
+      },
+      "reasoning_effort": "enabled",
+      "is_new": true,
+      "trajectories_available": true,
+      "trajectory_files": {
+        "airline": "grok-voice-tool-mentor-airline",
+        "retail": "grok-voice-tool-mentor-retail",
+        "telecom": "grok-voice-tool-mentor-telecom"
+      },
+      "references": [
+        {
+          "title": "Tool-mentor fork (tag tool-mentor-v1.0): methodology, reproduction command, mentor prompt",
+          "url": "https://github.com/pickle-com/tau2-bench/tree/tool-mentor-v1.0",
+          "type": "github"
+        },
+        {
+          "title": "Methodology and reproduction contract",
+          "url": "https://github.com/pickle-com/tau2-bench/blob/tool-mentor-v1.0/docs/tool-mentor-methodology.md",
+          "type": "documentation"
+        },
+        {
+          "title": "Trajectories (submit-prepare bundles, all three domains)",
+          "url": "https://huggingface.co/datasets/samtiz/tau2-voice-grok-tool-mentor-trajectories",
+          "type": "huggingface"
+        }
+      ],
+      "methodology": {
+        "evaluation_date": "2026-07-06",
+        "tau2_bench_version": "1.0.0",
+        "user_simulator": "gpt-5.5-2026-04-23 (xhigh)",
+        "notes": "Custom submission: base model is xAI grok-voice-think-fast-1.0 (audio-native, regular speech complexity, single trial on the full base splits) with an added tool-boundary mentor — a separate LLM (gemini-3.5-flash, reasoning_effort=high, read/write deadlines 10s/15s, fail-open) that reviews the voice agent's tool calls at runtime: pre-execution gates on state-mutating and escalation calls (transfer_to_human_agents), guidance notes appended to read results, and stop-interception so a blocked hand-off proposal continues the conversation. The mentor receives only agent-visible inputs (agent-heard STT transcript, official tool results, the same domain policy the agent receives, agent tool names and descriptions); its prompt contains no benchmark-derived facts and is published verbatim in the referenced fork together with its content policy. Standard tau2 agent and user-simulator prompts are byte-unmodified; the mentor is an additional component with its own prompt. Explicit xAI server-VAD settings (threshold 0.1, silence 1200ms, prefix padding 600ms) and 2.0x input gain restore a working audio pipeline on the July 2026 xAI serving stack (in our environment, server-default VAD frequently failed to detect user speech, and we were unable to reproduce the April 2026 official score with default settings). All non-mentor behavioral differences from upstream are enumerated in the referenced methodology document; submitted runs used the upstream-compatible voice-seed behavior (TAU2_OFFICIAL_PYTHON_HASH_VOICE_SEED=1). The voice user-simulator pipeline is the standard v1.0 lineage with only its LLM swapped: gpt-5.5-2026-04-23 at reasoning_effort=xhigh — not comparable to standard-user-simulator leaderboard entries. Voices are local ElevenLabs personas, not Sierra-managed submission voices.",
+        "verification": {
+          "modified_prompts": false,
+          "omitted_questions": false,
+          "details": "Standard agent and user-simulator prompts are byte-identical to upstream. The added mentor component has its own prompt (published in the referenced fork; no benchmark proper nouns or task-derived facts, per the fork's mentor-prompt-constitution). Full base splits evaluated: retail 114, airline 50, telecom 114; no task omitted. Sierra verification (2026-07-14, fork tag tool-mentor-v1.0 = 8ba2f72, Sierra-internal held-out voices): 10-task parity check agreed on 9/10 tasks with the single flip scoring higher than submitted; a full 278-task re-run reached ~230 tasks before the submitter's xAI API key expired, with per-domain scores tracking at or above the submitted results throughout (airline complete: 0.780 vs submitted 0.700). Submitted scores recomputed from trajectories and confirmed."
+        }
+      },
+      "voice_config": {
+        "provider": "xAI",
+        "model": "grok-voice-think-fast-1.0",
+        "tick_duration_seconds": 0.2,
+        "max_steps_seconds": 1200.0,
+        "user_tts_provider": "elevenlabs/eleven_v3"
+      },
+      "model_release": {
+        "release_date": "2026-04-23",
+        "announcement_url": "https://x.ai/news/grok-voice-think-fast-1",
+        "announcement_title": "Grok Voice Think Fast 1.0"
+      },
+      "interaction_metrics": {
+        "version": "1.0",
+        "config": {
+          "tick_duration_sec": 0.2,
+          "no_yield_window_sec": 2.0,
+          "backchannel_yield_window_sec": 1.0,
+          "vocal_tic_yield_window_sec": 1.0,
+          "non_directed_yield_window_sec": 1.0,
+          "vocal_tic_response_window_sec": 2.0,
+          "non_directed_response_window_sec": 2.0
+        },
+        "domains": {
+          "airline": {
+            "response_latency_mean": 1.7975903614457809,
+            "yield_latency_mean": 1.0197628458498025,
+            "response_rate": 0.9948630136986302,
+            "yield_rate": 0.9035714285714286,
+            "agent_interruption_rate": 0.3424657534246575,
+            "selectivity_backchannel": 0.65,
+            "selectivity_vocal_tic": 0.45833333333333337,
+            "selectivity_non_directed": 0.33333333333333337,
+            "counts": {
+              "n_simulations": 50,
+              "response_total": 584,
+              "yield_total": 560,
+              "backchannel_total": 40,
+              "vocal_tic_total": 72,
+              "non_directed_total": 45,
+              "agent_interrupts_count": 200
+            }
+          },
+          "retail": {
+            "response_latency_mean": 1.7278940027894,
+            "yield_latency_mean": 0.9354252683732452,
+            "response_rate": 0.9937629937629938,
+            "yield_rate": 0.9322555812163202,
+            "agent_interruption_rate": 0.3354123354123354,
+            "selectivity_backchannel": 0.7254901960784313,
+            "selectivity_vocal_tic": 0.34042553191489366,
+            "selectivity_non_directed": 0.1885245901639344,
+            "counts": {
+              "n_simulations": 114,
+              "response_total": 1443,
+              "yield_total": 1299,
+              "backchannel_total": 102,
+              "vocal_tic_total": 188,
+              "non_directed_total": 122,
+              "agent_interrupts_count": 484
+            }
+          },
+          "telecom": {
+            "response_latency_mean": 1.66759847522236,
+            "yield_latency_mean": 0.9802980734278445,
+            "response_rate": 0.9984142086901364,
+            "yield_rate": 0.9528922757187391,
+            "agent_interruption_rate": 0.1807802093244529,
+            "selectivity_backchannel": 0.6170212765957447,
+            "selectivity_vocal_tic": 0.4545454545454546,
+            "selectivity_non_directed": 0.2896174863387978,
+            "counts": {
+              "n_simulations": 114,
+              "response_total": 3153,
+              "yield_total": 2887,
+              "backchannel_total": 47,
+              "vocal_tic_total": 286,
+              "non_directed_total": 183,
+              "agent_interrupts_count": 570
+            }
+          }
+        },
+        "overall": {
+          "response_latency_mean": 1.7310276131525137,
+          "yield_latency_mean": 0.9784953958836308,
+          "response_rate": 0.9956800720505868,
+          "yield_rate": 0.9295730951688294,
+          "agent_interruption_rate": 0.28621943272048195,
+          "selectivity_backchannel": 0.664170490891392,
+          "selectivity_vocal_tic": 0.41776810659789393,
+          "selectivity_non_directed": 0.27049180327868855,
+          "counts": {
+            "agent_interrupts_count": 1254,
+            "backchannel_total": 189,
+            "n_simulations": 278,
+            "non_directed_total": 350,
+            "response_total": 5180,
+            "vocal_tic_total": 546,
+            "yield_total": 4746
+          }
+        }
+      }
+    }
+  }
+]

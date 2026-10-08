@@ -1,0 +1,35 @@
+{
+  "success": true,
+  "data": [
+    {
+      "displayName": "Claude Opus 4.6",
+      "provider": "anthropic",
+      "openRouterId": "anthropic/claude-opus-4.6",
+      "winRate": 63.0,
+      "elo": 1390,
+      "avgGenerationTimeMs": 122828
+    },
+    {
+      "displayName": "GPT-5.1 Codex",
+      "provider": "openai",
+      "openRouterId": "openai/gpt-5.1-codex",
+      "winRate": 60.5,
+      "elo": 1298,
+      "avgGenerationTimeMs": 88348
+    },
+    {
+      "displayName": "v0-1.5-lg",
+      "provider": "vercel",
+      "openRouterId": null,
+      "winRate": 60.0,
+      "elo": 1280,
+      "avgGenerationTimeMs": 45000
+    }
+  ],
+  "meta": {
+    "arena": "models",
+    "category": "website",
+    "lastUpdated": "2026-02-22T04:00:06.216429+00:00"
+  },
+  "timestamp": "2026-02-22T04:51:46.841Z"
+}

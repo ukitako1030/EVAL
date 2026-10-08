@@ -1,0 +1,7 @@
+key,Model,Arena Elo rating (anony),Arena Elo rating (full),License,Organization,Link
+AnimateDiff,AnimateDiff,1139.9344653369324,1132.8101938780726,creativeml-openrail-m,"The Chinese University of Hong Kong, Shanghai AI Lab, Stanford University",https://fal.ai/models/fast-animatediff-t2v
+VideoCrafter2,VideoCrafter2,1093.2311408490027,1095.6272371295784,Apache 2.0,Tencent AI Lab,https://ailab-cvc.github.io/videocrafter2/
+LaVie,LaVie,1024.9159084921114,1024.5344568938376,Apache 2.0,Shanghai AI Lab,https://github.com/Vchitect/LaVie
+OpenSora,OpenSora,953.4888792576514,953.2249385913746,Apache 2.0,HPC-AI Tech,https://github.com/hpcaitech/Open-Sora
+AnimateDiffTurbo,AnimateDiffTurbo,906.5150701156817,912.605292727757,creativeml-openrail-m,"The Chinese University of Hong Kong, Shanghai AI Lab, Stanford University",https://fal.ai/models/fast-animatediff-t2v-turbo
+ModelScope,ModelScope,881.9145359486201,881.1978807793801,cc-by-nc-4.0,Alibaba Group,https://arxiv.org/abs/2308.06571

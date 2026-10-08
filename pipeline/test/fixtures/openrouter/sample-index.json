@@ -1,0 +1,38 @@
+{
+  "schema_version": "v1",
+  "updated_at": "2026-10-08T01:46:15.433Z",
+  "update_cadence": "daily",
+  "license": {
+    "name": "CC BY 4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  "attribution": "Source: OpenRouter (openrouter.ai), licensed under CC BY 4.0: reuse and republish with attribution to OpenRouter.",
+  "readme_url": "https://openrouter.ai/api/v1/datasets/exports/README.md",
+  "license_url": "https://openrouter.ai/api/v1/datasets/exports/LICENSE",
+  "datasets": [
+    {
+      "id": "benchmark-runs",
+      "title": "OpenRouter benchmark runs",
+      "latest_snapshot_date": "2026-10-08",
+      "latest_manifest_url": "https://openrouter.ai/api/v1/datasets/exports/benchmark-runs/latest.manifest.json"
+    },
+    {
+      "id": "benchmark-leaderboard",
+      "title": "OpenRouter benchmark leaderboard",
+      "latest_snapshot_date": "2026-10-08",
+      "latest_manifest_url": "https://openrouter.ai/api/v1/datasets/exports/benchmark-leaderboard/latest.manifest.json"
+    },
+    {
+      "id": "search-benchmark-lanes",
+      "title": "OpenRouter web search benchmark lanes",
+      "latest_snapshot_date": "2026-10-08",
+      "latest_manifest_url": "https://openrouter.ai/api/v1/datasets/exports/search-benchmark-lanes/latest.manifest.json"
+    },
+    {
+      "id": "rankings-daily",
+      "title": "OpenRouter model rankings, daily token share",
+      "latest_snapshot_date": "2026-10-08",
+      "latest_manifest_url": "https://openrouter.ai/api/v1/datasets/exports/rankings-daily/latest.manifest.json"
+    }
+  ]
+}

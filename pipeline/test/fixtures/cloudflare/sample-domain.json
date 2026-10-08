@@ -1,0 +1,31 @@
+{
+  "result": {
+    "details_0": {
+      "categories": [
+        {
+          "id": 81,
+          "name": "Content Servers",
+          "superCategoryId": 26
+        }
+      ],
+      "bucket": "2000",
+      "rank": 3,
+      "top_locations": [
+        {
+          "locationCode": "US",
+          "locationName": "United States",
+          "rank": 1
+        }
+      ]
+    },
+    "meta": {
+      "dateRange": [
+        {
+          "endTime": "2022-09-17T10:22:57.555Z",
+          "startTime": "2022-09-16T10:22:57.555Z"
+        }
+      ]
+    }
+  },
+  "success": true
+}

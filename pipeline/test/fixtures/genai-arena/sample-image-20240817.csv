@@ -1,0 +1,15 @@
+key,Model,Arena Elo rating (anony),Arena Elo rating (full),License,Organization,Link
+PlayGround V2.5,PlayGround V2.5,1141.866659999037,1141.8338384616795,Playground v2.5 Community License,Playground,https://huggingface.co/playgroundai/playground-v2.5-1024px-aesthetic
+FluxTimestep,FluxTimestep,1115.928646165151,1121.9304446567799,N/A,N/A,N/A
+PlayGround V2,PlayGround V2,1083.663321447569,1080.8791567769488,Playground v2 Community License,Playground,https://huggingface.co/playgroundai/playground-v2-1024px-aesthetic
+HunyuanDiT,HunyuanDiT,1059.7533365825295,1043.5339717960453,tencent-hunyuan-community,Tencent,https://huggingface.co/Tencent-Hunyuan/HunyuanDiT
+StableCascade,StableCascade,1046.7571473591233,1048.8389078449923,stable-cascade-nc-community (other),Stability AI,https://huggingface.co/stabilityai/stable-cascade
+SDXLLightning,SDXLLightning,1034.8611228210834,1037.6419954765402,openrail++,ByteDance,https://huggingface.co/ByteDance/SDXL-Lightning
+PixArtAlpha,PixArtAlpha,1033.0085889123181,1021.5860196967267,openrail++,PixArt-alpha,https://huggingface.co/PixArt-alpha/PixArt-XL-2-1024-MS
+PixArtSigma,PixArtSigma,1029.7824987127658,1027.9500586698966,openrail++,PixArt-alpha,https://fal.ai/models/fal-ai/pixart-sigma
+SD3,SD3,1001.3310047788816,994.5930116229433,stabilityai-nc-research-community,Stability AI,https://huggingface.co/stabilityai/stable-diffusion-3-medium
+SDXL,SDXL,975.7678875209955,974.6391412818967,openrail++,Stability AI,https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
+SDXLTurbo,SDXLTurbo,922.2975316059412,918.3190757057619,sai-nc-community (other),Stability AI,https://huggingface.co/stabilityai/sdxl-turbo
+LCM(v1.5/XL),LCM(v1.5/XL),915.9954758760788,908.3365622923737,openrail++,Latent Consistency,https://fal.ai/models/fal-ai/fast-lcm-diffusion/api
+OpenJourney,OpenJourney,838.7888235391866,831.8551299360711,creativeml-openrail-m,PromptHero,https://huggingface.co/prompthero/openjourney
+LCM,LCM,800.197954679335,812.3288511265314,MIT License,Tsinghua University,https://huggingface.co/SimianLuo/LCM_Dreamshaper_v7

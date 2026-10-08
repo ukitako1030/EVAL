@@ -1,0 +1,16 @@
+key,Model,Arena Elo rating (anony),Arena Elo rating (full),License,Organization,Link
+CogVideoX-5B,CogVideoX-5B,1125.649374550947,1127.9999945471436,CogVideoX LICENSE,THUDM,https://github.com/THUDM/CogVideo
+Mochi1,Mochi1,1121.3241004152032,1121.4458082183237,Apache 2.0,Genmo AI,https://github.com/genmoai/mochi
+StableVideoDiffusion,StableVideoDiffusion,1115.6391112445751,1115.732785514259,SVD-nc-community,Stability AI,https://fal.ai/models/fal-ai/fast-svd/text-to-video/api
+Pyramid Flow,Pyramid Flow,1113.908975225855,1115.7084017633094,MIT LICENSE,Peking University,https://pyramid-flow.github.io/
+T2V-Turbo,T2V-Turbo,1054.667346620255,1055.1178159763037,cc-by-nc-4.0,"University of California, Santa Barbara",https://github.com/Ji4chenLi/t2v-turbo
+CogVideoX-2B,CogVideoX-2B,1053.5275294595008,1051.844749266328,CogVideoX LICENSE,THUDM,https://github.com/THUDM/CogVideo
+AnimateDiff,AnimateDiff,1039.2430147802825,1039.1706922566602,creativeml-openrail-m,"The Chinese University of Hong Kong, Shanghai AI Lab, Stanford University",https://fal.ai/models/fast-animatediff-t2v
+VideoCrafter2,VideoCrafter2,1029.2459035505656,1028.6590294577172,Apache 2.0,Tencent AI Lab,https://ailab-cvc.github.io/videocrafter2/
+Allegro,Allegro,1001.9093019926374,1004.4218404258124,Apache 2.0,rhymes-ai,https://github.com/rhymes-ai/Allegro
+LaVie,LaVie,964.0322321092232,963.5205166809438,Apache 2.0,Shanghai AI Lab,https://github.com/Vchitect/LaVie
+LTXVideo,LTXVideo,963.9592713286161,964.0987281313567,Apache 2.0,Lightricks,https://github.com/Lightricks/LTX-Video
+OpenSora,OpenSora,880.5105593728455,879.6668322810106,Apache 2.0,HPC-AI Tech,https://github.com/hpcaitech/Open-Sora
+OpenSora v1.2,OpenSora v1.2,871.4979371531214,869.286544067318,Apache 2.0,HPC-AI Tech,https://github.com/hpcaitech/Open-Sora
+AnimateDiff Turbo,AnimateDiff Turbo,834.524898397302,832.3227877712557,creativeml-openrail-m,"The Chinese University of Hong Kong, Shanghai AI Lab, Stanford University",https://fal.ai/models/fast-animatediff-t2v-turbo
+ModelScope,ModelScope,830.3604437990733,831.0034736422567,cc-by-nc-4.0,Alibaba Group,https://arxiv.org/abs/2308.06571

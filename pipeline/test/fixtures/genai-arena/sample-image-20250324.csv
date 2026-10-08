@@ -1,0 +1,18 @@
+key,Model,Arena Elo rating (anony),Arena Elo rating (full),License,Organization,Link
+FLUX.1-dev,FLUX.1-dev,1132.6562046877937,1136.881626526418,flux-1-dev-non-commercial-license (other),Black Forest Labs,https://huggingface.co/docs/diffusers/main/en/api/pipelines/flux
+PlayGround V2.5,PlayGround V2.5,1116.8794520729427,1117.2389253644217,Playground v2.5 Community License,Playground,https://huggingface.co/playgroundai/playground-v2.5-1024px-aesthetic
+FLUX.1-schnell,FLUX.1-schnell,1093.6989174854532,1097.5966946453577,Apache-2.0,Black Forest Labs,https://huggingface.co/docs/diffusers/main/en/api/pipelines/flux
+PlayGround V2,PlayGround V2,1072.0601583773705,1071.6887706579623,Playground v2 Community License,Playground,https://huggingface.co/playgroundai/playground-v2-1024px-aesthetic
+Kolors,Kolors,1060.759485445269,1059.9662291477293,Apache-2.0,Kwai Kolors,https://huggingface.co/Kwai-Kolors/Kolors
+StableCascade,StableCascade,1043.1590821331504,1045.423924841171,stable-cascade-nc-community (other),Stability AI,https://fal.ai/models/stable-cascade/api
+HunyuanDiT,HunyuanDiT,1022.0358808364986,1017.1388128589163,tencent-hunyuan-community,Tencent,https://github.com/Tencent/HunyuanDiT
+PixArtAlpha,PixArtAlpha,1018.2107257484348,1010.9928614598375,openrail++,PixArt-alpha,https://huggingface.co/PixArt-alpha/PixArt-XL-2-1024-MS
+PixArtSigma,PixArtSigma,1016.9814310904595,1017.30973461225,openrail++,PixArt-alpha,https://github.com/PixArt-alpha/PixArt-sigma
+SDXL-Lightning,SDXL-Lightning,1014.4322394517607,1018.8245208422165,openrail++,ByteDance,https://huggingface.co/ByteDance/SDXL-Lightning
+SD3,SD3,1005.9092990060464,1007.2586026353592,stabilityai-nc-research-community,Stability AI,https://huggingface.co/blog/sd3
+AuraFlow,AuraFlow,993.874420240408,991.6553955764688,Apache-2.0,Fal.AI,https://huggingface.co/fal/AuraFlow
+SDXL,SDXL,967.145498062238,967.9812946105849,openrail++,Stability AI,https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
+SDXLTurbo,SDXLTurbo,914.8766500425899,913.1837813497355,sai-nc-community (other),Stability AI,https://huggingface.co/stabilityai/sdxl-turbo
+LCM(v1.5/XL),LCM(v1.5/XL),904.9024976136928,899.0375887805724,openrail++,Latent Consistency,https://fal.ai/models/fast-lcm-diffusion-turbo
+OpenJourney,OpenJourney,832.023266609421,827.523559853701,creativeml-openrail-m,PromptHero,https://huggingface.co/prompthero/openjourney
+LCM,LCM,790.3947910964819,805.0854780133963,MIT License,Tsinghua University,https://huggingface.co/SimianLuo/LCM_Dreamshaper_v7

@@ -1,0 +1,33 @@
+{
+  "dataset": "rankings-daily",
+  "schema_version": "v1",
+  "snapshot_date": "2026-10-08",
+  "retrieved_at": "2026-10-08T01:46:15.433Z",
+  "row_count": 1530,
+  "update_cadence": "daily",
+  "license": {
+    "name": "CC BY 4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  "attribution": "Source: OpenRouter (openrouter.ai), licensed under CC BY 4.0: reuse and republish with attribution to OpenRouter.",
+  "readme_url": "https://openrouter.ai/api/v1/datasets/exports/README.md",
+  "files": {
+    "csv": {
+      "url": "https://openrouter.ai/api/v1/datasets/exports/rankings-daily/2026-10-08.csv",
+      "encoding_format": "text/csv",
+      "bytes": 122881,
+      "sha256": "a568e932f96c7508efe40bae7f74b9d16cf31e088196b1da9ebbd9aaa23dc735"
+    },
+    "json": {
+      "url": "https://openrouter.ai/api/v1/datasets/exports/rankings-daily/2026-10-08.json",
+      "encoding_format": "application/json",
+      "bytes": 318071,
+      "sha256": "cf1b393a5027ccb7f9d3cb6a10bf64168261400e4b74d1e6832e54c651c41db4"
+    }
+  },
+  "latest": {
+    "csv": "https://openrouter.ai/api/v1/datasets/exports/rankings-daily/latest.csv",
+    "json": "https://openrouter.ai/api/v1/datasets/exports/rankings-daily/latest.json",
+    "manifest": "https://openrouter.ai/api/v1/datasets/exports/rankings-daily/latest.manifest.json"
+  }
+}
