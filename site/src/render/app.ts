@@ -70,7 +70,15 @@ const MAX_DT = 0.1;
 export async function createRenderer(canvasParent: HTMLElement, opts: RendererOptions = {}): Promise<Renderer> {
   const baseResolution = Math.min(window.devicePixelRatio || 1, 2);
   const app = new Application();
-  await app.init({ resizeTo: window, antialias: true, backgroundAlpha: 0, resolution: baseResolution, autoDensity: true });
+  // WebGL explicitly: the dynamic meshes (render/dynMesh.ts) ship a GLSL-only shader
+  await app.init({
+    preference: 'webgl',
+    resizeTo: window,
+    antialias: true,
+    backgroundAlpha: 0,
+    resolution: baseResolution,
+    autoDensity: true,
+  });
   app.canvas.classList.add('stage');
   canvasParent.appendChild(app.canvas);
 

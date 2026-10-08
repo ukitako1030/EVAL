@@ -152,7 +152,7 @@ export function createFleetSprites(galaxy: Galaxy, n: number): FleetSprites {
         const k = (i * HN + ((hi[i] - hn[i] + HN) % HN)) * 2;
         const dx = s.x - hist[k];
         const dy = s.y - hist[k + 1];
-        const len = Math.hypot(dx, dy);
+        const len = Math.sqrt(dx * dx + dy * dy);
         trail.rotation = Math.atan2(dy, dx);
         trail.scaleX = len / STREAK_W;
         trail.scaleY = ((1.6 + 0.6 * boost) * px) / (STREAK_H / 2);

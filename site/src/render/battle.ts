@@ -20,8 +20,8 @@ import { hexColor } from './color';
 import { glowTexture } from './bgTextures';
 import { MAX_UNITS, SECTOR_SAMPLES, createSwarm, sectorRho, type SwarmUnitIn } from './swarm';
 import { createSwarmView, type SwarmLook } from './swarmView';
-import { createBattleFx } from './battleFx';
-import { createBattleLabels, type SwarmLabel } from './battleLabels';
+import { createBattleFx, type FxView } from './battleFx';
+import { createBattleLabels, type LabelFrame, type SwarmLabel } from './battleLabels';
 
 export interface BattleOptions {
   store: Store<AppState>;
@@ -161,16 +161,25 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
     return Math.min(zoom, pan);
   }
 
-  /** a point in the middle of a unit's territory at radius fraction rho (normalised) */
-  function homePoint(id: string, rho: number): { x: number; y: number } | null {
-    if (!planet) return null;
+  /** a point in the middle of a unit's territory at radius fraction rho (normalised), written to `out`; false if none */
+  function homePoint(id: string, rho: number, out: { x: number; y: number }): boolean {
+    if (!planet) return false;
     const ws = planet.wedges;
-    const k = ws.findIndex((w) => w.id === id);
-    if (k < 0) return null;
-    const [a0, a1] = ws.length < 2 ? [START_ANGLE, START_ANGLE + TAU] : planet.rangeAt(k, rho);
-    const a = (a0 + a1) / 2;
-    return { x: Math.cos(a) * rho, y: Math.sin(a) * rho };
+    let k = -1;
+    for (let i = 0; i < ws.length && k < 0; i++) if (ws[i].id === id) k = i;
+    if (k < 0) return false;
+    let a: number;
+    if (ws.length < 2) a = START_ANGLE + TAU / 2;
+    else {
+      const n = ws.length;
+      // the territory's edges are frontlines k and k + 1 (planet.rangeAt without the tuple)
+      a = (planet.borderAt(k, rho) + planet.borderAt((k + 1) % n, rho) + (k === n - 1 ? TAU : 0)) / 2;
+    }
+    out.x = Math.cos(a) * rho;
+    out.y = Math.sin(a) * rho;
+    return true;
   }
+  const home = { x: 0, y: 0 };
 
   function select(e: FederatedPointerEvent, commit: boolean) {
     if (!planet || !shown) return;
@@ -203,7 +212,9 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
       n++;
     }
     ins.length = n;
-    sim.sync(ins, budget, { instant: first, warp: !first && !reduced });
+    syncOpts.instant = first;
+    syncOpts.warp = !first && !reduced;
+    sim.sync(ins, budget, syncOpts);
     // home sectors = the planet's territories, sampled along their animated frontlines
     const nw = ws.length;
     for (let k = 0; k < nw; k++) {
@@ -225,17 +236,23 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
     for (let q = 0; q < sim.arrivals.n; q++) {
       const slot = sim.arrivals.slot[q];
       const id = sim.units.id[slot];
-      const at = id ? homePoint(id, 0.6) : null;
-      if (!at) continue;
-      sim.setWarp(slot, at.x, at.y, 0.9);
+      if (!id || !homePoint(id, 0.6, home)) continue;
+      sim.setWarp(slot, home.x, home.y, 0.9);
       const grant = flashes ? flashes.request(1, now()) : 0;
-      fx.warp(at.x, at.y, color[slot], grant);
-      view.burst(at.x, at.y, color[slot], 28, 240, 0.7);
+      fx.warp(home.x, home.y, color[slot], grant);
+      view.burst(home.x, home.y, color[slot], 28, 240, 0.7);
     }
     first = false;
   }
 
-  function updateLabels(p: Planet, dt: number, st: AppState, compact: boolean) {
+  // per-frame views handed to the labels / effects / simulation, reused
+  const lf: LabelFrame = { lang: 'ja', cx: 0, cy: 0, sr: 1, alpha: 0, compact: false, selected: null, hovered: null, screen: { w: 1, h: 1 }, dt: 0 };
+  const selView = { x: 0, y: 0, color: 0, r: 0.13 };
+  const fxView: FxView = { R: 1, px: 1, vis: 0, time: 0, reduced: false, selected: null };
+  const syncOpts = { instant: false, warp: false };
+  const stepOpts = { reduced: false };
+
+  function updateLabels(p: Planet, dt: number, st: AppState, compact: boolean, scale: number) {
     labelList.length = 0;
     const u = sim.units;
     for (const w of p.wedges) {
@@ -252,25 +269,25 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
       l.x = u.cx[slot];
       l.y = u.cy[slot];
       l.share = w.share;
-      const home = homePoint(w.id, 0.72);
-      l.hx = home ? home.x : l.x;
-      l.hy = home ? home.y : l.y;
+      const ok = homePoint(w.id, 0.72, home);
+      l.hx = ok ? home.x : l.x;
+      l.hy = ok ? home.y : l.y;
       labelList.push(l);
     }
     const c = renderer.worldToScreen(p.x, p.y);
     const scr = renderer.app.screen;
-    labels.update(labelList, {
-      lang: st.lang,
-      cx: c.x,
-      cy: c.y,
-      sr: p.slot.r * renderer.camera.scale,
-      alpha: vis,
-      compact,
-      selected: st.selectedUnit,
-      hovered,
-      screen: { w: scr.width, h: scr.height },
-      dt,
-    });
+    lf.lang = st.lang;
+    lf.cx = c.x;
+    lf.cy = c.y;
+    lf.sr = p.slot.r * scale;
+    lf.alpha = vis;
+    lf.compact = compact;
+    lf.selected = st.selectedUnit;
+    lf.hovered = hovered;
+    lf.screen.w = scr.width;
+    lf.screen.h = scr.height;
+    lf.dt = dt;
+    labels.update(labelList, lf);
   }
 
   return {
@@ -309,22 +326,27 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
 
       const budget = Math.round((compact ? CAP_MOBILE : CAP_DESKTOP) * renderer.particleScale);
       syncUnits(p, budget, reduced);
-      sim.step(dt, time, { reduced });
+      stepOpts.reduced = reduced;
+      sim.step(dt, time, stepOpts);
       look.vis = vis;
       look.reduced = reduced;
       view.draw(sim, R, px, look, dt);
 
       const sel = st.selectedUnit ? sim.slotOf(st.selectedUnit) : -1;
       const u = sim.units;
-      fx.update(dt, {
-        R,
-        px,
-        vis,
-        time,
-        reduced,
-        selected: sel >= 0 && u.alive[sel] >= 3 ? { x: u.cx[sel], y: u.cy[sel], color: color[sel], r: 0.13 } : null,
-      });
-      updateLabels(p, dt, st, compact);
+      fxView.R = R;
+      fxView.px = px;
+      fxView.vis = vis;
+      fxView.time = time;
+      fxView.reduced = reduced;
+      if (sel >= 0 && u.alive[sel] >= 3) {
+        selView.x = u.cx[sel];
+        selView.y = u.cy[sel];
+        selView.color = color[sel];
+        fxView.selected = selView;
+      } else fxView.selected = null;
+      fx.update(dt, fxView);
+      updateLabels(p, dt, st, compact, cam.scale);
       // the overview's planet titles and territory names make way for the swarm labels
       galaxy.labels.alpha *= 1 - vis;
 
@@ -340,10 +362,9 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
       let x = u.cx[slot];
       let y = u.cy[slot];
       if (u.alive[slot] < 3) {
-        const at = homePoint(unitId, 0.6);
-        if (!at) return false;
-        x = at.x;
-        y = at.y;
+        if (!homePoint(unitId, 0.6, home)) return false;
+        x = home.x;
+        y = home.y;
       }
       const grant = flashes ? flashes.request(1, now()) : 0;
       fx.shock(x, y, color[slot], grant);
