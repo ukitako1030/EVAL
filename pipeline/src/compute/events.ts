@@ -36,11 +36,25 @@ function caseToken(t: string): string {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
-/** Display name for a model id. Release display names win; otherwise strip dates/suffixes and title-case. */
+const UNKNOWN_SUFFIX = /^(.+?)_unknown$/i; // Epoch ids such as gpt-5.5_unknown: the reasoning effort is unknown
+const EFFORT_SUFFIX = /^(.+?)_(max|high|xhigh|medium|low|minimal)$/i; // gpt-5.2-2025-12-11_high: a reasoning-effort variant
+
+/**
+ * Display name for a model id. Release display names win; otherwise strip dates/suffixes and title-case.
+ * A trailing `_unknown` is dropped and a trailing `_<effort>` becomes ` (<Effort>)`.
+ */
 export function prettyModel(model: string, releases: CompiledRelease[]): string {
   const r = releaseOf(releases, model);
   if (r?.display) return r.display;
 
+  const unknown = UNKNOWN_SUFFIX.exec(model);
+  if (unknown) model = unknown[1];
+  const effort = EFFORT_SUFFIX.exec(model);
+  if (effort) return `${cleanModel(effort[1])} (${effort[2].charAt(0).toUpperCase()}${effort[2].slice(1).toLowerCase()})`;
+  return cleanModel(model);
+}
+
+function cleanModel(model: string): string {
   // the parenthesised part is kept as written (only title-cased); everything before it is cleaned up
   const open = model.indexOf('(');
   const head = (open < 0 ? model : model.slice(0, open)).replace(DATE_ISO, '').replace(DATE_COMPACT, '').replace(DATE_MM_DD, '');
