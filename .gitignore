@@ -6,3 +6,4 @@ dist/
 pipeline/out/
 .claude/worktrees/
 site/dist/
+site/shots/
