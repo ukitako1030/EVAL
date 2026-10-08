@@ -28,6 +28,11 @@ export type CameraTarget =
 export const GALAXY_EXTENT = { w: 960, h: 590 } as const;
 /** A focused planet's radius fills this share of the shorter viewport side. */
 export const PLANET_FILL = 0.36;
+/**
+ * …and at most this share of a landscape viewport's width, so a narrow landscape frame (a side panel open) keeps
+ * room beside the planet for the battle's outside label columns. Portrait frames (phones) always use PLANET_FILL.
+ */
+export const PLANET_SIDE_FILL = 0.3;
 /** Focus slightly below the planet centre (× radius) so its title above stays in frame. */
 const PLANET_DROP = 0.06;
 const MIN_SCALE = 1e-3;
@@ -40,7 +45,8 @@ export function cameraFor(target: CameraTarget, viewport: Viewport): Camera {
     return { x: 0, y: 0, scale: Math.max(MIN_SCALE, Math.min(w / Math.max(1, ext.w), h / Math.max(1, ext.h))) };
   }
   const r = Math.max(1, target.r);
-  return { x: target.x, y: target.y + r * PLANET_DROP, scale: Math.max(MIN_SCALE, (PLANET_FILL * Math.min(w, h)) / r) };
+  const fill = w > h ? Math.min(PLANET_FILL * h, PLANET_SIDE_FILL * w) : PLANET_FILL * w;
+  return { x: target.x, y: target.y + r * PLANET_DROP, scale: Math.max(MIN_SCALE, fill / r) };
 }
 
 export function easeInOutCubic(p: number): number {

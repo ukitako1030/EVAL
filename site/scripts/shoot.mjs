@@ -22,6 +22,7 @@ const HELP = `usage: node scripts/shoot.mjs [options]
   --eval-timeout <ms> how long an (awaited) --eval may run (default 30000)
   --cpu-throttle <n> slow the CPU down n× (DevTools CPU throttling) — e.g. 4 for a mid-range phone
   --console          also print the page's console.log / console.info lines (e.g. the ?debugFlash log)
+  --reduced-motion   emulate prefers-reduced-motion: reduce (CDP Emulation.setEmulatedMedia)
   --resize <WxH@ms>  resize the viewport to WxH at ms (checks the page follows a window resize)
   --swipe <x1,y1,x2,y2@ms;…>  one-finger touch swipes (CDP Input.dispatchTouchEvent, ~180 ms each) at those times
   --chrome <path>    Chrome executable (default: $CHROME_PATH or the usual install location)
@@ -39,6 +40,7 @@ function parseArgs(argv) {
     const key = a.slice(2);
     if (key === 'fps') o.fps = true;
     else if (key === 'console') o.console = true;
+    else if (key === 'reduced-motion') o.reducedMotion = true;
     else if (i + 1 < argv.length) o[key] = argv[++i];
     else throw new Error(`missing value for ${a}`);
   }
@@ -207,6 +209,7 @@ async function main() {
     await send('Runtime.enable');
     await send('Page.enable');
     await send('Log.enable');
+    if (o.reducedMotion) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
     const version = await send('Browser.getVersion');
     const desktopUA = version.userAgent;
     const chromeVer = /Chrome\/([\d.]+)/.exec(desktopUA)?.[1] ?? '130.0.0.0';

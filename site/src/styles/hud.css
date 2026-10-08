@@ -122,11 +122,24 @@
   max-width: calc(100vw - 480px);
 }
 
+/* the meta line and the tool buttons sit over the starfield (and a neighbouring planet when zoomed in): a dark
+   backing keeps them readable */
 .hud-updated {
   margin: 0;
+  padding: 4px 8px;
   font: 400 11px var(--f-mono);
-  color: var(--text-dim);
+  color: rgba(214, 240, 255, 0.78);
   font-variant-numeric: tabular-nums;
+  background: rgba(4, 11, 26, 0.72);
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9);
+}
+
+.hud-tools .hud-btn:not([aria-pressed='true']) {
+  background: linear-gradient(rgba(61, 232, 255, 0.09), rgba(61, 232, 255, 0.09)), rgba(4, 11, 26, 0.8);
+}
+
+.hud-tools .hud-btn:not([aria-pressed='true']):hover {
+  background: linear-gradient(rgba(61, 232, 255, 0.24), rgba(61, 232, 255, 0.24)), rgba(4, 11, 26, 0.8);
 }
 
 .hud-lang {

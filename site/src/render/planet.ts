@@ -66,6 +66,8 @@ export interface Planet {
   rangeAt(k: number, rho: number): [number, number];
   /** displayed brightness 0..1.12 of a unit's territory */
   brightness(id: string): number;
+  /** fog opacity multiplier (1 = full; the zoomed battle thins the veil so the swarms stay visible in it) */
+  setFogFade(k: number): void;
   destroy(): void;
 }
 
@@ -504,6 +506,10 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
     rangeAt,
     brightness(id) {
       return disp.get(id) ?? 0;
+    },
+    setFogFade(k) {
+      const a = clamp(k, 0, 1);
+      if (Math.abs(fog.container.alpha - a) > 0.002) fog.container.alpha = a;
     },
     destroy() {
       fog.destroy();

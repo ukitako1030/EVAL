@@ -129,7 +129,7 @@ async function boot(mount: HTMLElement) {
     const reframe = (o: { aim: boolean; animate: boolean }) => {
       const W = window.innerWidth;
       const H = window.innerHeight;
-      const ins = mobile.insets() ?? desktopInsets(W, H, hud.el, detail.el);
+      const ins = mobile.insets() ?? desktopInsets(W, H, hud.el, detail.el, store.get().front !== null);
       const k = [ins.top, ins.right, ins.bottom, ins.left].map((v) => v.toFixed(1)).join('|');
       if (k === insetsKey && !o.aim) return;
       insetsKey = k;
@@ -146,6 +146,12 @@ async function boot(mount: HTMLElement) {
     };
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
+    // the desktop HUD boxes change size with the language (and web fonts): keep the framed area clear of them
+    const hudRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => !mobile.active && reframe({ aim: false, animate: true })) : null;
+    for (const sel of ['#hud-title', '#hud-legend', '#hud-panel', '#hud-timeline']) {
+      const el = hud.el.querySelector(sel);
+      if (el) hudRO?.observe(el);
+    }
     timeline.setCompact(mobile.active);
     mobile.onLayout(() => {
       battle.setPinned(pinnedFront(store.get()));
@@ -277,21 +283,42 @@ async function boot(mount: HTMLElement) {
   }
 }
 
+/** px between a desktop HUD box and the framed area */
+const HUD_GAP = 8;
 /**
- * Desktop layout: leave room for the HUD. Wide windows use the fixed frame beside the ranking panel; narrower or
- * short ones (768-1023 px, or a phone held sideways) measure the title, panel, timeline and an open detail panel.
+ * Galaxy overview: the planet titles are screen-size text stacked above the top row and below the bottom row of
+ * planets, past the box the camera fits (render/layout). This much extra room (px) keeps them clear of the title box
+ * and the legend at every desktop size (render/labels drops the sub-title on small planets for the same reason).
  */
-function desktopInsets(w: number, h: number, hud: HTMLElement, detail: HTMLElement): Insets {
-  if (w >= 1024 && h > 500) return { top: 76, right: 360, bottom: 120, left: 0 };
-  const box = (sel: string) => hud.querySelector<HTMLElement>(sel);
+const TITLE_ROOM = { top: 26, bottom: 14 };
+
+/**
+ * Desktop layout: the framed area is the window minus the HUD boxes, measured from the DOM (layout boxes, so the
+ * detail panel's slide-in transform doesn't count): below the title, left of the ranking panel, above the legend
+ * and the timeline (plus TITLE_ROOM in the galaxy overview). An open unit detail panel on the left pushes the frame
+ * right, so the focused planet glides into the free space beside it (the galaxy overview only when the frame stays
+ * landscape — a portrait frame would re-arrange the planets).
+ */
+function desktopInsets(w: number, h: number, hud: HTMLElement, detail: HTMLElement, focused: boolean): Insets {
+  const box = (sel: string) => {
+    const el = hud.querySelector<HTMLElement>(sel);
+    return el && !el.hidden && el.offsetWidth > 0 && el.offsetHeight > 0 ? el : null;
+  };
   const panel = box('#hud-panel');
   const timeline = box('#hud-timeline');
   const title = box('#hud-title');
-  const right = panel && panel.offsetWidth > 0 ? w - panel.offsetLeft + 8 : 0;
-  const top = title ? title.offsetTop + title.offsetHeight + 4 : 56;
-  const bottom = timeline && timeline.offsetHeight > 0 ? h - timeline.offsetTop + 8 : 96;
-  // a detail panel on the left (768-1023 px windows) pushes the frame right; short windows show it over the ranking panel
-  const left = !detail.hidden && detail.offsetWidth > 0 && detail.offsetLeft < w / 2 ? detail.offsetLeft + detail.offsetWidth + 8 : 0;
+  const legend = box('#hud-legend');
+  const right = panel ? Math.max(0, w - panel.offsetLeft + HUD_GAP) : 0;
+  const room = focused ? { top: 0, bottom: 0 } : TITLE_ROOM;
+  const top = (title ? title.offsetTop + title.offsetHeight + HUD_GAP : 56) + room.top;
+  const floor = Math.min(timeline ? timeline.offsetTop : h - 88, legend ? legend.offsetTop : h);
+  const bottom = Math.max(0, h - floor + HUD_GAP) + room.bottom;
+  // a detail panel on the left pushes the frame right; short windows show it over the ranking panel instead
+  let left = 0;
+  if (!detail.hidden && detail.offsetWidth > 0 && detail.offsetLeft < w / 2) {
+    const l = detail.offsetLeft + detail.offsetWidth + HUD_GAP;
+    if (focused || w - l - right >= h - top - bottom) left = l;
+  }
   return { top, right, bottom, left };
 }
 

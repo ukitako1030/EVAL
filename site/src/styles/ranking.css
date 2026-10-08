@@ -40,12 +40,15 @@
 }
 
 .rank-empty {
-  margin: 0;
-  padding: 24px 0;
+  margin: 2px 0 0;
+  padding: 22px 0;
   text-align: center;
-  font: 500 12px var(--f-jp);
+  font: 600 12px var(--f-jp);
   letter-spacing: 0.3em;
-  color: var(--text-dim);
+  color: rgba(200, 230, 255, 0.62);
+  /* an idle sector: dashed frame, faint hazard stripes */
+  border: 1px dashed rgba(90, 210, 255, 0.24);
+  background: repeating-linear-gradient(135deg, rgba(90, 210, 255, 0.045) 0 6px, transparent 6px 12px);
 }
 
 .rank-row {
@@ -250,6 +253,11 @@
   border-top: 1px solid var(--line);
   scrollbar-width: thin;
   scrollbar-color: rgba(61, 232, 255, 0.45) transparent;
+  /* the list runs on under the panel's edge: fade it out instead of cutting a row in half (the padding lets the
+     last row scroll clear of the fade) */
+  padding-bottom: 16px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
 }
 
 .deploy-table {

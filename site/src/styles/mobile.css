@@ -361,6 +361,16 @@
   overflow: hidden;
 }
 
+/* no units yet: the message fills the (empty) five-row list instead of trailing under it */
+.m .rank-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(var(--m-rank) * 5 - 4px);
+  margin: calc(var(--m-rank) * -5 + 2px) 0 2px;
+  padding: 0;
+}
+
 .m .rank-row {
   height: calc(var(--m-rank) - 2px);
   grid-template-columns: 20px 4px 1fr 40px;
