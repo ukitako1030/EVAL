@@ -1,0 +1,80 @@
+import { describe, it, expect } from 'vitest';
+import { detectEvents, prettyModel, type FrontCells } from '../../src/compute/events';
+
+const params = { newModelMinDelta: 3, surgeStrength: 5, surgeScale: 5, leadHysteresis: 1, maxPerFrontMonth: 3 };
+const front = { id: 'general' as const, name: { ja: '総合戦線', en: 'General Front' } };
+
+const cells = (data: Record<string, (null | [number, number, string | null] | [number, number, string | null, string])[]>): FrontCells =>
+  new Map(
+    Object.entries(data).map(([u, arr]) => [
+      u,
+      arr.map((v) => (v ? { s: v[0], c: v[1], bestModel: v[2], q: (v[3] ?? 'high') as 'high' | 'estimated' } : null)),
+    ]),
+  );
+
+describe('prettyModel', () => {
+  it('uses release display names, else strips dates and title-cases', () => {
+    expect(prettyModel('dall-e-3', [{ regex: /^dall-e-3/i, release: '2023-10', display: 'DALL·E 3' }])).toBe('DALL·E 3');
+    expect(prettyModel('claude-3-opus-20240229', [])).toBe('Claude 3 Opus');
+    expect(prettyModel('gemini-2.5-pro', [])).toBe('Gemini 2.5 Pro');
+  });
+});
+
+describe('detectEvents', () => {
+  const months = ['2024-01', '2024-02', '2024-03', '2024-04'];
+  const names = { gpt: 'GPT', claude: 'Claude' };
+  // 2024-03: claude overtakes on strength (+10, new model), gpt drops 6 (surge down).
+  // 2024-04: claude overtakes on scale (42 vs 35) without a +5 scale jump of its own.
+  const c = cells({
+    gpt: [[100, 80, 'gpt-4'], [100, 78, 'gpt-4'], [94, 60, 'gpt-4'], [94, 35, 'gpt-4']],
+    claude: [null, [90, 22, 'claude-2'], [100, 40, 'claude-3-opus-20240229'], [100, 42, 'claude-3-opus-20240229']],
+  });
+  const ev = detectEvents({ front, months, cells: c, unitNames: names, params, releases: [], overrides: [], custom: [] });
+  const types = (m: string) => ev.filter((e) => e.month === m).map((e) => `${e.type}:${e.unit}`);
+
+  it('detects arrivals, model jumps, lead and scale-lead changes', () => {
+    expect(types('2024-01')).toEqual([]); // first month: initial leaders, no events; gpt existing from start is not "new"
+    expect(types('2024-02')).toEqual(['new_unit:claude']);
+    expect(types('2024-03')).toEqual(['lead_change:claude', 'new_model:claude', 'surge:gpt']);
+    expect(types('2024-04')).toEqual(['scale_lead_change:claude']);
+  });
+  it('writes localized text', () => {
+    const lead = ev.find((e) => e.type === 'lead_change')!;
+    expect(lead.text.ja).toBe('総合戦線で首位交代：GPT → Claude');
+    expect(lead.text.en).toBe('Lead change on the General Front: GPT → Claude');
+    const nm = ev.find((e) => e.type === 'new_model')!;
+    expect(nm.text.ja).toBe('Claude 3 Opus 投入 — 総合戦線');
+  });
+  it('applies overrides and custom events', () => {
+    const ev2 = detectEvents({
+      front,
+      months,
+      cells: c,
+      unitNames: names,
+      params,
+      releases: [],
+      overrides: [
+        { month: '2024-03', front: 'general', unit: 'gpt', type: 'surge', hide: true },
+        { month: '2024-02', front: 'general', unit: 'claude', type: 'new_unit', text: { ja: 'Claude 2 参戦', en: 'Claude 2 joins' } },
+      ],
+      custom: [{ month: '2024-01', front: 'general', unit: 'gpt', text: { ja: '開戦', en: 'War begins' } }],
+    });
+    expect(ev2.some((e) => e.type === 'surge')).toBe(false);
+    expect(ev2.find((e) => e.type === 'new_unit')!.text.ja).toBe('Claude 2 参戦');
+    expect(ev2.find((e) => e.type === 'custom')!.month).toBe('2024-01');
+  });
+  it('ignores estimated cells for lead changes, model jumps and surges', () => {
+    const est = cells({
+      a: [[100, 50, 'a-1'], [100, 50, 'a-1'], [100, 50, 'a-1']],
+      b: [[94, 50, null, 'estimated'], [100, 70, null, 'estimated'], [80, 70, 'b-1']],
+    });
+    const ev4 = detectEvents({ front, months: ['2024-01', '2024-02', '2024-03'], cells: est, unitNames: { a: 'A', b: 'B' }, params, releases: [], overrides: [], custom: [] });
+    // 2024-02: b is estimated → no strength lead / model / surge events (its scale is real, so a scale-lead change is allowed);
+    // 2024-03: b measured but the previous month was estimated → no surge
+    expect(ev4.filter((e) => e.unit === 'b').map((e) => e.type)).toEqual(['scale_lead_change']);
+  });
+  it('caps events per front-month', () => {
+    const ev3 = detectEvents({ front, months, cells: c, unitNames: names, params: { ...params, maxPerFrontMonth: 1 }, releases: [], overrides: [], custom: [] });
+    expect(ev3.filter((e) => e.month === '2024-03').map((e) => e.type)).toEqual(['lead_change']);
+  });
+});
