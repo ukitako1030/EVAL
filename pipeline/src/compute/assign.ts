@@ -41,7 +41,10 @@ export function releaseOf(releases: CompiledRelease[], model: string): CompiledR
   return null;
 }
 
-/** All observations must belong to ONE series (same series id, kind, dateKind). */
+/**
+ * All observations must belong to ONE series (same series id, kind, dateKind) or this throws.
+ * Observations with a non-finite value are dropped (with one warning); dates are normalised to YYYY-MM-DD.
+ */
 export function assignSeries(args: {
   front: FrontId;
   group: string;
@@ -52,9 +55,22 @@ export function assignSeries(args: {
   releases: CompiledRelease[];
   params: AssignParams;
 }): SeriesTable {
-  const obs = args.observations;
-  if (!obs.length) throw new Error('assignSeries: empty observations');
+  if (!args.observations.length) throw new Error('assignSeries: empty observations');
+  const finite = args.observations.filter((o) => Number.isFinite(o.value));
+  const dropped = args.observations.length - finite.length;
+  if (dropped > 0) {
+    console.warn(`assignSeries: dropped ${dropped} observation(s) with non-finite value in series "${args.observations[0].series}"`);
+  }
+  if (!finite.length) throw new Error(`assignSeries: no finite observations in series "${args.observations[0].series}"`);
+  // a time part ("2024-05-31T12:00:00Z") must not push a row out of its month
+  const obs = finite.map((o) => ({ ...o, date: o.date.slice(0, 10) }));
   const first = obs[0];
+  const mixed = obs.find((o) => o.series !== first.series || o.kind !== first.kind || o.dateKind !== first.dateKind);
+  if (mixed) {
+    throw new Error(
+      `assignSeries: mixed series/kind/dateKind (expected ${first.series}/${first.kind}/${first.dateKind}, got ${mixed.series}/${mixed.kind}/${mixed.dateKind} for model "${mixed.model}")`,
+    );
+  }
   const table: SeriesTable = {
     front: args.front,
     group: args.group,

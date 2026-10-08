@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { assignSeries, matchUnit } from '../../src/compute/assign';
 import type { CompiledUnit, CompiledRelease } from '../../src/config/load';
 import type { Observation } from '../../src/core/types';
@@ -110,5 +110,77 @@ describe('assignSeries — snapshot type', () => {
     expect(t.points.get('gpt')?.get('2024-06')).toEqual({ value: 1250, model: 'gpt-4o', reconstructed: true });
     expect(t.points.get('claude')?.get('2024-02')).toBeUndefined();
     expect(t.points.get('claude')?.get('2024-03')?.reconstructed).toBe(true);
+  });
+});
+
+describe('assignSeries — input hygiene', () => {
+  const run = (observations: Observation[]) =>
+    assignSeries({
+      front: 'general',
+      group: 'g',
+      priority: 1,
+      observations,
+      units: UNITS,
+      months: monthRange('2024-04', '2025-03'),
+      releases: [],
+      params,
+    });
+
+  it('drops non-finite values (a leading NaN must not wipe the unit) and warns once with the count', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const t = run([
+        ob({ model: 'gpt-4', date: '2025-01-05', value: NaN }),
+        ob({ model: 'gpt-4o', date: '2025-01-05', value: 1250 }),
+        ob({ model: 'gpt-4-turbo', date: '2025-01-05', value: Infinity }),
+        ob({ model: 'claude-3', date: '2025-01-05', value: 1240 }),
+      ]);
+      expect(t.points.get('gpt')?.get('2025-01')).toEqual({ value: 1250, model: 'gpt-4o', reconstructed: false });
+      expect(t.points.get('claude')?.get('2025-01')?.value).toBe(1240);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toContain('2');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+  it('does not warn when every value is finite', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      run([ob({ model: 'gpt-4o', date: '2025-01-05', value: 1250 })]);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+  it('throws when every value is non-finite', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      expect(() => run([ob({ value: NaN })])).toThrow(/assignSeries/);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+  it('normalises dates with a time part to YYYY-MM-DD (release type)', () => {
+    const t = run([ob({ model: 'gpt-4o', date: '2024-05-31T12:00:00Z', value: 70, kind: 'percent', dateKind: 'release' })]);
+    expect(t.points.get('gpt')?.get('2024-04')).toBeUndefined();
+    expect(t.points.get('gpt')?.get('2024-05')).toEqual({ value: 70, model: 'gpt-4o', reconstructed: false });
+  });
+  it('normalises dates with a time part to YYYY-MM-DD (snapshot type)', () => {
+    const t = run([
+      ob({ model: 'gpt-4o', date: '2024-05-31T12:00:00Z', value: 1250 }),
+      ob({ model: 'claude-3', date: '2024-05-31T12:00:00Z', value: 1240 }),
+    ]);
+    expect(t.points.get('gpt')?.get('2024-05')).toEqual({ value: 1250, model: 'gpt-4o', reconstructed: false });
+    expect(t.points.get('claude')?.get('2024-05')?.value).toBe(1240);
+  });
+  it('does not mutate the caller observations', () => {
+    const o = ob({ model: 'gpt-4o', date: '2024-05-31T12:00:00Z', value: 1250 });
+    run([o]);
+    expect(o.date).toBe('2024-05-31T12:00:00Z');
+  });
+  it('throws on mixed series, kind or dateKind', () => {
+    expect(() => run([ob({}), ob({ series: 'other' })])).toThrow(/mixed series\/kind\/dateKind/);
+    expect(() => run([ob({}), ob({ kind: 'percent' })])).toThrow(/mixed series\/kind\/dateKind/);
+    expect(() => run([ob({}), ob({ dateKind: 'release' })])).toThrow(/mixed series\/kind\/dateKind/);
   });
 });
