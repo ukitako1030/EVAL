@@ -69,3 +69,25 @@ describe('orgDeployment', () => {
     expect(d.map((x) => x.org)).toEqual(['google', 'openai', 'anthropic']);
   });
 });
+
+describe('deterministic ordering', () => {
+  const tied = () => {
+    const w = makeWorld();
+    const flat = { s: 50, c: 40, q: 'high', qs: 'high', qc: 'high' } as const;
+    w.orgs.a = { name: 'a-org', color: '#111111' };
+    w.orgs.B = { name: 'B-org', color: '#222222' };
+    w.orgs.Z = { name: 'Z-org', color: '#333333' };
+    w.units.code = { a: { org: 'a', name: 'a', since: '2025-01' }, B: { org: 'B', name: 'B', since: '2025-01' }, Z: { org: 'Z', name: 'Z', since: '2025-01' } };
+    w.series.code = Object.fromEntries(['a', 'B', 'Z'].map((id) => [id, [flat, flat, flat, flat]]));
+    return w;
+  };
+  it('breaks ties by code-unit order (uppercase before lowercase), independent of locale', () => {
+    const f = frontFrame(tied(), 'code', 1);
+    expect(f.map((u) => [u.id, u.rank])).toEqual([['B', 1], ['Z', 2], ['a', 3]]);
+    expect(frontFrame(tied(), 'code', 1, 'scale').map((u) => u.id)).toEqual(['B', 'Z', 'a']);
+  });
+  it('orders orgs with equal reach and share the same way', () => {
+    // 'a-org' etc. only exist on the code front, one front each, equal share
+    expect(orgDeployment(tied(), 1).filter((d) => ['a', 'B', 'Z'].includes(d.org)).map((d) => d.org)).toEqual(['B', 'Z', 'a']);
+  });
+});

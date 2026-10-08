@@ -33,13 +33,16 @@ export function monthLabel(world: World, t: number): string {
   return world.months[Math.floor(clampT(world, t) + 1e-9)].replace('-', '.');
 }
 
+/** Plain code-unit comparison: tie-breaks must not depend on the viewer's locale / ICU data. */
+const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
 const keyOf = (sortBy: SortBy) => (m: { s: number; c: number }) => (sortBy === 'strength' ? m.s : m.c);
 
 function ranksAt(world: World, front: FrontId, i: number, sortBy: SortBy): Map<string, number> {
   const S = world.series[front] ?? {};
   const key = keyOf(sortBy);
   const ids = Object.keys(S).filter((u) => S[u][i]);
-  ids.sort((a, b) => key(S[b][i] as UnitMonth) - key(S[a][i] as UnitMonth) || a.localeCompare(b));
+  ids.sort((a, b) => key(S[b][i] as UnitMonth) - key(S[a][i] as UnitMonth) || cmp(a, b));
   return new Map(ids.map((u, k) => [u, k + 1]));
 }
 
@@ -70,7 +73,7 @@ export function frontFrame(world: World, front: FrontId, t: number, sortBy: Sort
     out.push({ id, front, org: u.org, name: u.name, color: world.orgs[u.org]?.color ?? '#888888', s, c, q, fog: FOG[q], presence, rank: 0, rankDelta: 0 });
   }
   const key = keyOf(sortBy);
-  out.sort((x, y) => key(y) - key(x) || x.id.localeCompare(y.id));
+  out.sort((x, y) => key(y) - key(x) || cmp(x.id, y.id));
   const prev = i0 > 0 ? ranksAt(world, front, i0 - 1, sortBy) : new Map<string, number>();
   const cur = ranksAt(world, front, i0, sortBy);
   out.forEach((u, k) => {
@@ -104,5 +107,5 @@ export function orgDeployment(world: World, t: number): OrgDeployment[] {
       d.totalShare += u.c * u.presence;
     }
   }
-  return [...by.values()].sort((a, b) => b.fronts.length - a.fronts.length || b.totalShare - a.totalShare || a.org.localeCompare(b.org));
+  return [...by.values()].sort((a, b) => b.fronts.length - a.fronts.length || b.totalShare - a.totalShare || cmp(a.org, b.org));
 }
