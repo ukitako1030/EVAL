@@ -47,7 +47,10 @@ export interface LabelFrame {
   compact: boolean;
   selected: string | null;
   hovered: string | null;
-  screen: { w: number; h: number };
+  /** screen rectangle the labels must stay inside (the window; on desktop the area framed between the HUD boxes) */
+  bounds: { x0: number; y0: number; x1: number; y1: number };
+  /** nobody holds territory on this front yet: the planet shows a "no units yet" caption instead */
+  empty: boolean;
   dt: number;
 }
 
@@ -118,6 +121,13 @@ export function createBattleLabels(): BattleLabels {
   container.eventMode = 'none';
   const lines = createDynMesh({ label: 'battle-label-lines' });
   container.addChild(lines.mesh);
+  // the empty front's caption (one text, made once)
+  const caption = text(15, '700');
+  caption.anchor.set(0.5, 0.5);
+  caption.style.letterSpacing = 4;
+  caption.style.fill = 0xa9d8f5;
+  container.addChild(caption);
+  let captionLang: Lang | null = null;
   const items = new Map<string, Item>();
   const list: Item[] = [];
   const order: SwarmLabel[] = [];
@@ -223,6 +233,17 @@ export function createBattleLabels(): BattleLabels {
         list[i].seen = false;
         list[i].want = false;
       }
+      const showCaption = f.empty && f.alpha > 0.01;
+      if (showCaption) {
+        if (captionLang !== f.lang) {
+          captionLang = f.lang;
+          caption.text = STRINGS.noUnits[f.lang];
+        }
+        const fs = f.compact ? 13 : 16;
+        if (caption.style.fontSize !== fs) caption.style.fontSize = fs;
+        caption.position.set(Math.round(f.cx), Math.round(f.cy + Math.max(1, f.sr) * 0.34));
+      }
+      if (caption.visible !== showCaption) caption.visible = showCaption;
       if (f.alpha <= 0.01) {
         lines.end();
         show();
@@ -337,8 +358,8 @@ export function createBattleLabels(): BattleLabels {
           gap = Math.max(gap, o.h + 3);
         }
         for (let i = 1; i < col.length; i++) if (outs[col[i]].y - outs[col[i - 1]].y < gap) outs[col[i]].y = outs[col[i - 1]].y + gap;
-        // keep the column on screen: shift it up if it runs off the bottom
-        const bottom = f.screen.h - 8;
+        // keep the column in bounds: shift it up if it runs off the bottom
+        const bottom = f.bounds.y1 - 8;
         if (col.length) {
           const last = outs[col[col.length - 1]];
           if (last.y + last.h / 2 > bottom) {
@@ -352,9 +373,9 @@ export function createBattleLabels(): BattleLabels {
           const dy = clampAbs(o.y - f.cy, R1 * 0.98);
           const ex = f.cx + side * Math.sqrt(Math.max(0, R1 * R1 - dy * dy));
           const tx = side > 0 ? ex + leg + 4 : ex - leg - 4 - w;
-          const left = Math.min(Math.max(6, tx), f.screen.w - 6 - w);
+          const left = Math.min(Math.max(f.bounds.x0 + 6, tx), f.bounds.x1 - 6 - w);
           const y0 = o.y - h / 2 - 1;
-          if (hitsBox(left - 2, y0, left + w + 2, o.y + h / 2 + 1) || y0 < 4) continue;
+          if (hitsBox(left - 2, y0, left + w + 2, o.y + h / 2 + 1) || y0 < f.bounds.y0 + 4) continue;
           pushBox(left - 2, y0, left + w + 2, o.y + h / 2 + 1);
           const a = l.fog >= 0.5 ? 0.75 : 1;
           put(it, left, o.y - h / 2, k, f.compact, fsN, a);
@@ -384,9 +405,11 @@ export function createBattleLabels(): BattleLabels {
         it.name.style.update();
         it.nums.style.update();
       }
+      caption.style.update();
     },
     clear() {
       for (let i = list.length - 1; i >= 0; i--) dropItem(i);
+      if (caption.visible) caption.visible = false;
       lines.begin();
       lines.end();
     },

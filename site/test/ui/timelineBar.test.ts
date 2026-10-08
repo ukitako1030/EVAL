@@ -63,6 +63,16 @@ describe('timeline bar', () => {
     expect(markers(root)[0].style.getPropertyValue('--c')).toBe('#4c8dff');
   });
 
+  it('a year label steps aside while the month badge under the thumb covers it (not in the compact layout)', () => {
+    const { root, bar } = setup({ t: 2 });
+    teardown = bar.destroy;
+    const year = root.querySelector<HTMLElement>('.tl-years span');
+    expect(year?.textContent).toBe('2025');
+    expect(year?.classList.contains('covered')).toBe(true); // badge two months after 2025-01
+    bar.setCompact(true); // the phone badge sits above the track
+    expect(year?.classList.contains('covered')).toBe(false);
+  });
+
   it('compact (mobile): news months close together share one marker that lists all their news', () => {
     const { root, store, bar } = setup({ front: 'general' });
     teardown = bar.destroy;

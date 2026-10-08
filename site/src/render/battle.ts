@@ -14,7 +14,7 @@ import type { FlashBudget } from '../fx/flashBudget';
 import type { Renderer } from './app';
 import type { Galaxy } from './galaxy';
 import type { Planet } from './planet';
-import { cameraFor } from './camera';
+import { cameraFor, type Viewport } from './camera';
 import { START_ANGLE, TAU, strHash } from './layout';
 import { hexColor } from './color';
 import { glowTexture } from './bgTextures';
@@ -56,7 +56,10 @@ export interface Battle {
 const CAP_DESKTOP = 2500;
 const CAP_MOBILE = 900;
 const VEIL = 0x02050f;
-const VEIL_ALPHA = 0.72;
+/** dark veil over the territories under the swarms: dims them enough for the particles to read, keeps their colours */
+const VEIL_ALPHA = 0.5;
+/** the planet's fog thins by this share while zoomed in (the fogged swarms are dimmer already) */
+const FOG_ZOOM_FADE = 0.45;
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 const smoothstep = (a: number, b: number, x: number) => {
   const t = clamp((x - a) / (b - a), 0, 1);
@@ -137,6 +140,7 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
   }
 
   function deactivate() {
+    planet?.setFogFade(1);
     root.parent?.removeChild(root);
     labels.clear();
     fx.clear();
@@ -149,10 +153,9 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
   }
 
   /** how far the camera has arrived at the planet (0 = overview / elsewhere … 1 = zoomed in) */
-  function arrival(front: FrontId): number {
+  function arrival(front: FrontId, vp: Viewport): number {
     const t = galaxy.cameraTarget(front);
     if (t.kind !== 'planet') return 0;
-    const vp = renderer.viewport;
     const s1 = cameraFor(t, vp).scale;
     const s0 = cameraFor(galaxy.cameraTarget(null), vp).scale;
     const cam = renderer.camera;
@@ -247,13 +250,13 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
   }
 
   // per-frame views handed to the labels / effects / simulation, reused
-  const lf: LabelFrame = { lang: 'ja', cx: 0, cy: 0, sr: 1, alpha: 0, compact: false, selected: null, hovered: null, screen: { w: 1, h: 1 }, dt: 0 };
+  const lf: LabelFrame = { lang: 'ja', cx: 0, cy: 0, sr: 1, alpha: 0, compact: false, selected: null, hovered: null, bounds: { x0: 0, y0: 0, x1: 1, y1: 1 }, empty: false, dt: 0 };
   const selView = { x: 0, y: 0, color: 0, r: 0.13 };
   const fxView: FxView = { R: 1, px: 1, vis: 0, time: 0, reduced: false, selected: null };
   const syncOpts = { instant: false, warp: false };
   const stepOpts = { reduced: false };
 
-  function updateLabels(p: Planet, dt: number, st: AppState, compact: boolean, scale: number) {
+  function updateLabels(p: Planet, dt: number, st: AppState, compact: boolean, scale: number, vp: Viewport) {
     labelList.length = 0;
     const u = sim.units;
     for (const w of p.wedges) {
@@ -285,8 +288,21 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
     lf.compact = compact;
     lf.selected = st.selectedUnit;
     lf.hovered = hovered;
-    lf.screen.w = scr.width;
-    lf.screen.h = scr.height;
+    lf.empty = p.wedges.length === 0;
+    // desktop: the outside label columns stay in the framed area (clear of the ranking, an open detail panel and the
+    // legend); phones label over the whole window (their HUD sits above and below the planet)
+    const b = lf.bounds;
+    if (compact) {
+      b.x0 = 0;
+      b.y0 = 0;
+      b.x1 = scr.width;
+      b.y1 = scr.height;
+    } else {
+      b.x0 = vp.x;
+      b.y0 = vp.y;
+      b.x1 = vp.x + vp.w;
+      b.y1 = vp.y + vp.h;
+    }
     lf.dt = dt;
     labels.update(labelList, lf);
   }
@@ -302,8 +318,9 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
       const want = pinned ?? st.front;
       if (want && !shown) activate(want);
       if (!shown || !planet) return;
+      const vp = renderer.viewport;
       // switching planets: fade the old battle out first
-      const target = want !== shown ? 0 : pinned ? 1 : smoothstep(0.45, 0.95, arrival(shown));
+      const target = want !== shown ? 0 : pinned ? 1 : smoothstep(0.45, 0.95, arrival(shown, vp));
       vis = st.reducedMotion ? target : vis + (target - vis) * Math.min(1, dt * (target < vis ? 10 : 6));
       if (vis < 0.01 && want !== shown) {
         // faded out after leaving (or switching) the front: tear down, start the next one fresh
@@ -324,6 +341,7 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
         hit.hitArea = new Circle(0, 0, R);
       }
       veil.alpha = VEIL_ALPHA * vis;
+      p.setFogFade(1 - FOG_ZOOM_FADE * vis);
 
       const budget = Math.round((compact ? CAP_MOBILE : CAP_DESKTOP) * renderer.particleScale);
       syncUnits(p, budget, reduced);
@@ -347,7 +365,7 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
         fxView.selected = selView;
       } else fxView.selected = null;
       fx.update(dt, fxView);
-      updateLabels(p, dt, st, compact, cam.scale);
+      updateLabels(p, dt, st, compact, cam.scale, vp);
       // the overview's planet titles and territory names make way for the swarm labels
       galaxy.labels.alpha *= 1 - vis;
 

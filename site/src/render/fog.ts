@@ -41,8 +41,8 @@ interface Bank {
 // neutral cool grey: fog desaturates a territory (no hue shift, no white-out)
 const VEIL = 0x737b8c;
 const PUFF = 0xb9c1cf;
-const VEIL_ALPHA = 0.32;
-const PUFF_ALPHA = 0.5;
+const VEIL_ALPHA = 0.3;
+const PUFF_ALPHA = 0.42;
 const DEG = Math.PI / 180;
 
 export function createFog(cloud: Texture): FogLayer {

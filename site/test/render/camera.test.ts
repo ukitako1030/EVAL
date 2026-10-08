@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cameraFor, ease, easeInOutCubic, worldTransform, GALAXY_EXTENT, PLANET_FILL, type Camera, type Viewport } from '../../src/render/camera';
+import { cameraFor, ease, easeInOutCubic, worldTransform, GALAXY_EXTENT, PLANET_FILL, PLANET_SIDE_FILL, type Camera, type Viewport } from '../../src/render/camera';
 
 const desktop: Viewport = { x: 0, y: 0, w: 1440, h: 900 };
 const phone: Viewport = { x: 0, y: 0, w: 390, h: 844 };
@@ -50,6 +50,15 @@ describe('cameraFor', () => {
     expect(c.y).toBeLessThan(-168 + 66 * 0.1);
     const p = cameraFor({ kind: 'planet', x: 0, y: 0, r: 138 }, phone);
     expect(p.scale).toBeCloseTo((PLANET_FILL * 390) / 138, 12);
+  });
+  it('keeps room beside the planet for label columns in a narrow landscape frame (a side panel open)', () => {
+    const narrow: Viewport = { x: 444, y: 104, w: 658, h: 646 };
+    const c = cameraFor({ kind: 'planet', x: 0, y: 0, r: 100 }, narrow);
+    expect(c.scale).toBeCloseTo((PLANET_SIDE_FILL * 658) / 100, 12);
+    expect(c.scale * 100).toBeLessThan(PLANET_FILL * 646);
+    // a wide frame is still limited by its height, a portrait one by its width
+    expect(cameraFor({ kind: 'planet', x: 0, y: 0, r: 100 }, { x: 0, y: 0, w: 1102, h: 646 }).scale).toBeCloseTo((PLANET_FILL * 646) / 100, 12);
+    expect(cameraFor({ kind: 'planet', x: 0, y: 0, r: 100 }, { x: 0, y: 0, w: 390, h: 400 }).scale).toBeCloseTo((PLANET_FILL * 390) / 100, 12);
   });
   it('a planet is always closer than the galaxy overview', () => {
     for (const vp of [desktop, phone]) {
