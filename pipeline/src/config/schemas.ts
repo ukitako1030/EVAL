@@ -128,6 +128,25 @@ export const EventsFileSchema = z.object({
 });
 export type EventsFile = z.infer<typeof EventsFileSchema>;
 
+/** curated/credits.yaml: material used outside the source modules, credited in world.sources (group 'curated'). */
+export const CreditsFileSchema = z.object({
+  credits: z
+    .array(
+      z
+        .object({
+          id: z.string().min(1),
+          name: z.string().min(1),
+          /** omitted when there is no single link (e.g. company announcements: each figure carries its own) */
+          url: z.url({ protocol: /^https?$/ }).optional(),
+          license: z.string().min(1),
+          credit: z.string().min(1),
+        })
+        .strict(),
+    )
+    .default([]),
+});
+export type Credit = z.infer<typeof CreditsFileSchema>['credits'][number];
+
 export const ReleasesFileSchema = z.object({
   models: z.array(z.object({ match: z.string(), release: MonthStr, display: z.string().optional() })).default([]),
 });

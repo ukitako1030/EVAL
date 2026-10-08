@@ -51,6 +51,13 @@ beforeAll(() => {
   writeFileSync(join(dir, 'curated', 'events.yaml'), 'custom:\n  - { month: 2022-11, front: general, unit: gpt, text: { ja: 開戦, en: War begins } }\n');
   writeFileSync(join(dir, 'curated', 'releases.yaml'), 'models: []\n');
   writeFileSync(
+    join(dir, 'curated', 'credits.yaml'),
+    `credits:
+  - { id: fake-usage, name: Fake usage data, url: 'https://example.com/usage', license: CC BY 4.0, credit: 'Fake, CC BY 4.0' }
+  - { id: fake-statements, name: Fake statements, license: Cited facts, credit: See each figure }
+`,
+  );
+  writeFileSync(
     join(dir, 'config', 'method.yaml'),
     `start: 2022-11
 strength:
@@ -118,7 +125,7 @@ describe('computeWorld', () => {
     expect(w.breakdown.general.gpt['2023-05']).toEqual([{ source: 'arena-text', value: 100, weight: 1, kind: 'measured', model: 'gpt-4', share: 1 }]);
     expect(w.events.find((e) => e.type === 'new_unit' && e.unit === 'claude')?.month).toBe('2023-03');
     expect(w.events.find((e) => e.type === 'custom')?.text.ja).toBe('開戦');
-    expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki']);
+    expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki', 'fake-usage', 'fake-statements']);
     expect(w.sources[0].asOf).toBe('2026-10-05');
     expect(w.sources[0].dataThrough).toBe('2023-05-31'); // latest observation date
     expect(w.sources[1].dataThrough).toBe('2023-05'); // latest signal month
@@ -188,8 +195,21 @@ describe('computeWorld', () => {
       now: new Date('2023-06-15T00:00:00Z'),
       onWarn: () => {},
     });
-    expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki']);
+    expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki', 'fake-usage', 'fake-statements']);
     expect(w.sources[1].credit).toBe('Source: Fake, as of 2026-10-05 (2026-10-05)');
+  });
+  it('appends the curated credits (credits.yaml) as group "curated" without dates', () => {
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena],
+      now: new Date('2023-06-15T00:00:00Z'),
+    });
+    expect(w.sources.slice(1)).toEqual([
+      { id: 'fake-usage', group: 'curated', name: 'Fake usage data', url: 'https://example.com/usage', license: 'CC BY 4.0', credit: 'Fake, CC BY 4.0', asOf: null, dataThrough: null },
+      { id: 'fake-statements', group: 'curated', name: 'Fake statements', url: null, license: 'Cited facts', credit: 'See each figure', asOf: null, dataThrough: null },
+    ]);
   });
   it('describes each unit with its org, name, first month and announcements series', () => {
     const w = computeWorld({
@@ -311,7 +331,7 @@ describe('computeWorld', () => {
   it("passes units.yaml's top-level exclude to the unit matching", () => {
     const curated = join(dir, 'curated-exclude');
     mkdirSync(curated);
-    for (const f of ['announcements.yaml', 'events.yaml', 'releases.yaml']) writeFileSync(join(curated, f), readFileSync(join(dir, 'curated', f)));
+    for (const f of ['announcements.yaml', 'events.yaml', 'releases.yaml', 'credits.yaml']) writeFileSync(join(curated, f), readFileSync(join(dir, 'curated', f)));
     const unitsYaml = readFileSync(join(dir, 'curated', 'units.yaml'), 'utf8');
     writeFileSync(join(curated, 'units.yaml'), `exclude:\n  - 'ft$'\n${unitsYaml}`);
     const withFineTune: Observation[] = [

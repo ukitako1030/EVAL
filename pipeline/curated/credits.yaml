@@ -1,0 +1,12 @@
+# Material used outside the source modules (src/sources), credited in world.json `sources` with group "curated"
+# next to the source modules' own credits. `url` may be omitted when there is no single link.
+credits:
+  - id: epoch-ai-companies
+    name: 'Epoch AI: AI Companies (usage data)'
+    url: https://epoch.ai/data/ai-companies
+    license: CC BY 4.0
+    credit: 'Epoch AI, "Data on AI Companies" (usage reports), CC BY 4.0; used to seed the official user counts (announcements)'
+  - id: company-announcements
+    name: "Company announcements (see each figure's link)"
+    license: Cited facts
+    credit: 'Active-user counts as announced by the companies (or credibly reported); each figure links to its source'

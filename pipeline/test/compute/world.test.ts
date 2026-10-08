@@ -183,10 +183,16 @@ describe('WorldSchema', () => {
       expect(paths((w) => (w.sources[0].dataThrough = '2026'))).toEqual(['sources.0.dataThrough']);
       expect(paths((w) => delete (w.sources[0] as Partial<World['sources'][number]>).dataThrough)).toEqual(['sources.0.dataThrough']);
     });
-    it('source url must be http(s)', () => {
+    it('source url must be http(s); only a curated credit may have none', () => {
       expect(paths((w) => (w.sources[0].url = 'ftp://arena.ai'))).toEqual(['sources.0.url']);
       expect(paths((w) => (w.sources[0].url = 'arena.ai'))).toEqual(['sources.0.url']);
       expect(paths((w) => (w.sources[0].url = 'http://arena.ai/x'))).toEqual([]);
+      expect(paths((w) => (w.sources[0].url = null))).toEqual(['sources.0.url']);
+      const curated = { id: 'company-announcements', group: 'curated', name: 'Company announcements', url: null, license: 'Cited facts', credit: 'x', asOf: null, dataThrough: null };
+      expect(paths((w) => w.sources.push(curated))).toEqual([]);
+    });
+    it('source ids must be unique', () => {
+      expect(paths((w) => w.sources.push({ ...w.sources[0] }))).toEqual(['sources.1.id']);
     });
     it('org color must be #rrggbb', () => {
       expect(paths((w) => (w.orgs.openai.color = 'green'))).toEqual(['orgs.openai.color']);

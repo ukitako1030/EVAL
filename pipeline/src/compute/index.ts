@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { FRONT_IDS, SIGNAL_IDS, minConfidence, type FrontId, type Observation, type SignalObs } from '../core/types';
 import { monthRange, toMonth, type Month } from '../core/months';
 import { round1, round3 } from '../core/math';
-import { parseAnnouncements, parseEvents, parseMethod, parseReleases, parseUnits, readText } from '../config/load';
+import { parseAnnouncements, parseCredits, parseEvents, parseMethod, parseReleases, parseUnits, readText } from '../config/load';
 import type { AnnSeries } from '../config/schemas';
 import { latestSnapshotDate, loadSource } from '../raw/store';
 import type { SourceModule, StrengthModule } from '../sources/types';
@@ -84,6 +84,7 @@ export function computeWorld(opts: ComputeOpts): World {
   const announcements = parseAnnouncements(readText(join(opts.curatedDir, 'announcements.yaml')));
   const eventsFile = parseEvents(readText(join(opts.curatedDir, 'events.yaml')));
   const releases = parseReleases(readText(join(opts.curatedDir, 'releases.yaml')));
+  const credits = parseCredits(readText(join(opts.curatedDir, 'credits.yaml')));
   const months = monthRange(method.start, toMonth(opts.now));
   const warn = opts.onWarn ?? ((msg: string) => console.warn(msg));
 
@@ -132,7 +133,7 @@ export function computeWorld(opts: ComputeOpts): World {
     // only sources whose raw data was actually loaded are credited
     sources: opts.modules
       .filter((m) => dataThrough.has(m.id))
-      .map((m) => {
+      .map((m): World['sources'][number] => {
         const asOf = latestSnapshotDate(opts.rawDir, m.id);
         return {
           id: m.id,
@@ -144,7 +145,11 @@ export function computeWorld(opts: ComputeOpts): World {
           asOf,
           dataThrough: dataThrough.get(m.id)!,
         };
-      }),
+      })
+      .concat(
+        // material used outside the source modules (curated/credits.yaml)
+        credits.map((c) => ({ id: c.id, group: 'curated', name: c.name, url: c.url ?? null, license: c.license, credit: c.credit, asOf: null, dataThrough: null })),
+      ),
   };
 
   for (const front of FRONT_IDS) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseUnits, parseMethod, parseAnnouncements, parseEvents, parseReleases } from '../../src/config/load';
+import { parseUnits, parseMethod, parseAnnouncements, parseEvents, parseReleases, parseCredits } from '../../src/config/load';
 
 const FRONTS = ['general', 'code', 'agent', 'image', 'video', 'speech', 'music'];
 const frontsYaml = (extra = '') =>
@@ -132,6 +132,22 @@ series:
   chatgpt: { metric: WAU, points: [ { date: 2023-11-06, value: 1 } ] }
 `),
     ).toThrow();
+  });
+  it('parses credits (url optional) and rejects duplicate ids, missing fields and non-http urls', () => {
+    const c = parseCredits(`
+credits:
+  - { id: epoch-ai-companies, name: Epoch AI, url: https://epoch.ai/data/ai-companies, license: CC BY 4.0, credit: 'Epoch AI, CC BY 4.0' }
+  - { id: company-announcements, name: Company announcements, license: Cited facts, credit: Each figure links to its source }
+`);
+    expect(c.map((x) => x.id)).toEqual(['epoch-ai-companies', 'company-announcements']);
+    expect(c[0].url).toBe('https://epoch.ai/data/ai-companies');
+    expect(c[1].url).toBeUndefined();
+    expect(parseCredits('')).toEqual([]);
+    const one = (fields: string) => `credits:\n  - { ${fields} }\n`;
+    expect(() => parseCredits(one('id: a, name: A, license: L, credit: C') + '  - { id: a, name: B, license: L, credit: C }\n')).toThrow(/duplicate credit id "a"/);
+    expect(() => parseCredits(one('id: a, name: A, license: L'))).toThrow(/credits\.yaml/);
+    expect(() => parseCredits(one('id: a, name: A, url: ftp://x, license: L, credit: C'))).toThrow(/credits\.yaml/);
+    expect(() => parseCredits(one('id: a, name: A, license: L, credit: C, extra: 1'))).toThrow(/credits\.yaml/);
   });
   it('parses events and releases', () => {
     const e = parseEvents(`

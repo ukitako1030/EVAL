@@ -121,7 +121,8 @@ export const WorldSchema = z
         id: z.string(),
         group: z.string(),
         name: z.string(),
-        url: z.string(),
+        /** null only for a curated credit without a single link */
+        url: z.string().nullable(),
         license: z.string(),
         credit: z.string(),
         /** date of the latest raw snapshot file */
@@ -209,8 +210,13 @@ export const WorldSchema = z
     }
 
     // sources / orgs
+    const sourceIds = new Set<string>();
     w.sources.forEach((s, i) => {
-      if (!isHttpUrl(s.url)) bad(['sources', i, 'url'], `source url "${s.url}" is not an http(s) URL`);
+      if (s.url === null) {
+        if (s.group !== 'curated') bad(['sources', i, 'url'], `source "${s.id}" has no url (only curated credits may omit it)`);
+      } else if (!isHttpUrl(s.url)) bad(['sources', i, 'url'], `source url "${s.url}" is not an http(s) URL`);
+      if (sourceIds.has(s.id)) bad(['sources', i, 'id'], `duplicate source id "${s.id}"`);
+      sourceIds.add(s.id);
     });
     for (const [id, org] of Object.entries(w.orgs)) {
       if (!COLOR.test(org.color)) bad(['orgs', id, 'color'], `org color "${org.color}" is not #rrggbb`);
