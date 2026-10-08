@@ -81,6 +81,10 @@ export function createDynMesh(opts: { label?: string; blendMode?: 'normal' | 'ad
   if (opts.blendMode) mesh.blendMode = opts.blendMode;
   let base = new Uint32Array(0);
   let colDirty = false;
+  /** showing nothing (a degenerate triangle) — a new empty frame needs no upload */
+  let empty = true;
+  // a never-filled mesh draws one degenerate triangle of the zeroed index buffer
+  geometry.indexCount = 3;
 
   function sync() {
     if (!buf.grew) return;
@@ -97,15 +101,17 @@ export function createDynMesh(opts: { label?: string; blendMode?: 'normal' | 'ad
       resetMeshBuf(buf);
     },
     end() {
-      if (buf.idx.length < 3) buf.grew = true;
       sync();
       if (buf.ni === 0) {
+        if (empty) return;
         // indexCount 0 would mean "the whole buffer": draw one degenerate triangle instead
+        empty = true;
         buf.idx[0] = buf.idx[1] = buf.idx[2] = 0;
         geometry.indexCount = 3;
         idxBuf.update(12);
         return;
       }
+      empty = false;
       geometry.indexCount = buf.ni;
       posBuf.update(buf.nv * 8);
       colBuf.update(buf.nv * 4);

@@ -3,6 +3,8 @@
  * joined by animated data streams, with frontline sparks, orbit decoration, hover reticle, click-to-
  * enter and screen-space labels. Owns layout (pure maths in ./layout) and orchestrates ./planet,
  * ./sparks and ./labels. Feed it the current frames of every front once per frame via `update`.
+ * Per-frame geometry (streams, reticle) goes into dynamic meshes (./dynMesh); the frame loop reuses its
+ * objects, so a steady overview allocates next to nothing. Planets entirely off screen skip their drawing.
  */
 import { Container, Graphics, Sprite } from 'pixi.js';
 import type { FrontId, Localized, World } from '../data/types';
@@ -15,7 +17,9 @@ import { galaxyLayout, isPortrait, strHash, type GalaxyLayout } from './layout';
 import { createPlanet, type Planet, type PlanetFrame } from './planet';
 import { createPlanetTextures } from './planetTextures';
 import { createSparks } from './sparks';
-import { createGalaxyLabels } from './labels';
+import { createGalaxyLabels, type LabelView } from './labels';
+import { createDynMesh } from './dynMesh';
+import { createPath, pathPush, pathReset, rgba, strokeArc, strokePath, strokeSegment } from './meshBuild';
 
 export interface GalaxyOptions {
   world: World;
@@ -68,15 +72,25 @@ interface Stream {
 const STREAM_SAMPLES = 40;
 const REBUILD_EVERY = 1 / 20;
 const PACKETS = 5;
+/** a planet's drawing (ring, halo, decor) reaches this far out (× r) — beyond the screen by more, it is skipped */
+const PLANET_REACH = 2.2;
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 
-function bez(p: number[], t: number): [number, number] {
+const STREAM_GLOW = rgba(0x28aaff, 0.05);
+const STREAM_LINE = rgba(0x3cd2ff, 0.16);
+const STREAM_DASH = rgba(0x82f0ff, 0.55);
+const RETICLE = rgba(0x78f0ff, 0.9);
+const RETICLE_RING = rgba(0x78f0ff, 0.35);
+
+/** point at t of the cubic Bézier p (p0x p0y … p3x p3y), written to `out` */
+function bez(p: number[], t: number, out: { x: number; y: number }): void {
   const u = 1 - t;
   const a = u * u * u;
   const b = 3 * u * u * t;
   const c = 3 * u * t * t;
   const d = t * t * t;
-  return [a * p[0] + b * p[2] + c * p[4] + d * p[6], a * p[1] + b * p[3] + c * p[5] + d * p[7]];
+  out.x = a * p[0] + b * p[2] + c * p[4] + d * p[6];
+  out.y = a * p[1] + b * p[3] + c * p[5] + d * p[7];
 }
 
 export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
@@ -99,16 +113,14 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
   dashWrap.addChild(orbitDash);
   tickWrap.addChild(orbitTicks);
   decor.addChild(orbitGlow, orbitOuter, dashWrap, tickWrap);
-  const streamG = new Graphics();
-  streamG.blendMode = 'add';
+  const streamG = createDynMesh({ label: 'streams', blendMode: 'add' });
   const packets = new Container({ label: 'packets' });
   const behind = new Container({ label: 'behind' });
   const planetLayer = new Container({ label: 'planets' });
   const sparks = createSparks(tex.streak);
   const front = new Container({ label: 'front' });
-  const reticle = new Graphics();
-  reticle.blendMode = 'add';
-  root.addChild(decor, streamG, packets, behind, planetLayer, sparks.container, front, reticle);
+  const reticle = createDynMesh({ label: 'reticle', blendMode: 'add' });
+  root.addChild(decor, streamG.mesh, packets, behind, planetLayer, sparks.container, front, reticle.mesh);
   renderer.layers.world.addChild(root);
   const labels = createGalaxyLabels();
   renderer.layers.fx.addChild(labels.container);
@@ -126,6 +138,19 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
   let emphasis: ((org: string) => number) | null = null;
   let time = 0;
   let decorPx = 0;
+  // per-frame objects, reused
+  let grant: number | null = null;
+  const proxy = { request: (i: number, now: number) => (grant ??= flashes ? flashes.request(1, now) : i) };
+  const pf: PlanetFrame = { time: 0, now: 0, px: 1, rebuild: false, reduced: false, hover: false, flashes: proxy, emphasis: null, visible: true };
+  const lv: LabelView = {
+    lang: 'ja',
+    toScreen: (x, y) => renderer.worldToScreen(x, y),
+    scale: 1,
+    alpha: 1,
+    compact: false,
+    hover: null,
+    screen: { w: 1, h: 1 },
+  };
 
   for (const p of planets) {
     planetLayer.addChild(p.root);
@@ -144,9 +169,22 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
     return l;
   }
 
+  // the layout only depends on the viewport's size and the portrait focus
+  let seenW = -1;
+  let seenH = -1;
+  let seenFocus: FrontId | null = null;
+  /** camera scale of the overview at the current viewport and layout */
+  let overviewScale = 1;
+
   function relayoutIfNeeded() {
+    const vp = renderer.viewport;
+    if (vp.w === seenW && vp.h === seenH && portraitFocus === seenFocus) return;
+    seenW = vp.w;
+    seenH = vp.h;
+    seenFocus = portraitFocus;
     const prev = layoutKey;
     const next = computeLayout();
+    overviewScale = cameraFor({ kind: 'galaxy', extent: next.extent }, vp).scale;
     if (layoutKey === prev) return;
     layout = next;
     for (const s of layout.planets) byId.get(s.id)?.setSlot(s);
@@ -182,10 +220,18 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
     decorPx = px;
   }
 
+  const streamPath = createPath(STREAM_SAMPLES + 1);
+  const pa = { x: 0, y: 0 };
+  const pb = { x: 0, y: 0 };
+
   function updateStreams(px: number, scale: number, t: number, reduced: boolean) {
     const hub = byId.get(layout.hub);
-    streamG.clear();
-    if (!hub) return;
+    streamG.begin();
+    if (!hub) {
+      streamG.end();
+      return;
+    }
+    const m = streamG.buf;
     const wz = clamp(scale, 0.6, 2.5);
     const bend = 0.073 * layout.extent.w;
     let si = 0;
@@ -220,17 +266,18 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
       q[4] = q[0] + (q[6] - q[0]) * 0.66 + nx * bend;
       q[5] = q[1] + (q[7] - q[1]) * 0.66 + ny * bend;
       let len = 0;
+      pathReset(streamPath);
       for (let i = 0; i <= STREAM_SAMPLES; i++) {
-        const [x, y] = bez(q, i / STREAM_SAMPLES);
-        if (i) len += Math.hypot(x - s.xs[i - 1], y - s.ys[i - 1]);
-        s.xs[i] = x;
-        s.ys[i] = y;
+        bez(q, i / STREAM_SAMPLES, pa);
+        if (i) len += Math.hypot(pa.x - s.xs[i - 1], pa.y - s.ys[i - 1]);
+        s.xs[i] = pa.x;
+        s.ys[i] = pa.y;
         s.ls[i] = len;
+        pathPush(streamPath, pa.x, pa.y);
       }
       s.len = len;
-      const curve = () => streamG.moveTo(q[0], q[1]).bezierCurveTo(q[2], q[3], q[4], q[5], q[6], q[7]);
-      curve().stroke({ width: 9 * wz * px, color: 0x28aaff, alpha: 0.05 });
-      curve().stroke({ width: 2.2 * wz * px, color: 0x3cd2ff, alpha: 0.16 });
+      strokePath(m, streamPath, 9 * wz * px, STREAM_GLOW);
+      strokePath(m, streamPath, 2.2 * wz * px, STREAM_LINE);
       // travelling dashes
       const dash = 3 * wz * px;
       const period = 15 * wz * px;
@@ -241,50 +288,52 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
         const b = Math.min(len, d + dash);
         if (b <= a) continue;
         while (j < STREAM_SAMPLES - 1 && s.ls[j + 1] < a) j++;
-        const pa = at(s, a, j);
+        at(s, a, j, pa);
         let k = j;
         while (k < STREAM_SAMPLES - 1 && s.ls[k + 1] < b) k++;
-        const pb = at(s, b, k);
-        streamG.moveTo(pa[0], pa[1]).lineTo(pb[0], pb[1]);
+        at(s, b, k, pb);
+        strokeSegment(m, pa.x, pa.y, pb.x, pb.y, 1.5 * wz * px, STREAM_DASH);
       }
-      streamG.stroke({ width: 1.5 * wz * px, color: 0x82f0ff, alpha: 0.55 });
       for (let i = 0; i < PACKETS; i++) {
         const sp = packetSprites[si * PACKETS + i];
         let u = reduced ? (i + 0.5) / PACKETS : (t * 0.2 + i / PACKETS + s.seed) % 1;
         if (i % 2) u = 1 - u;
-        const [x, y] = bez(q, u);
-        sp.position.set(x, y);
+        bez(q, u, pa);
+        sp.position.set(pa.x, pa.y);
         sp.width = sp.height = 18 * wz * px;
         sp.alpha = 0.55 * Math.sin(u * Math.PI);
       }
       si++;
     }
+    streamG.end();
   }
 
-  function at(s: Stream, d: number, i: number): [number, number] {
+  function at(s: Stream, d: number, i: number, out: { x: number; y: number }): void {
     const l0 = s.ls[i];
     const l1 = s.ls[i + 1];
     const f = l1 > l0 ? clamp((d - l0) / (l1 - l0), 0, 1) : 0;
-    return [s.xs[i] + (s.xs[i + 1] - s.xs[i]) * f, s.ys[i] + (s.ys[i + 1] - s.ys[i]) * f];
+    out.x = s.xs[i] + (s.xs[i + 1] - s.xs[i]) * f;
+    out.y = s.ys[i] + (s.ys[i + 1] - s.ys[i]) * f;
   }
 
   function drawReticle(px: number, t: number) {
-    reticle.clear();
+    reticle.begin();
     const st = store.get();
     const p = hovered ? byId.get(hovered) : null;
-    if (!p || st.front === p.id) return;
-    const rr = p.slot.r * 1.3 + 6 * px;
-    for (let i = 0; i < 4; i++) {
-      const a = t * 0.9 + (i * Math.PI) / 2;
-      reticle.moveTo(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr).arc(p.x, p.y, rr, a, a + 0.5);
+    if (p && st.front !== p.id) {
+      const m = reticle.buf;
+      const rr = p.slot.r * 1.3 + 6 * px;
+      for (let i = 0; i < 4; i++) {
+        const a = t * 0.9 + (i * Math.PI) / 2;
+        strokeArc(m, p.x, p.y, rr, a, a + 0.5, 1.6 * px, RETICLE);
+      }
+      const n = 48;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        strokeArc(m, p.x, p.y, rr + 8 * px, a, a + ((Math.PI * 2) / n) * 0.3, px, RETICLE_RING);
+      }
     }
-    reticle.stroke({ width: 1.6 * px, color: 0x78f0ff, alpha: 0.9 });
-    const n = 48;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      reticle.moveTo(p.x + Math.cos(a) * (rr + 8 * px), p.y + Math.sin(a) * (rr + 8 * px)).arc(p.x, p.y, rr + 8 * px, a, a + ((Math.PI * 2) / n) * 0.3);
-    }
-    reticle.stroke({ width: px, color: 0x78f0ff, alpha: 0.35 });
+    reticle.end();
   }
 
   return {
@@ -312,34 +361,50 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
       }
 
       // one flash grant per frame at most, shared by every territory that brightens suddenly
-      let grant: number | null = null;
-      const proxy = { request: (i: number, now: number) => (grant ??= flashes ? flashes.request(1, now) : i) };
+      grant = null;
       sparks.setScale(renderer.particleScale);
-      planets.forEach((p, i) => {
+      // which planets reach into the screen (the world container maps world → screen)
+      const wt = renderer.layers.world;
+      const ox = wt.position.x;
+      const oy = wt.position.y;
+      const ws = wt.scale.x;
+      const SW = renderer.app.screen.width;
+      const SH = renderer.app.screen.height;
+      pf.time = time;
+      pf.now = time;
+      pf.px = px;
+      pf.reduced = reduced;
+      pf.emphasis = emphasis;
+      for (let i = 0; i < planets.length; i++) {
+        const p = planets[i];
         const fr = frames[p.id];
         if (fr) p.setFrames(fr);
         rebuildAcc[i] += dt;
         const rebuild = rebuildAcc[i] >= REBUILD_EVERY;
         if (rebuild) rebuildAcc[i] = Math.min(REBUILD_EVERY, rebuildAcc[i] - REBUILD_EVERY);
-        const f: PlanetFrame = { time, now: time, px, rebuild, reduced, hover: hovered === p.id && st.front !== p.id, flashes: proxy, emphasis };
-        p.update(dt, f);
-        sparks.emit(p, dt, px, reduced);
-      });
+        const sx = ox + p.x * ws;
+        const sy = oy + p.y * ws;
+        const reach = p.slot.r * PLANET_REACH * ws + 8;
+        const visible = sx + reach > 0 && sx - reach < SW && sy + reach > 0 && sy - reach < SH;
+        pf.rebuild = rebuild;
+        pf.hover = hovered === p.id && st.front !== p.id;
+        pf.visible = visible;
+        p.update(dt, pf);
+        if (visible) sparks.emit(p, dt, px, reduced);
+      }
       sparks.update(dt, px);
       updateStreams(px, scale, time, reduced);
       drawReticle(px, reduced ? 0 : time);
 
-      const ov = cameraFor({ kind: 'galaxy', extent: layout.extent }, renderer.viewport).scale;
-      const zoom = scale / Math.max(1e-6, ov);
-      labels.update(planets, names, {
-        lang: st.lang,
-        toScreen: (x, y) => renderer.worldToScreen(x, y),
-        scale,
-        alpha: clamp(1 - (zoom - 1.15) / 0.6, 0, 1),
-        compact: layout.portrait,
-        hover: hovered && st.front !== hovered ? hovered : null,
-        screen: { w: renderer.app.screen.width, h: renderer.app.screen.height },
-      });
+      const zoom = scale / Math.max(1e-6, overviewScale);
+      lv.lang = st.lang;
+      lv.scale = scale;
+      lv.alpha = clamp(1 - (zoom - 1.15) / 0.6, 0, 1);
+      lv.compact = layout.portrait;
+      lv.hover = hovered && st.front !== hovered ? hovered : null;
+      lv.screen.w = SW;
+      lv.screen.h = SH;
+      labels.update(planets, names, lv);
     },
     planet(id) {
       return byId.get(id) ?? null;
@@ -385,6 +450,8 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
       for (const p of planets) p.destroy();
       sparks.destroy();
       labels.destroy();
+      streamG.destroy();
+      reticle.destroy();
       root.destroy({ children: true });
       tex.destroy();
     },

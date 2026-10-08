@@ -2,12 +2,15 @@
  * A planet's decoration around its territories (mockup A `drawRing` / `drawCore` / rim light / halo):
  * tilted orbit ring split into a back half (behind the sphere) and a front half, travelling ring dashes,
  * a small moon, the hexagonal core and the rim light. Static strokes are rebuilt only when the size,
- * zoom or colours change; per frame only dashes, moon and core spin are touched.
+ * zoom or colours change; per frame only dashes, moon and core spin are touched (the travelling dashes are a
+ * dynamic mesh refilled at the planet's geometry rate — nothing is allocated per frame).
  */
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { CORE, TAU } from './layout';
 import { HALO_SCALE, type PlanetTextures } from './planetTextures';
 import { mixColor } from './color';
+import { createDynMesh } from './dynMesh';
+import { rgba, strokeSegment } from './meshBuild';
 
 /** ring / orbit tilt (radians) */
 export const TILT = -0.28;
@@ -37,18 +40,22 @@ export interface PlanetDecor {
   destroy(): void;
 }
 
-/** point on the tilted ring ellipse at parameter φ */
-function ringPoint(rx: number, ry: number, phi: number): [number, number] {
+/** point on the tilted ring ellipse at parameter φ (written to `out`) */
+function ringPoint(rx: number, ry: number, phi: number, out: { x: number; y: number }): void {
   const ex = Math.cos(phi) * rx;
   const ey = Math.sin(phi) * ry;
-  return [ex * COS_T - ey * SIN_T, ex * SIN_T + ey * COS_T];
+  out.x = ex * COS_T - ey * SIN_T;
+  out.y = ex * SIN_T + ey * COS_T;
 }
+
+const pt = { x: 0, y: 0 };
+const pt2 = { x: 0, y: 0 };
 
 function ellipseArc(g: Graphics, rx: number, ry: number, from: number, to: number, steps: number) {
   for (let i = 0; i <= steps; i++) {
-    const [x, y] = ringPoint(rx, ry, from + ((to - from) * i) / steps);
-    if (i === 0) g.moveTo(x, y);
-    else g.lineTo(x, y);
+    ringPoint(rx, ry, from + ((to - from) * i) / steps, pt);
+    if (i === 0) g.moveTo(pt.x, pt.y);
+    else g.lineTo(pt.x, pt.y);
   }
 }
 
@@ -58,12 +65,11 @@ export function createPlanetDecor(tex: PlanetTextures): PlanetDecor {
 
   const ringBack = new Graphics();
   ringBack.blendMode = 'add';
-  const dashBack = new Graphics();
-  dashBack.blendMode = 'add';
+  const dashBack = createDynMesh({ label: 'ring-dashes-back', blendMode: 'add' });
   const moonBack = new Container();
   const halo = new Sprite({ texture: tex.halo, anchor: 0.5 });
   halo.blendMode = 'add';
-  back.addChild(ringBack, dashBack, moonBack, halo);
+  back.addChild(ringBack, dashBack.mesh, moonBack, halo);
 
   const core = new Container({ label: 'core' });
   const coreDisk = new Graphics();
@@ -85,10 +91,9 @@ export function createPlanetDecor(tex: PlanetTextures): PlanetDecor {
   rimSoft.blendMode = 'add';
   const ringFront = new Graphics();
   ringFront.blendMode = 'add';
-  const dashFront = new Graphics();
-  dashFront.blendMode = 'add';
+  const dashFront = createDynMesh({ label: 'ring-dashes-front', blendMode: 'add' });
   const moonFront = new Container();
-  front.addChild(core, rimSoft, rim, ringFront, dashFront, moonFront);
+  front.addChild(core, rimSoft, rim, ringFront, dashFront.mesh, moonFront);
 
   const moonGlow = new Sprite({ texture: tex.glow, anchor: 0.5 });
   moonGlow.blendMode = 'add';
@@ -173,10 +178,13 @@ export function createPlanetDecor(tex: PlanetTextures): PlanetDecor {
     moonCore.width = moonCore.height = 2 * (2.5 * px + R * 0.008);
   }
 
+  const DASH_BACK = rgba(0xffffff, 0.18);
+  const DASH_FRONT = rgba(0xffffff, 0.38);
+
   function dashes(time: number) {
     const { px } = st;
-    dashBack.clear();
-    dashFront.clear();
+    dashBack.begin();
+    dashFront.begin();
     const rxs = rx * 1.08;
     const rys = ry * 1.08;
     // dashes evenly spaced on the (3-D) ring, so they bunch up toward its far ends like real perspective
@@ -188,13 +196,13 @@ export function createPlanetDecor(tex: PlanetTextures): PlanetDecor {
     for (let i = 0; i < n; i++) {
       const p0 = off + i * step;
       const s = Math.sin(p0 + len / 2);
-      const g = s < 0 ? dashBack : dashFront;
-      const [x0, y0] = ringPoint(rxs, rys, p0);
-      const [x1, y1] = ringPoint(rxs, rys, p0 + len);
-      g.moveTo(x0, y0).lineTo(x1, y1);
+      ringPoint(rxs, rys, p0, pt);
+      ringPoint(rxs, rys, p0 + len, pt2);
+      if (s < 0) strokeSegment(dashBack.buf, pt.x, pt.y, pt2.x, pt2.y, px, DASH_BACK);
+      else strokeSegment(dashFront.buf, pt.x, pt.y, pt2.x, pt2.y, px, DASH_FRONT);
     }
-    dashBack.stroke({ width: px, color: 0xffffff, alpha: 0.18 });
-    dashFront.stroke({ width: px, color: 0xffffff, alpha: 0.38 });
+    dashBack.end();
+    dashFront.end();
   }
 
   return {
@@ -209,11 +217,11 @@ export function createPlanetDecor(tex: PlanetTextures): PlanetDecor {
       }
       const m = t * (st.hub ? 0.35 : 0.5) + ph;
       const behind = Math.sin(m) < 0;
-      const [mx, my] = ringPoint(rx * 1.08, ry * 1.08, m);
+      ringPoint(rx * 1.08, ry * 1.08, m, pt);
       const host = behind ? moonBack : moonFront;
       if (moonGlow.parent !== host) host.addChild(moonGlow, moonCore);
-      moonGlow.position.set(mx, my);
-      moonCore.position.set(mx, my);
+      moonGlow.position.set(pt.x, pt.y);
+      moonCore.position.set(pt.x, pt.y);
       // brightness follows the orbit smoothly (no pop when the moon passes in front of the planet)
       const lit = 0.5 + 0.5 * Math.sin(m);
       moonGlow.alpha = 0.4 + 0.5 * lit;
@@ -225,6 +233,8 @@ export function createPlanetDecor(tex: PlanetTextures): PlanetDecor {
       rimSoft.alpha = 0.07 + 0.08 * hover;
     },
     destroy() {
+      dashBack.destroy();
+      dashFront.destroy();
       back.destroy({ children: true });
       front.destroy({ children: true });
     },

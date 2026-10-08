@@ -1,19 +1,27 @@
-/** Pure colour helpers for the renderer (0xRRGGBB numbers). */
+/** Pure colour helpers for the renderer (0xRRGGBB numbers). Allocation-free: they run per unit per frame. */
 
-/** '#rrggbb' → 0xrrggbb (grey for anything unparsable) */
+const parsed = new Map<string, number>();
+
+/** '#rrggbb' → 0xrrggbb (grey for anything unparsable); memoised, the palette is small */
 export function hexColor(s: string): number {
+  let c = parsed.get(s);
+  if (c !== undefined) return c;
   const m = /^#?([0-9a-f]{6})/i.exec(String(s));
-  return m ? parseInt(m[1], 16) : 0x888888;
+  c = m ? parseInt(m[1], 16) : 0x888888;
+  if (parsed.size < 4096) parsed.set(s, c);
+  return c;
 }
 
 /** linear mix of two colours, t = 0 → a, 1 → b */
 export function mixColor(a: number, b: number, t: number): number {
   const k = Math.min(1, Math.max(0, Number.isFinite(t) ? t : 0));
-  const ch = (sh: number) => {
-    const x = (a >> sh) & 255;
-    return Math.round(x + (((b >> sh) & 255) - x) * k);
-  };
-  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+  const ar = (a >> 16) & 255;
+  const ag = (a >> 8) & 255;
+  const ab = a & 255;
+  const r = Math.round(ar + (((b >> 16) & 255) - ar) * k);
+  const g = Math.round(ag + (((b >> 8) & 255) - ag) * k);
+  const bl = Math.round(ab + ((b & 255) - ab) * k);
+  return (r << 16) | (g << 8) | bl;
 }
 
 /** relative luminance 0..1 (Rec. 709 weights on the sRGB values — good enough for picking an alpha) */
