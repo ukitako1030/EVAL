@@ -5,10 +5,7 @@
   "submission_date": "2026-08-04",
   "submission_type": "standard",
   "modality": "text",
-  "contact_info": {
-    "email": "<redacted>",
-    "name": "Sierra Research Team"
-  },
+  "contact_info": {},
   "results": {
     "airline": null,
     "retail": null,

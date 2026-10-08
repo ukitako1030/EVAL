@@ -6,10 +6,7 @@
       "model_organization": "OpenAI",
       "submitting_organization": "Sierra",
       "submission_date": "2026-02-26",
-      "contact_info": {
-        "email": "<redacted>, <redacted>",
-        "name": "Sierra Research Team"
-      },
+      "contact_info": {},
       "is_new": false,
       "submission_type": "standard",
       "trajectories_available": true,
@@ -79,10 +76,7 @@
       "submission_date": "2026-08-04",
       "submission_type": "standard",
       "modality": "text",
-      "contact_info": {
-        "email": "<redacted>",
-        "name": "Sierra Research Team"
-      },
+      "contact_info": {},
       "results": {
         "airline": null,
         "retail": null,
@@ -187,10 +181,7 @@
       "submission_date": "2026-08-04",
       "submission_type": "standard",
       "modality": "text",
-      "contact_info": {
-        "email": "<redacted>",
-        "name": "Sierra Research Team"
-      },
+      "contact_info": {},
       "results": {
         "airline": null,
         "retail": null,
@@ -235,9 +226,7 @@
       "model_organization": "DeepSeek",
       "submitting_organization": "DeepSeek",
       "submission_date": "2025-12-01",
-      "contact_info": {
-        "email": "<redacted>"
-      },
+      "contact_info": {},
       "is_new": false,
       "trajectories_available": false,
       "references": [
@@ -295,10 +284,7 @@
       "model_organization": "Alibaba Cloud",
       "submitting_organization": "Sierra",
       "submission_date": "2026-03-02",
-      "contact_info": {
-        "email": "<redacted>, <redacted>",
-        "name": "Sierra Research Team"
-      },
+      "contact_info": {},
       "is_new": false,
       "submission_type": "standard",
       "trajectories_available": true,
@@ -366,10 +352,7 @@
       "model_organization": "Qwen",
       "submitting_organization": "Alibaba",
       "submission_date": "2024-09-23",
-      "contact_info": {
-        "email": "<redacted>",
-        "name": "W. Zhao"
-      },
+      "contact_info": {},
       "is_new": false,
       "trajectories_available": false,
       "references": [
@@ -426,10 +409,7 @@
       "submission_date": "2026-08-04",
       "submission_type": "standard",
       "modality": "text",
-      "contact_info": {
-        "email": "<redacted>",
-        "name": "Sierra Research Team"
-      },
+      "contact_info": {},
       "results": {
         "airline": null,
         "retail": null,
@@ -475,10 +455,7 @@
       "submitting_organization": "Distyl AI",
       "submission_date": "2026-03-25",
       "submission_type": "custom",
-      "contact_info": {
-        "email": "<redacted>",
-        "name": "Durga Sandeep Saluru"
-      },
+      "contact_info": {},
       "reasoning_effort": "high",
       "is_new": true,
       "trajectories_available": true,
@@ -527,10 +504,7 @@
       "model_organization": "NVIDIA",
       "submitting_organization": "NVIDIA",
       "submission_date": "2025-12-18",
-      "contact_info": {
-        "email": "<redacted>",
-        "name": "Shizhe Diao"
-      },
+      "contact_info": {},
       "is_new": false,
       "trajectories_available": false,
       "results": {
@@ -593,10 +567,7 @@
       "submission_date": "2026-06-29",
       "submission_type": "custom",
       "modality": "voice",
-      "contact_info": {
-        "email": "<redacted>",
-        "name": "Sierra Research Team"
-      },
+      "contact_info": {},
       "results": {
         "retail": {
           "pass_1": 50.0
@@ -739,11 +710,7 @@
       "submission_date": "2026-07-07",
       "submission_type": "custom",
       "modality": "voice",
-      "contact_info": {
-        "email": "<redacted>",
-        "name": "Hojin Yu",
-        "github": "pickle-com"
-      },
+      "contact_info": {},
       "results": {
         "retail": {
           "pass_1": 76.31578947368422

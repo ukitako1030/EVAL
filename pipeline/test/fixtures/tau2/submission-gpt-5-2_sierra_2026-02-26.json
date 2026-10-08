@@ -3,10 +3,7 @@
   "model_organization": "OpenAI",
   "submitting_organization": "Sierra",
   "submission_date": "2026-02-26",
-  "contact_info": {
-    "email": "<redacted>, <redacted>",
-    "name": "Sierra Research Team"
-  },
+  "contact_info": {},
   "is_new": false,
   "submission_type": "standard",
   "trajectories_available": true,

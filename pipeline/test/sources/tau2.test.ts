@@ -9,12 +9,36 @@ const load = (name: string) => JSON.parse(readFileSync(new URL(name, dir), 'utf8
 const sample = (JSON.parse(readFileSync(new URL('sample.json', dir), 'utf8')) as { path: string; submission: Json }[]).map((e) => e.submission);
 const byName = (name: string) => sample.find((s) => s['model_name'] === name)!;
 
+/** Every `contact_info` value found anywhere in a parsed JSON document. */
+function contactInfos(v: unknown, out: unknown[] = []): unknown[] {
+  if (Array.isArray(v)) for (const x of v) contactInfos(x, out);
+  else if (v && typeof v === 'object') {
+    for (const [k, x] of Object.entries(v)) {
+      if (k === 'contact_info') out.push(x);
+      else contactInfos(x, out);
+    }
+  }
+  return out;
+}
+
 describe('tau2 fixtures', () => {
+  const files = readdirSync(dir);
+
   it('contain no e-mail addresses', () => {
     const email = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
-    const files = readdirSync(dir);
     expect(files.length).toBeGreaterThanOrEqual(4);
     for (const f of files) expect(readFileSync(new URL(f, dir), 'utf8'), f).not.toMatch(email);
+  });
+
+  it('keep no submitter personal data: every contact_info is an empty object', () => {
+    let seen = 0;
+    for (const f of files) {
+      const found = contactInfos(JSON.parse(readFileSync(new URL(f, dir), 'utf8')));
+      expect(found.length, f).toBeGreaterThan(0);
+      for (const c of found) expect(c, f).toEqual({});
+      seen += found.length;
+    }
+    expect(seen).toBe(15); // 12 sample submissions + 3 single-file fixtures
   });
 });
 
