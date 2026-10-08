@@ -43,6 +43,7 @@ npm run shoot -- --url "http://localhost:5173/" --fps
 | `--cpu-throttle <n>` | `1` | DevTools CPU throttling (`4` ≈ a mid-range phone) — fps under a slow CPU |
 | `--console` | off | also print the page's `console.log` / `console.info` lines (e.g. the `?debugFlash` log) |
 | `--resize <WxH@ms>` | — | resize the viewport mid-run; later shots are named `…-to<W>x<H>-…` |
+| `--swipe <x1,y1,x2,y2@ms;…>` | — | one-finger touch swipes (CDP `Input.dispatchTouchEvent`, ~180 ms each, mobile sizes) — e.g. `300,400,80,410@3000` swipes left on a phone (next front) |
 | `--chrome <path>` | `$CHROME_PATH` or the usual install path | Chrome executable |
 
 Exit code: `0` clean · `1` console errors / exceptions / failed requests were seen · `2` the

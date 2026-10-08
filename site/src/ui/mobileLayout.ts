@@ -114,7 +114,7 @@ export function holdOnScreen(cam: Cam, from: Rect, to: Rect): Cam {
   const s = Math.max(1e-6, cam.scale);
   const dx = to.x + to.w / 2 - (from.x + from.w / 2);
   const dy = to.y + to.h / 2 - (from.y + from.h / 2);
-  return { x: cam.x - dx / s, y: cam.y - dy / s, scale: cam.scale };
+  return { x: cam.x + dx / s, y: cam.y + dy / s, scale: cam.scale };
 }
 
 /**

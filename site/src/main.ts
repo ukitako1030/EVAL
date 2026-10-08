@@ -146,8 +146,10 @@ async function boot(mount: HTMLElement) {
     };
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
+    timeline.setCompact(mobile.active);
     mobile.onLayout(() => {
       battle.setPinned(pinnedFront(store.get()));
+      timeline.setCompact(mobile.active);
       reframe({ aim: false, animate: false });
     });
     const aim = (instant: boolean) => renderer.focus(galaxy.cameraTarget(store.get().front), { instant });

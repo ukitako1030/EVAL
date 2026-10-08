@@ -34,6 +34,18 @@ describe('ranking panel', () => {
     expect(row(root, 'claude').getAttribute('aria-setsize')).toBe('3');
   });
 
+  it('setRowHeight re-pitches the rows and the list (the mobile layout)', () => {
+    const { root, ranking } = setup();
+    ranking.setRowHeight(40);
+    expect(row(root, 'gpt').style.transform).toBe('translateY(40px)');
+    expect(row(root, 'gemini').style.transform).toBe('translateY(80px)');
+    expect(root.querySelector<HTMLElement>('ol.rank-list')!.style.height).toBe('120px');
+    ranking.setRowHeight(0); // ignored
+    expect(row(root, 'gpt').style.transform).toBe('translateY(40px)');
+    ranking.setRowHeight(ROW_H);
+    expect(row(root, 'gpt').style.transform).toBe(`translateY(${ROW_H}px)`);
+  });
+
   it('positions rows by rank and shows the real values', () => {
     const { root } = setup();
     expect(row(root, 'claude').style.transform).toBe('translateY(0px)');
