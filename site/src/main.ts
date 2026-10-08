@@ -290,7 +290,8 @@ function desktopInsets(w: number, h: number, hud: HTMLElement, detail: HTMLEleme
   const right = panel && panel.offsetWidth > 0 ? w - panel.offsetLeft + 8 : 0;
   const top = title ? title.offsetTop + title.offsetHeight + 4 : 56;
   const bottom = timeline && timeline.offsetHeight > 0 ? h - timeline.offsetTop + 8 : 96;
-  const left = !detail.hidden && detail.offsetWidth > 0 ? detail.offsetLeft + detail.offsetWidth + 8 : 0;
+  // a detail panel on the left (768-1023 px windows) pushes the frame right; short windows show it over the ranking panel
+  const left = !detail.hidden && detail.offsetWidth > 0 && detail.offsetLeft < w / 2 ? detail.offsetLeft + detail.offsetWidth + 8 : 0;
   return { top, right, bottom, left };
 }
 

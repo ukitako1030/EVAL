@@ -1,0 +1,137 @@
+/* Phones held sideways: the narrow mobile variant (`.m-land`, < 768 px wide) and the desktop layout in a short
+   window (>= 768 px wide, <= 500 px tall) — see mobile.css for the classes. */
+
+/* ---------- phone held sideways (narrower than 768 px): planet left, ranking / sheet right ---------- */
+.m-land .m-front {
+  right: calc(44% + 14px);
+}
+
+.m-land.m-map .m-front {
+  right: var(--safe-r);
+}
+
+.m-land .hud-panel {
+  top: calc(var(--m-bar) + var(--safe-t) + 6px);
+  left: auto;
+  right: calc(8px + var(--safe-r));
+  width: 44%;
+  max-height: none;
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.m-land .hud-banners {
+  right: calc(44% + 16px);
+}
+
+.m-land .intro-card {
+  inset: calc(var(--m-bar) + var(--safe-t)) 0 calc(var(--m-tl) + var(--safe-b) + 12px);
+}
+
+.m-land.m-map .hud-legend {
+  display: none;
+}
+
+.m-land .detail {
+  top: calc(var(--m-bar) + var(--safe-t));
+  left: auto;
+  width: min(440px, 50%);
+  height: auto;
+  max-width: none;
+  margin: 0;
+  padding-right: var(--safe-r);
+  border-top: 0;
+  border-left: 3px solid var(--c, var(--cyan));
+  animation-name: sheetInSide;
+}
+
+@keyframes sheetInSide {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+
+/* ---------- desktop layout in a short window (a phone held sideways, >= 768 px wide) ---------- */
+@media (max-height: 500px) {
+  .hud-root:not(.m) .hud-title {
+    top: 8px;
+    left: 8px;
+    gap: 10px;
+    padding: 6px 12px 6px 10px;
+  }
+  .hud-root:not(.m) .hud-logo {
+    font-size: 19px;
+  }
+  .hud-root:not(.m) .hud-sub {
+    margin-top: 4px;
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+  }
+  .hud-root:not(.m) .hud-date {
+    padding-left: 10px;
+  }
+  .hud-root:not(.m) .hud-digits {
+    font-size: 24px;
+  }
+  .hud-root:not(.m) .hud-tools {
+    top: 8px;
+    right: 8px;
+  }
+  .hud-root:not(.m) .hud-updated,
+  .hud-root:not(.m) .hud-legend {
+    display: none;
+  }
+  .hud-root:not(.m) .hud-back {
+    top: 64px;
+    left: 8px;
+  }
+  .hud-root:not(.m) .hud-panel {
+    top: 52px;
+    right: 8px;
+    bottom: 74px;
+    width: 280px;
+    padding: 8px 10px 4px;
+  }
+  .hud-root:not(.m) .rank-front {
+    margin: 2px 0 4px;
+    padding-bottom: 4px;
+    font-size: 15px;
+  }
+  .hud-root:not(.m) .ranking {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .hud-root:not(.m) .hud-timeline {
+    left: 8px;
+    right: 8px;
+    bottom: 6px;
+    height: 62px;
+  }
+  .hud-root:not(.m) .hud-banners {
+    left: calc((100vw - 296px) / 2);
+    bottom: 76px;
+    width: min(440px, calc(100vw - 312px));
+  }
+  /* the unit detail takes the ranking panel's place, so the planet keeps its spot */
+  .hud-root:not(.m) .detail,
+  .hud-root:not(.m):has(> #hud-back:not([hidden])) .detail {
+    top: 52px;
+    left: auto;
+    right: 8px;
+    width: 280px;
+    max-height: calc(100vh - 52px - 74px);
+    z-index: 5;
+    animation-name: sheetInSide;
+  }
+  .hud-root:not(.m):has(.detail:not([hidden])) .hud-banners {
+    left: calc((100vw - 296px) / 2);
+    width: min(440px, calc(100vw - 312px));
+  }
+  .hud-root:not(.m) .intro-card {
+    inset: 52px 296px 76px 0;
+  }
+}

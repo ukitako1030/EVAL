@@ -65,6 +65,11 @@ export interface Mobile {
 
 /** px between the mobile HUD and the framed planet */
 const GAP = 6;
+/**
+ * The portrait galaxy's outer planet rows and their titles reach past the box the camera fits (render/layout
+ * `galaxyLayout`), so the galaxy map keeps this share of the free height clear above and below it.
+ */
+const MAP_MARGIN = 0.11;
 
 export function createMobile(world: World, store: Store<AppState>, o: MobileOptions): Mobile {
   const root = o.hud.el;
@@ -282,7 +287,7 @@ export function createMobile(world: World, store: Store<AppState>, o: MobileOpti
     const { w: W, h: H } = size();
     const s = store.get();
     const sheetOpen = !sheet.hidden;
-    const top = Math.max(bottomOf(title), bottomOf(row)) + GAP;
+    let top = Math.max(bottomOf(title), bottomOf(row)) + GAP;
     let bottom = H - timeline.offsetTop + GAP;
     let right = 0;
     if (!expanded && s.front !== null && panel.offsetHeight > 0) collapsedTop = panel.offsetTop;
@@ -292,6 +297,11 @@ export function createMobile(world: World, store: Store<AppState>, o: MobileOpti
     } else if (sheetOpen) bottom = H - sheet.offsetTop + GAP;
     else if (s.front !== null && collapsedTop > 0) bottom = H - collapsedTop + GAP; // the expanded list may cover the planet
     else if (s.front === null && legend && legend.offsetHeight > 0) bottom = H - legend.offsetTop + GAP; // the map's legend
+    if (s.front === null && !land) {
+      const pad = Math.max(0, H - top - bottom) * MAP_MARGIN;
+      top += pad;
+      bottom += pad;
+    }
     return steadyInsets({ top, right, bottom: Math.max(0, bottom), left: 0 }, W, H);
   }
 

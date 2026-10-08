@@ -8,4 +8,6 @@
 @import './styles/detail.css';
 @import './styles/intro.css';
 @import './styles/mobile.css';
+@import './styles/mobile-panels.css';
+@import './styles/mobile-sideways.css';
 @import './styles/methods.css';
