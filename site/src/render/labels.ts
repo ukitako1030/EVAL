@@ -88,7 +88,7 @@ export function createGalaxyLabels(): GalaxyLabels {
   const lines = new Graphics();
   lines.blendMode = 'add';
   container.addChild(lines);
-  const titles = new Map<FrontId, { name: Text; sub: Text; lead: Text }>();
+  const titles = new Map<FrontId, { name: Text; sub: Text; lead: Text; lang: Lang | null }>();
   const units = new Map<string, Text>();
   const hint = makeText(FONT_JP, 12, '700', 0xbff6ff, 1);
   hint.style.dropShadow = { color: 0x3de8ff, alpha: 0.9, blur: 8, distance: 0, angle: 0 };
@@ -134,7 +134,7 @@ export function createGalaxyLabels(): GalaxyLabels {
         const sr = p.slot.r * v.scale;
         let T = titles.get(p.id);
         if (!T) {
-          T = { name: makeText(FONT_JP, 14, '700', 0xeafcff, 2), sub: makeText(FONT_DISP, 8.5, '500', 0x3de8ff, 3), lead: makeText(FONT_UI, 11.5, '700', 0xffffff) };
+          T = { name: makeText(FONT_JP, 14, '700', 0xeafcff, 2), sub: makeText(FONT_DISP, 8.5, '500', 0x3de8ff, 3), lead: makeText(FONT_UI, 11.5, '700', 0xffffff), lang: null };
           titles.set(p.id, T);
           container.addChild(T.name, T.sub, T.lead);
         }
@@ -142,8 +142,16 @@ export function createGalaxyLabels(): GalaxyLabels {
         const big = p.slot.hub;
         const atm = p.atmosphere;
         const s = big ? 1 : 0.74;
-        set(T.name, v.lang === 'ja' ? nm.ja : nm.en.toUpperCase(), Math.round(19 * s * k), 0xeafcff, atm);
-        set(T.sub, v.lang === 'ja' ? nm.en.toUpperCase() : nm.ja, Math.max(7, 8.5 * k), atm, DARK);
+        if (T.lang !== v.lang) {
+          // Japanese title in Noto Sans JP with an Orbitron sub-title; English title in Rajdhani with a Japanese sub-title
+          T.lang = v.lang;
+          T.name.style.fontFamily = v.lang === 'ja' ? FONT_JP : FONT_UI;
+          T.name.style.letterSpacing = v.lang === 'ja' ? 2 : 1.5;
+          T.sub.style.fontFamily = v.lang === 'ja' ? FONT_DISP : FONT_JP;
+          T.sub.style.letterSpacing = v.lang === 'ja' ? 3 : 1;
+        }
+        set(T.name, v.lang === 'ja' ? nm.ja : nm.en.toUpperCase(), Math.round((v.lang === 'ja' ? 19 : 20) * s * k), 0xeafcff, atm);
+        set(T.sub, v.lang === 'ja' ? nm.en.toUpperCase() : nm.ja, Math.max(7, (v.lang === 'ja' ? 8.5 : 9.5) * k), atm, DARK);
         const L = p.leader;
         set(T.lead, L ? `${WORDS.lead[v.lang]} ▸ ${L.name}` : WORDS.none[v.lang], Math.round(11.5 * k * 2) / 2, L ? hexColor(L.color) : 0x8899bb, L ? hexColor(L.color) : DARK);
         const showSub = !(v.compact && !big);
