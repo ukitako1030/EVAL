@@ -10,6 +10,7 @@
  * front at a time, its swarm battle pinned inside the large planet, bloom off; the renderer insets follow the mobile
  * HUD (and an open bottom sheet) so the planet is never hidden.
  */
+import './fonts';
 import { createRenderer } from './render/app';
 import { WebGLRequiredError } from './render/webgl';
 import { createGalaxy } from './render/galaxy';
