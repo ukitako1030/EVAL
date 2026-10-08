@@ -60,6 +60,8 @@
 3. **あなた：** 問題なければ **「Merge pull request」→「Confirm merge」**。数分後にサイトが更新されます（「Actions」タブの `deploy` が緑になれば完了）。
 4. マージしない週があっても、サイトは最後に承認したデータで正常に動きます。
 
+PR の下に「ci … Approve and run」や「承認待ち」と出ることがありますが、**無視して大丈夫**です。同じテストは PR を作る前に `weekly-update` の中で通っています（自動で作られた PR では、GitHub が念のため実行の承認を求めるためです）。
+
 ### PR の要約の読み方
 
 | 見出し | 見るポイント |
@@ -113,14 +115,14 @@ CLOUDFLARE_API_TOKEN=ここにキー
 DESIGNARENA_API_KEY=ここにキー
 ```
 
-### 公開するときに一度だけ必要な設定
+### 公開まわりの設定（済み）
 
-GitHub の無料プランで GitHub Pages を使うには、リポジトリを**公開（Public）**にする必要があります。公開したあと、次の 2 つを設定します（Claude に頼めば手伝います）。
+リポジトリは公開（Public）で、次の 2 つは設定済みです。別のリポジトリに移すときだけ、同じ設定をやり直してください。
 
-1. **Settings → Pages → Build and deployment → Source** を **GitHub Actions** にする（サイトの公開に必要）。
-2. **Settings → Actions → General → Workflow permissions** で **Allow GitHub Actions to create and approve pull requests** にチェックを入れる（毎週の PR の自動作成に必要）。
+1. **Settings → Pages → Build and deployment → Source** が **GitHub Actions**（サイトの公開に必要）。
+2. **Settings → Actions → General → Workflow permissions** の **Allow GitHub Actions to create and approve pull requests** にチェック（毎週の PR の自動作成に必要）。
 
-サイトの URL は `https://<GitHub のユーザー名>.github.io/<リポジトリ名>/` の形になります。
+サイトの URL は <https://ukitako1030.github.io/EVAL/> です。
 
 ## 5. 手元で動かす
 
