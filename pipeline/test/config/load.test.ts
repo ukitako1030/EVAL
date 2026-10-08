@@ -65,6 +65,33 @@ describe('config loaders', () => {
     expect(() => parseUnits(UNITS.replace('org: openai', 'org: toString'))).toThrow(/unknown org "toString"/);
     expect(() => parseMethod(METHOD.replace('base: [attention]', 'base: [toString]'))).toThrow(/base component "toString"/);
   });
+  it('rejects the same scale key configured for two units of one front', () => {
+    const withSecond = (scale: string) =>
+      UNITS.replace(
+        'scale: { crux: [chatgpt.com], wikipedia: [ChatGPT] }',
+        `scale: { crux: [chatgpt.com], wikipedia: [ChatGPT], announcements: chatgpt }
+      gpt2:
+        org: openai
+        name: GPT2
+        since: 2023-01
+        scale: ${scale}`,
+      );
+    expect(() => parseUnits(withSecond('{ crux: [chatgpt.com] }'))).toThrow(/general.*crux.*chatgpt\.com/);
+    expect(() => parseUnits(withSecond('{ wikipedia: [Other, ChatGPT] }'))).toThrow(/general.*wikipedia.*ChatGPT/);
+    expect(() => parseUnits(withSecond('{ announcements: chatgpt }'))).toThrow(/general.*announcements.*chatgpt/);
+    // distinct keys are fine, and so is the same key on different fronts
+    expect(() => parseUnits(withSecond('{ crux: [chat.openai.com] }'))).not.toThrow();
+    const twoFronts = UNITS.replace(
+      '    units: {}',
+      `    units:
+      cursor:
+        org: openai
+        name: Cursor
+        since: 2023-01
+        scale: { crux: [chatgpt.com] }`,
+    );
+    expect(() => parseUnits(twoFronts)).not.toThrow();
+  });
   it('rejects a missing front', () => {
     expect(() => parseUnits(UNITS.replace(/  music:[\s\S]*$/, ''))).toThrow(/music/);
   });

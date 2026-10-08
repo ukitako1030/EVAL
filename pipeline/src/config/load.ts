@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { parse as parseYaml } from 'yaml';
 import type { z } from 'zod';
-import { FRONT_IDS, type FrontId, type Localized } from '../core/types';
+import { FRONT_IDS, SIGNAL_IDS, type FrontId, type Localized } from '../core/types';
 import type { Month } from '../core/months';
 import {
   UnitsFileSchema,
@@ -55,6 +55,23 @@ function compileRegex(src: string, where: string): RegExp {
   }
 }
 
+/** A key (hostname, article, app id, slug prefix, announcement series…) counted for two units of one front would be double-counted. */
+function rejectSharedScaleKeys(front: FrontId, units: CompiledUnit[]): void {
+  for (const signal of SIGNAL_IDS) {
+    const owner = new Map<string, string>();
+    for (const u of units) {
+      const v: string | string[] | undefined = u.scale[signal];
+      for (const key of new Set(Array.isArray(v) ? v : v ? [v] : [])) {
+        const other = owner.get(key);
+        if (other !== undefined) {
+          throw new Error(`units.yaml: ${front}: ${signal} key "${key}" is configured for both "${other}" and "${u.id}"`);
+        }
+        owner.set(key, u.id);
+      }
+    }
+  }
+}
+
 export function parseUnits(text: string): UnitsConfig {
   const raw = validate(UnitsFileSchema, parseYaml(text), 'units.yaml');
   for (const f of FRONT_IDS) if (!raw.fronts[f]) throw new Error(`units.yaml: missing front "${f}"`);
@@ -79,6 +96,7 @@ export function parseUnits(text: string): UnitsConfig {
         scale: u.scale,
       };
     });
+    rejectSharedScaleKeys(f, units[f]);
   }
   return { orgs: raw.orgs, fronts, units };
 }
