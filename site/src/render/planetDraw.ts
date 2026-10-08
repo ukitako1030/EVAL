@@ -5,14 +5,9 @@
  */
 import type { Graphics } from 'pixi.js';
 import { CORE, START_ANGLE, TAU, type Frontline, type Wedge } from './layout';
-import { mixColor } from './planetDecor';
+import { colorGain, hexColor, mixColor } from './color';
 
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
-
-export function hexColor(s: string): number {
-  const n = parseInt(String(s).slice(1, 7), 16);
-  return Number.isFinite(n) ? n : 0x888888;
-}
 
 /** start a fresh sub-path at the arc's first point (PixiJS would otherwise join it to the last point) */
 export function arcPath(g: Graphics, r: number, a0: number, a1: number): Graphics {
@@ -60,8 +55,12 @@ export function rimRange(ang: readonly Float64Array[], k: number, n: number, NS:
   return [ang[k][NS], ang[(k + 1) % n][NS] + (k === n - 1 ? TAU : 0)];
 }
 
-/** frontline: soft glow in the stronger side's colour, a mixed mid line and a white core */
-export function drawFrontline(g: Graphics, b: Frontline, a: Float64Array, NS: number, R: number, px: number, sr: number): void {
+/**
+ * Frontline: each side's territory glows along its edge in its own colour (∝ that side's brightness,
+ * the mockup's inner territory stroke), then a soft glow in the stronger side's colour, a mixed mid
+ * line and a white core.
+ */
+export function drawFrontline(g: Graphics, b: Frontline, a: Float64Array, NS: number, R: number, px: number, sr: number, levelPrev: number, levelCur: number): void {
   g.clear();
   const wS = clamp(sr / 140, 0.5, 2.2);
   const strong = b.push >= 0 ? b.prev : b.cur;
@@ -71,6 +70,8 @@ export function drawFrontline(g: Graphics, b: Frontline, a: Float64Array, NS: nu
   // slivers get thinner lines so their own colour still shows between them
   const spanPx = Math.min(b.prev.a1 - b.prev.a0, b.cur.a1 - b.cur.a0) * sr * 0.6;
   const thin = clamp(spanPx / 22, 0.3, 1);
+  // additive glows pile up between close frontlines: fade them where the territories are narrow
+  const room = clamp(spanPx / 40, 0.12, 1);
   const path = () => {
     for (let i = 0; i <= NS; i++) {
       const r = Math.min(0.995, sampleRho(i, NS)) * R;
@@ -80,13 +81,35 @@ export function drawFrontline(g: Graphics, b: Frontline, a: Float64Array, NS: nu
     return g;
   };
   const style = { cap: 'round', join: 'round' } as const;
-  path().stroke({ ...style, width: 10 * wS * px * thin, color: sc, alpha: 0.06 + 0.13 * b.fierce });
-  path().stroke({ ...style, width: 3.2 * wS * px * thin, color: mc, alpha: 0.25 + 0.3 * b.fierce });
-  path().stroke({ ...style, width: 1.1 * wS * px * Math.max(0.6, thin), color: 0xffffff, alpha: 0.35 + 0.5 * b.fierce });
+  // inner edge glow on both sides: the line offset into each territory (prev lies at smaller angles)
+  const band = (side: number, off: number) => {
+    for (let i = 0; i <= NS; i++) {
+      const rho = Math.min(0.995, sampleRho(i, NS));
+      const r = rho * R;
+      // keep the offset inside narrow wedges and taper it at the core
+      const d = side * Math.min(off, r * 0.35 * Math.min(b.prev.a1 - b.prev.a0, b.cur.a1 - b.cur.a0));
+      const x = Math.cos(a[i]) * r - Math.sin(a[i]) * d;
+      const y = Math.sin(a[i]) * r + Math.cos(a[i]) * d;
+      if (i === 0) g.moveTo(x, y);
+      else g.lineTo(x, y);
+    }
+    return g;
+  };
+  for (const [side, w, level] of [[-1, b.prev, levelPrev], [1, b.cur, levelCur]] as const) {
+    const col = hexColor(w.color);
+    const lv = level * colorGain(col);
+    if (lv <= 0.004) continue;
+    band(side, R * 0.045 * thin).stroke({ ...style, width: R * 0.09 * thin, color: col, alpha: (0.05 + 0.14 * lv) * room });
+    band(side, R * 0.016 * thin).stroke({ ...style, width: Math.max(1.2 * px, R * 0.03 * thin), color: col, alpha: (0.1 + 0.26 * lv) * Math.sqrt(room) });
+  }
+  path().stroke({ ...style, width: 10 * wS * px * thin, color: sc, alpha: (0.06 + 0.13 * b.fierce) * room });
+  path().stroke({ ...style, width: 3.2 * wS * px * thin, color: mc, alpha: (0.25 + 0.3 * b.fierce) * Math.sqrt(room) });
+  path().stroke({ ...style, width: 1.1 * wS * px * Math.max(0.6, thin), color: 0xffffff, alpha: (0.35 + 0.5 * b.fierce) * (0.5 + 0.5 * room) });
 }
 
 /** additive inner rim glow of one territory (mockup: strokes inside the territory edge), ∝ brightness */
-export function drawRimGlow(g: Graphics, color: number, o0: number, o1: number, R: number, px: number, level: number): void {
+export function drawRimGlow(g: Graphics, color: number, o0: number, o1: number, R: number, px: number, lv: number): void {
+  const level = lv * colorGain(color);
   if (o1 - o0 < 0.004 || level <= 0.004) return;
   arcPath(g, R * 0.955, o0, o1).stroke({ width: R * 0.09, color, alpha: 0.05 + 0.15 * level });
   arcPath(g, R * 0.975, o0, o1).stroke({ width: Math.max(1.5 * px, R * 0.035), color, alpha: 0.1 + 0.28 * level });

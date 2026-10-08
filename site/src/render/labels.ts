@@ -8,7 +8,7 @@
 import { CanvasTextMetrics, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import type { FrontId, Lang, Localized } from '../data/types';
 import type { Planet } from './planet';
-import { hexColor } from './planetDraw';
+import { hexColor } from './color';
 
 export interface LabelView {
   lang: Lang;

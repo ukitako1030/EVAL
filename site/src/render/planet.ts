@@ -13,8 +13,9 @@ import type { UnitFrame } from '../data/timeline';
 import type { FlashBudget } from '../fx/flashBudget';
 import { START_ANGLE, TAU, borderAngle, followGlow, frontlines, territories, wedgeBrightness, type Frontline, type PlanetSlot, type Wedge } from './layout';
 import { createFog } from './fog';
-import { createPlanetDecor, mixColor } from './planetDecor';
-import { arcPath, drawFrontline, drawPulses, drawRimGlow, hexColor, rimRange, sampleRho, wedgePolygon } from './planetDraw';
+import { createPlanetDecor } from './planetDecor';
+import { arcPath, drawFrontline, drawPulses, drawRimGlow, rimRange, sampleRho, wedgePolygon } from './planetDraw';
+import { colorGain, hexColor, mixColor } from './color';
 import type { PlanetTextures } from './planetTextures';
 
 export interface PlanetFrame {
@@ -194,16 +195,17 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
       g.visible = true;
       used.add(w.id);
       const col = hexColor(w.color);
+      const gain = colorGain(col);
       const [o0, o1] = rimRange(ang, k, n, NS);
       g.clear();
       if (n === 1) {
-        g.circle(0, 0, R).fill({ color: col, alpha: 0.8 });
-        g.circle(0, 0, R - rimW / 2).stroke({ width: rimW, color: col, alpha: 1 });
+        g.circle(0, 0, R).fill({ color: col, alpha: 0.8 * gain });
+        g.circle(0, 0, R - rimW / 2).stroke({ width: rimW, color: col, alpha: gain });
         polys.push(null);
       } else {
         const pts = wedgePolygon(ang[k], ang[(k + 1) % n], k === n - 1 ? TAU : 0, NS, R);
-        g.poly(pts).fill({ color: col, alpha: 0.8 });
-        if (o1 - o0 > 0.004) arcPath(g, R - rimW / 2, o0, o1).stroke({ width: rimW, color: col, alpha: 1 });
+        g.poly(pts).fill({ color: col, alpha: 0.8 * gain });
+        if (o1 - o0 > 0.004) arcPath(g, R - rimW / 2, o0, o1).stroke({ width: rimW, color: col, alpha: gain });
         polys.push(pts);
       }
       drawRimGlow(edges, col, o0, o1, R, px, Math.min(1, disp.get(w.id) ?? 0.5) * (emph ? emph(w.org) : 1) * w.presence);
@@ -223,7 +225,8 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
         lineLayer.addChild(g);
       }
       g.visible = true;
-      drawFrontline(g, b, ang[k], NS, R, px, sr);
+      const lv = (w: Wedge) => Math.min(1, disp.get(w.id) ?? 0.5) * (emph ? emph(w.org) : 1) * w.presence;
+      drawFrontline(g, b, ang[k], NS, R, px, sr, lv(b.prev), lv(b.cur));
     });
     for (let k = lines.length; k < lineGfx.length; k++) lineGfx[k].visible = false;
 

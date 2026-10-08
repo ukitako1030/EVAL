@@ -8,7 +8,7 @@
 import { Container, Graphics, Particle, ParticleContainer, type Texture } from 'pixi.js';
 import { CORE } from './layout';
 import type { Planet } from './planet';
-import { hexColor } from './planetDraw';
+import { hexColor } from './color';
 
 export interface Sparks {
   readonly container: Container;

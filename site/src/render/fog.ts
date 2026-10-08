@@ -29,10 +29,10 @@ interface Bank {
   puffs: Puff[];
 }
 
-// murky blue-grey: fog mutes a territory's colour instead of painting it white
-const VEIL = 0x5d6f8c;
-const PUFF = 0x9fb0c9;
-const VEIL_ALPHA = 0.36;
+// neutral cool grey: fog desaturates a territory (no hue shift, no white-out)
+const VEIL = 0x737b8c;
+const PUFF = 0xb9c1cf;
+const VEIL_ALPHA = 0.32;
 const PUFF_ALPHA = 0.5;
 const DEG = Math.PI / 180;
 

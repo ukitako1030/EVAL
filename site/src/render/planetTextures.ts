@@ -71,9 +71,9 @@ export function createPlanetTextures(): PlanetTextures {
   const coreDark = disc(256, (g, R, C) => {
     const gr = g.createRadialGradient(C, C, 0, C, C, R);
     gr.addColorStop(0, 'rgba(6,12,32,0.8)');
-    gr.addColorStop(CORE, 'rgba(6,12,32,0.73)');
-    gr.addColorStop(0.6, 'rgba(6,12,32,0.48)');
-    gr.addColorStop(0.86, 'rgba(6,12,32,0.16)');
+    gr.addColorStop(CORE, 'rgba(6,12,32,0.64)');
+    gr.addColorStop(0.6, 'rgba(6,12,32,0.38)');
+    gr.addColorStop(0.86, 'rgba(6,12,32,0.12)');
     gr.addColorStop(1, 'rgba(6,12,32,0)');
     g.fillStyle = gr;
     g.fillRect(0, 0, 2 * C, 2 * C);

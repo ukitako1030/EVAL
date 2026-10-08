@@ -7,6 +7,7 @@
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { CORE, TAU } from './layout';
 import { HALO_SCALE, type PlanetTextures } from './planetTextures';
+import { mixColor } from './color';
 
 /** ring / orbit tilt (radians) */
 export const TILT = -0.28;
@@ -33,14 +34,6 @@ export interface PlanetDecor {
   rebuild(s: DecorState): void;
   update(time: number, ph: number, hover: number, reduced: boolean): void;
   destroy(): void;
-}
-
-export function mixColor(a: number, b: number, t: number): number {
-  const k = Math.min(1, Math.max(0, t));
-  const r = ((a >> 16) & 255) + ((((b >> 16) & 255) - ((a >> 16) & 255)) * k);
-  const g = ((a >> 8) & 255) + ((((b >> 8) & 255) - ((a >> 8) & 255)) * k);
-  const bl = (a & 255) + (((b & 255) - (a & 255)) * k);
-  return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(bl);
 }
 
 /** point on the tilted ring ellipse at parameter φ */
