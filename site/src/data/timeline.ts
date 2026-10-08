@@ -11,9 +11,11 @@ export interface UnitFrame {
   s: number;
   c: number;
   q: Confidence;
-  /** 0 = clear … 1 = thick fog */
+  /** 0 = clear … 1 = thick fog; follows `q`, so it switches at the midpoint between two months (use for labels) */
   fog: number;
-  /** 0..1 while a unit arrives or leaves; 1 = fully present */
+  /** like `fog`, but interpolated between the two months' fog values — what the renderer should draw */
+  fogBlend: number;
+  /** 0..1 while a unit arrives or leaves; 1 = fully present. `s` and `c` are NOT scaled by it; ranking is (see `frontFrame`) */
   presence: number;
   /** 1-based rank by the requested sort, from the interpolated values */
   rank: number;
@@ -50,30 +52,36 @@ export function frontFrame(world: World, front: FrontId, t: number, sortBy: Sort
   const tt = clampT(world, t);
   const i0 = Math.floor(tt + 1e-9);
   const i1 = Math.min(i0 + 1, world.months.length - 1);
-  const f = tt - i0;
+  const f = Math.max(0, tt - i0); // tt can sit up to 1e-9 below a whole month, where i0 already rounds up
   const out: UnitFrame[] = [];
   for (const [id, u] of Object.entries(world.units[front] ?? {})) {
     const arr = world.series[front]?.[id] ?? [];
     const a = arr[i0];
     const b = arr[i1];
-    let s: number, c: number, q: Confidence, presence: number;
+    let s: number, c: number, q: Confidence, presence: number, fogBlend: number;
     if (a && b) {
       s = a.s + (b.s - a.s) * f;
       c = a.c + (b.c - a.c) * f;
       q = f < 0.5 ? a.q : b.q;
+      fogBlend = FOG[a.q] + (FOG[b.q] - FOG[a.q]) * f;
       presence = 1;
     } else if (a) {
       ({ s, c, q } = a);
+      fogBlend = FOG[q];
       presence = i1 === i0 ? 1 : 1 - f;
     } else if (b) {
       ({ s, c, q } = b);
+      fogBlend = FOG[q];
       presence = f;
     } else continue;
+    presence = Math.min(Math.max(presence, 0), 1);
     if (presence <= 0) continue;
-    out.push({ id, front, org: u.org, name: u.name, color: world.orgs[u.org]?.color ?? '#888888', s, c, q, fog: FOG[q], presence, rank: 0, rankDelta: 0 });
+    out.push({ id, front, org: u.org, name: u.name, color: world.orgs[u.org]?.color ?? '#888888', s, c, q, fog: FOG[q], fogBlend, presence, rank: 0, rankDelta: 0 });
   }
+  // an arriving / leaving unit ranks by what is visible of it, so a nearly invisible unit never jumps to the top
   const key = keyOf(sortBy);
-  out.sort((x, y) => key(y) - key(x) || cmp(x.id, y.id));
+  const rankKey = (u: UnitFrame) => key(u) * u.presence;
+  out.sort((x, y) => rankKey(y) - rankKey(x) || cmp(x.id, y.id));
   const prev = i0 > 0 ? ranksAt(world, front, i0 - 1, sortBy) : new Map<string, number>();
   const cur = ranksAt(world, front, i0, sortBy);
   out.forEach((u, k) => {

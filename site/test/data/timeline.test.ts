@@ -18,7 +18,7 @@ describe('frontFrame', () => {
     expect(g.s).toBeCloseTo(81.25, 10);
     expect(g.q).toBe('reconstructed');
   });
-  it('fades a unit in as it arrives (presence 0→1, c scaled from 0)', () => {
+  it('fades a unit in as it arrives (presence 0→1; s and c keep their full values)', () => {
     const g = frontFrame(w, 'general', 1.25).find((u) => u.id === 'gemini')!;
     expect(g.presence).toBeCloseTo(0.25, 10);
     expect(g.c).toBe(12);
@@ -44,6 +44,59 @@ describe('frontFrame', () => {
     for (const t of [NaN, Infinity, -Infinity]) expect(clampT(w, t)).toBe(3);
     expect(frontFrame(w, 'general', NaN)).toEqual(frontFrame(w, 'general', 3));
     expect(frontFrame(w, 'general', NaN).every((u) => Number.isFinite(u.s) && Number.isFinite(u.c))).toBe(true);
+  });
+});
+
+describe('frontFrame interpolation polish', () => {
+  const w = makeWorld();
+  it('fogBlend interpolates between the two months while q and fog switch at the midpoint', () => {
+    const at = (t: number) => frontFrame(w, 'general', t).find((u) => u.id === 'gemini')!;
+    // gemini: estimated (0.8) at month 2 → reconstructed (0.5) at month 3
+    expect(at(2).fogBlend).toBeCloseTo(0.8, 10);
+    expect(at(2.25)).toMatchObject({ q: 'estimated', fog: 0.8 });
+    expect(at(2.25).fogBlend).toBeCloseTo(0.725, 10);
+    expect(at(2.5).fogBlend).toBeCloseTo(0.65, 10);
+    expect(at(2.75)).toMatchObject({ q: 'reconstructed', fog: 0.5 });
+    expect(at(2.75).fogBlend).toBeCloseTo(0.575, 10);
+    expect(at(3).fogBlend).toBeCloseTo(0.5, 10);
+  });
+  it('fogBlend is the unit\'s own fog while it arrives (no neighbour to blend with)', () => {
+    expect(frontFrame(w, 'general', 1.5).find((u) => u.id === 'gemini')!.fogBlend).toBe(0.8);
+  });
+  it('clamps the interpolation fraction to >= 0 just below a whole month', () => {
+    const t = 2 - 5e-10; // floor(t + 1e-9) is 2, so t - 2 is slightly negative
+    const gpt = frontFrame(w, 'general', t).find((u) => u.id === 'gpt')!;
+    expect(gpt.s).toBe(90);
+    expect(gpt.c).toBe(60);
+    expect(gpt.presence).toBe(1);
+  });
+  it('keeps presence within [0, 1] for a leaving unit', () => {
+    const x = makeWorld();
+    x.series.general.gemini[3] = null; // gemini leaves after month 2
+    const g = frontFrame(x, 'general', 2 - 5e-10).find((u) => u.id === 'gemini')!;
+    expect(g.presence).toBe(1);
+    expect(frontFrame(x, 'general', 2.25).find((u) => u.id === 'gemini')!.presence).toBeCloseTo(0.75, 10);
+    expect(frontFrame(x, 'general', 3).find((u) => u.id === 'gemini')).toBeUndefined();
+  });
+  it('an almost invisible arriving unit does not rank at full strength (rank uses s × presence)', () => {
+    const x = makeWorld();
+    x.series.general.gemini[2] = { s: 101, c: 90, q: 'high', qs: 'high', qc: 'high' };
+    const f = frontFrame(x, 'general', 1.25); // gemini arrives at presence 0.25; gpt ≈ 97.5, claude ≈ 92.5
+    const g = f.find((u) => u.id === 'gemini')!;
+    expect(g).toMatchObject({ s: 101, c: 90, presence: 0.25 }); // displayed values are not scaled
+    expect(f.map((u) => u.id)).toEqual(['gpt', 'claude', 'gemini']);
+    expect(f.map((u) => u.rank)).toEqual([1, 2, 3]);
+    // fully present, the same values do rank first
+    expect(frontFrame(x, 'general', 2).map((u) => u.id)).toEqual(['gemini', 'claude', 'gpt']);
+  });
+  it('an almost invisible leaving unit does not rank at full strength, and scale ranking uses c × presence', () => {
+    const x = makeWorld();
+    x.series.general.gemini[2] = { s: 99, c: 90, q: 'high', qs: 'high', qc: 'high' };
+    x.series.general.gemini[3] = null;
+    const bySt = frontFrame(x, 'general', 2.75); // presence 0.25: 99 × 0.25 < gpt ≈ 91.5
+    expect(bySt.map((u) => u.id)).toEqual(['claude', 'gpt', 'gemini']);
+    const byC = frontFrame(x, 'general', 2.75, 'scale'); // gpt c ≈ 58.5, claude ≈ 28: gemini 90 × 0.25 = 22.5 is last
+    expect(byC.map((u) => u.id)).toEqual(['gpt', 'claude', 'gemini']);
   });
 });
 
