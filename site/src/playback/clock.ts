@@ -18,14 +18,17 @@ export interface TickResult extends PlaybackState {
 /** `eventMonths`: month index → number of banners that month; playback holds `HOLD_SECONDS[speed]` per banner. */
 export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlyMap<number, number> }) {
   let hold = 0;
+  let heldMonth = -1; // the month the current hold belongs to
   return {
     tick(rawDt: number, st: PlaybackState): TickResult {
       if (!st.playing) {
         hold = 0;
+        heldMonth = -1;
         return { ...st, crossed: [], holding: false };
       }
       if (!Number.isFinite(rawDt) || rawDt <= 0) return { ...st, crossed: [], holding: hold > 0 };
       const dt = Math.min(rawDt, MAX_DT);
+      if (hold > 0 && Math.floor(st.t + 1e-9) !== heldMonth) hold = 0; // the user scrubbed / stepped away from the held month
       if (hold > 0) {
         hold = Math.max(0, hold - dt);
         return { ...st, crossed: [], holding: hold > 0 };
@@ -36,9 +39,10 @@ export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlyM
       for (let m = Math.floor(from + 1e-9) + 1; m <= Math.floor(to + 1e-9); m++) {
         crossed.push(m);
         const items = opts.eventMonths.get(m) ?? 0;
-        if (items > 0) {
+        if (items > 0 && m < opts.lastIndex) {
           to = m;
           hold = HOLD_SECONDS[st.speed] * items;
+          heldMonth = m;
           break;
         }
       }
@@ -46,6 +50,7 @@ export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlyM
     },
     reset() {
       hold = 0;
+      heldMonth = -1;
     },
   };
 }

@@ -75,6 +75,34 @@ describe('playback clock', () => {
     expect(r.t).toBeCloseTo(0.25 / BASE_SECONDS_PER_MONTH, 10);
     expect(r.crossed).toEqual([]);
   });
+  it('drops the hold when the user moves away from the held month', () => {
+    const pb = createPlayback({ lastIndex: 40, eventMonths: new Map([[2, 1]]) });
+    const held = run(pb, { t: 0, playing: true, speed: 1 }, 3.0);
+    expect(held.s.t).toBe(2);
+    expect(pb.tick(0.05, held.s).holding).toBe(true);
+    // scrubbed forward: playback carries on from the new position instead of waiting out the old hold
+    const fwd = pb.tick(0.05, { t: 10, playing: true, speed: 1 });
+    expect(fwd.holding).toBe(false);
+    expect(fwd.t).toBeGreaterThan(10);
+    // stepped back one month: same
+    const pb2 = createPlayback({ lastIndex: 40, eventMonths: new Map([[2, 1]]) });
+    const held2 = run(pb2, { t: 0, playing: true, speed: 1 }, 3.0);
+    const back = pb2.tick(0.05, { ...held2.s, t: 1 });
+    expect(back.holding).toBe(false);
+    expect(back.t).toBeGreaterThan(1);
+    // and the event month holds again when playback reaches it afresh
+    const again = run(pb2, { t: back.t, playing: true, speed: 1 }, 2.0);
+    expect(again.s.t).toBe(2);
+    expect(again.crossed).toEqual([2]);
+  });
+  it('never holds on the last month', () => {
+    const pb = createPlayback({ lastIndex: 3, eventMonths: new Map([[3, 2]]) });
+    const r = run(pb, { t: 2.5, playing: true, speed: 1 }, 1.0);
+    expect(r.s).toEqual({ t: 3, playing: false, speed: 1 });
+    expect(r.crossed).toEqual([3]);
+    const last = pb.tick(0.05, { t: 2.99, playing: true, speed: 1 });
+    expect(last).toMatchObject({ t: 3, playing: false, holding: false });
+  });
   it('a bad dt does not shorten an ongoing hold', () => {
     const pb = createPlayback({ lastIndex: 40, eventMonths: new Map([[1, 1]]) });
     let r = run(pb, { t: 0, playing: true, speed: 1 }, 1.5); // reaches month 1 at 1.4 s, holding
