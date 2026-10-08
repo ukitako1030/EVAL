@@ -31,6 +31,7 @@ export function prettyModel(model: string, releases: CompiledRelease[]): string 
 }
 
 function text(type: EventType, front: { name: Localized }, unit: string, extra: { model?: string; from?: string; down?: boolean }): Localized {
+  // `unit` and `extra.from` are display names here; the event itself stores unit ids
   const f = front.name;
   switch (type) {
     case 'new_unit':
@@ -83,7 +84,15 @@ export function detectEvents(args: {
     // estimated values are placeholders, not measurements: they never lead and never move
     const measured = present.filter((u) => at(u, i)!.q !== 'estimated');
     const push = (type: EventType, unit: string, extra: { model?: string; from?: string; down?: boolean } = {}) =>
-      raw.push({ month: m, front: front.id, unit, type, text: text(type, front, name(unit), extra), ...(extra.model ? { model: extra.model } : {}), ...(extra.from ? { from: extra.from } : {}) });
+      raw.push({
+        month: m,
+        front: front.id,
+        unit,
+        type,
+        text: text(type, front, name(unit), { ...extra, ...(extra.from ? { from: name(extra.from) } : {}) }),
+        ...(extra.model ? { model: extra.model } : {}),
+        ...(extra.from ? { from: extra.from } : {}),
+      });
 
     // leaders with hysteresis. A leader whose cell is merely *estimated* keeps the lead (an estimate is a placeholder,
     // not evidence that it fell behind); the lead is handed over without hysteresis only when the leader's cell is null.
@@ -92,7 +101,7 @@ export function detectEvents(args: {
       const cellS = leadS ? at(leadS, i) : null;
       const take = !leadS || !cellS || (cellS.q !== 'estimated' && candS !== leadS && at(candS, i)!.s >= cellS.s + params.leadHysteresis);
       if (take) {
-        if (i > 0 && leadS) push('lead_change', candS, { from: name(leadS) });
+        if (i > 0 && leadS) push('lead_change', candS, { from: leadS });
         leadS = candS;
       }
     }
@@ -101,7 +110,7 @@ export function detectEvents(args: {
       const cellC = leadC ? at(leadC, i) : null;
       const take = !leadC || !cellC || (candC !== leadC && at(candC, i)!.c >= cellC.c + params.leadHysteresis);
       if (take) {
-        if (i > 0 && leadC) push('scale_lead_change', candC, { from: name(leadC) });
+        if (i > 0 && leadC) push('scale_lead_change', candC, { from: leadC });
         leadC = candC;
       }
     }

@@ -38,6 +38,16 @@ describe('detectEvents', () => {
     expect(types('2024-03')).toEqual(['lead_change:claude', 'new_model:claude', 'surge:gpt']);
     expect(types('2024-04')).toEqual(['scale_lead_change:claude']);
   });
+  it('stores the previous leader unit id (not its display name) in from', () => {
+    const lead = ev.find((e) => e.type === 'lead_change')!;
+    expect(lead.from).toBe('gpt');
+    expect(lead.unit).toBe('claude');
+    const scale = ev.find((e) => e.type === 'scale_lead_change')!;
+    expect(scale.from).toBe('gpt');
+    expect(scale.text.en).toBe('Largest force on the General Front: GPT → Claude');
+    // events other than leader changes carry no `from`
+    expect(ev.filter((e) => e.type !== 'lead_change' && e.type !== 'scale_lead_change').some((e) => 'from' in e)).toBe(false);
+  });
   it('writes localized text', () => {
     const lead = ev.find((e) => e.type === 'lead_change')!;
     expect(lead.text.ja).toBe('総合戦線で首位交代：GPT → Claude');
