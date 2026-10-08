@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { winProb, computeStrength, fillEstimatedStrength, type StrengthCell } from '../../src/compute/strength';
-import type { SeriesTable, AssignedPoint } from '../../src/compute/assign';
+import { assignSeries, type SeriesTable, type AssignedPoint } from '../../src/compute/assign';
 import type { KindParams } from '../../src/config/schemas';
+import type { CompiledUnit } from '../../src/config/load';
+import { monthRange } from '../../src/core/months';
 
 const K: KindParams = { elo: { scale: 400 }, percent: { clampLo: 0.5, clampHi: 99.5 }, minutes: { kappa: 1 }, eci: { tau: 8 } };
 
@@ -126,6 +128,102 @@ describe('computeStrength', () => {
     expect(a.measured).toBe(0);
     expect(a.reconstructed).toBe(1);
     expect(a.breakdown).toHaveLength(1);
+  });
+});
+
+describe('computeStrength — fading sources', () => {
+  const months = monthRange('2025-01', '2025-12');
+  const units: CompiledUnit[] = ['a', 'b'].map((id) => ({ id, front: 'general', org: id, name: id, since: '2022-11', regexes: [new RegExp(`^${id}-`)], scale: {} }));
+  // a release benchmark that published only in 2025-01: a leads it, b is far behind
+  const bench = assignSeries({
+    front: 'general',
+    group: 'bench',
+    priority: 1,
+    observations: [
+      { series: 'bench', kind: 'percent', model: 'a-1', date: '2025-01-10', dateKind: 'release', value: 80 },
+      { series: 'bench', kind: 'percent', model: 'b-1', date: '2025-01-12', dateKind: 'release', value: 40 },
+    ],
+    units,
+    months,
+    releases: [],
+    params: { snapshotMaxAgeDays: 92, releaseActiveMonths: 3, fadeMonths: 6 },
+  });
+  // an arena that stays fresh all year: b leads it
+  const arena = table('arena', 'arena', 1, 'elo', {
+    a: Object.fromEntries(months.map((m) => [m, 1200])),
+    b: Object.fromEntries(months.map((m) => [m, 1300])),
+  });
+  const w = 0.5;
+  const cells = computeStrength({ tables: [bench, arena], unitIds: ['a', 'b'], months, weights: { bench: w, arena: 0.5 }, kinds: K, minUnits: 2 });
+  const benchWeight = (m: string) => cells.get('a')!.get(m)!.breakdown.find((g) => g.group === 'bench')?.weight;
+
+  it('a release series whose last observation is 2025-01 contributes weight w until 2025-04, then w·6/7, w·5/7, … and nothing from 2025-11', () => {
+    for (const m of ['2025-01', '2025-02', '2025-03', '2025-04']) expect(benchWeight(m), m).toBe(w);
+    const fading: [string, number][] = [
+      ['2025-05', 6 / 7],
+      ['2025-06', 5 / 7],
+      ['2025-07', 4 / 7],
+      ['2025-08', 3 / 7],
+      ['2025-09', 2 / 7],
+      ['2025-10', 1 / 7],
+    ];
+    for (const [m, f] of fading) expect(benchWeight(m), m).toBeCloseTo(w * f, 12);
+    expect(benchWeight('2025-11')).toBeUndefined();
+    expect(benchWeight('2025-12')).toBeUndefined();
+    expect(cells.get('a')!.get('2025-11')!.breakdown.map((g) => g.group)).toEqual(['arena']);
+  });
+  it('uses the effective weights in the weighted mean, so the unit score moves smoothly', () => {
+    const s = (m: string) => cells.get('a')!.get(m)!.s!;
+    const arenaA = 200 / (1 + 10 ** 0.25);
+    expect(s('2025-04')).toBeCloseTo((100 + arenaA) / 2, 6);
+    expect(s('2025-06')).toBeCloseTo(((5 / 7) * 100 + arenaA) / (5 / 7 + 1), 6);
+    expect(s('2025-11')).toBeCloseTo(arenaA, 6);
+    // the whole ~14-point move is spread over 7 months: no single month moves by the surge threshold
+    const steps = months.slice(1).map((m, i) => Math.abs(s(m) - s(months[i])));
+    expect(s('2025-04') - s('2025-11')).toBeGreaterThan(13);
+    expect(Math.max(...steps)).toBeLessThan(5);
+  });
+  it('sorts the breakdown by effective weight', () => {
+    const c = computeStrength({ tables: [bench, arena], unitIds: ['a', 'b'], months, weights: { bench: 0.6, arena: 0.4 }, kinds: K, minUnits: 2 });
+    expect(c.get('a')!.get('2025-03')!.breakdown.map((g) => g.group)).toEqual(['bench', 'arena']);
+    expect(c.get('a')!.get('2025-07')!.breakdown.map((g) => g.group)).toEqual(['arena', 'bench']); // 0.6 · 4/7 < 0.4
+  });
+
+  it('prefers a fresh series over a fading one of higher priority (the fresh one keeps the full weight)', () => {
+    const tables = [
+      table('arena', 'legacy', 3, 'elo', { a: { '2025-12': 1000 }, b: { '2025-12': 1400 } }, { '2025-12': 3 / 7 }),
+      table('arena', 'style', 2, 'elo', { a: { '2025-12': 1300 }, b: { '2025-12': 1300 } }),
+    ];
+    const c = computeStrength({ tables, unitIds: ['a', 'b'], months: ['2025-12'], weights: { arena: 0.5 }, kinds: K, minUnits: 2 });
+    const a = c.get('a')!.get('2025-12')!;
+    expect(a.s).toBe(100);
+    expect(a.breakdown[0].weight).toBe(0.5);
+  });
+  it('still uses the highest priority when every series of the group is fading', () => {
+    const tables = [
+      table('arena', 'legacy', 3, 'elo', { a: { '2025-12': 1000 }, b: { '2025-12': 1400 } }, { '2025-12': 3 / 7 }),
+      table('arena', 'style', 2, 'elo', { a: { '2025-12': 1300 }, b: { '2025-12': 1300 } }, { '2025-12': 5 / 7 }),
+    ];
+    const c = computeStrength({ tables, unitIds: ['a', 'b'], months: ['2025-12'], weights: { arena: 0.5 }, kinds: K, minUnits: 2 });
+    expect(c.get('b')!.get('2025-12')!.s).toBe(100);
+    expect(c.get('b')!.get('2025-12')!.breakdown[0].weight).toBeCloseTo(0.5 * (3 / 7), 12);
+  });
+  it('blends series of equal priority by freshness and weights the group by the freshest series the unit has', () => {
+    // x: old split, fading (2/7); y: new split, fresh. a is in both, c only in the old one, b only in the new one.
+    const tables = [
+      table('tau', 'x', 1, 'percent', { a: { '2025-12': 50 }, b0: { '2025-12': 60 }, c: { '2025-12': 40 } }, { '2025-12': 2 / 7 }),
+      table('tau', 'y', 1, 'percent', { a: { '2025-12': 80 }, b: { '2025-12': 70 } }),
+    ];
+    const c = computeStrength({ tables, unitIds: ['a', 'b', 'c'], months: ['2025-12'], weights: { tau: 0.2 }, kinds: K, minUnits: 2 });
+    const g = (u: string) => c.get(u)!.get('2025-12')!.breakdown[0];
+    const sx = (v: number) => 200 * winProb('percent', v, 60, K);
+    const sy = (v: number) => 200 * winProb('percent', v, 80, K);
+    expect(g('a').score).toBeCloseTo(((2 / 7) * sx(50) + sy(80)) / (2 / 7 + 1), 10);
+    expect(g('a').weight).toBe(0.2);
+    expect(g('a').model).toBe('a-model'); // the freshest hit's model
+    expect(g('b').weight).toBe(0.2);
+    expect(g('c').score).toBeCloseTo(sx(40), 10);
+    expect(g('c').weight).toBeCloseTo(0.2 * (2 / 7), 12);
   });
 });
 
