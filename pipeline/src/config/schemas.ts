@@ -51,6 +51,8 @@ export const MethodSchema = z.object({
     minUnits: z.number().int().min(1),
     snapshotMaxAgeDays: z.number().int().positive(),
     releaseActiveMonths: z.number().int().min(0),
+    // months a stale series keeps contributing with linearly decreasing weight (compute/assign.ts fadeFreshness); 0 = cut off
+    fadeMonths: z.number().int().min(0).default(0),
     kinds: z.object({
       elo: z.object({ scale: z.number().positive() }),
       // scale (default 1) multiplies the logit gap: < 1 softens benchmarks whose top models are far apart
@@ -125,6 +127,25 @@ export const EventsFileSchema = z.object({
     .default([]),
 });
 export type EventsFile = z.infer<typeof EventsFileSchema>;
+
+/** curated/credits.yaml: material used outside the source modules, credited in world.sources (group 'curated'). */
+export const CreditsFileSchema = z.object({
+  credits: z
+    .array(
+      z
+        .object({
+          id: z.string().min(1),
+          name: z.string().min(1),
+          /** omitted when there is no single link (e.g. company announcements: each figure carries its own) */
+          url: z.url({ protocol: /^https?$/ }).optional(),
+          license: z.string().min(1),
+          credit: z.string().min(1),
+        })
+        .strict(),
+    )
+    .default([]),
+});
+export type Credit = z.infer<typeof CreditsFileSchema>['credits'][number];
 
 export const ReleasesFileSchema = z.object({
   models: z.array(z.object({ match: z.string(), release: MonthStr, display: z.string().optional() })).default([]),

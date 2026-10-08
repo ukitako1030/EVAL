@@ -15,7 +15,7 @@ const unit = (id: string, since: string, match: string[], extra: Partial<Compile
   ...extra,
 });
 const UNITS = [unit('gpt', '2022-11', ['^gpt']), unit('claude', '2023-03', ['^claude'])];
-const params = { snapshotMaxAgeDays: 92, releaseActiveMonths: 3 };
+const params = { snapshotMaxAgeDays: 92, releaseActiveMonths: 3, fadeMonths: 0 };
 const ob = (o: Partial<Observation>): Observation => ({
   series: 's',
   kind: 'elo',
@@ -123,6 +123,100 @@ describe('assignSeries — snapshot type', () => {
     expect(t.points.get('gpt')?.get('2024-06')).toEqual({ value: 1250, model: 'gpt-4o', reconstructed: true });
     expect(t.points.get('claude')?.get('2024-02')).toBeUndefined();
     expect(t.points.get('claude')?.get('2024-03')?.reconstructed).toBe(true);
+  });
+});
+
+describe('assignSeries — fading (fadeMonths)', () => {
+  const fade = { ...params, fadeMonths: 6 };
+  const months = monthRange('2024-10', '2026-06');
+
+  describe('release type', () => {
+    const obs = [
+      ob({ model: 'gpt-4o', date: '2024-11-10', value: 70, kind: 'percent', dateKind: 'release' }),
+      ob({ model: 'claude-3', date: '2025-01-20', value: 65, kind: 'percent', dateKind: 'release' }),
+    ];
+    const t = assignSeries({ front: 'general', group: 'g', priority: 1, observations: obs, units: UNITS, months, releases: [], params: fade });
+
+    it('is fully fresh from the first observation until the end of the active window (last obs 2025-01 + 3)', () => {
+      expect(t.freshness.get('2024-10')).toBeUndefined(); // before the series starts
+      for (const m of ['2024-11', '2024-12', '2025-01', '2025-02', '2025-03', '2025-04']) expect(t.freshness.get(m), m).toBe(1);
+    });
+    it('then fades linearly over fadeMonths months (1 − k/(fadeMonths+1)) and stops', () => {
+      const expected: [string, number][] = [
+        ['2025-05', 6 / 7],
+        ['2025-06', 5 / 7],
+        ['2025-07', 4 / 7],
+        ['2025-08', 3 / 7],
+        ['2025-09', 2 / 7],
+        ['2025-10', 1 / 7],
+      ];
+      for (const [m, f] of expected) expect(t.freshness.get(m), m).toBeCloseTo(f, 12);
+      expect(t.freshness.has('2025-11')).toBe(false);
+      expect(t.freshness.has('2026-01')).toBe(false);
+    });
+    it('keeps the points (the best released value) while fading, and drops them once freshness reaches 0', () => {
+      expect(t.points.get('gpt')?.get('2025-04')?.value).toBe(70);
+      expect(t.points.get('gpt')?.get('2025-10')).toEqual({ value: 70, model: 'gpt-4o', reconstructed: false });
+      expect(t.points.get('claude')?.get('2025-10')?.value).toBe(65);
+      expect(t.points.get('gpt')?.get('2025-11')).toBeUndefined();
+      expect(t.points.get('claude')?.get('2025-11')).toBeUndefined();
+    });
+  });
+
+  describe('snapshot type', () => {
+    const obs = [
+      ob({ model: 'gpt-4o', date: '2025-01-05', value: 1250 }),
+      ob({ model: 'claude-3', date: '2025-01-05', value: 1240 }),
+      ob({ model: 'gpt-4o', date: '2025-06-20', value: 1260 }),
+      ob({ model: 'claude-3', date: '2025-06-20', value: 1270 }),
+    ];
+    const releases: CompiledRelease[] = [{ regex: /^gpt-4o/i, release: '2024-05' }, { regex: /^claude-3/i, release: '2024-03' }];
+    const t = assignSeries({ front: 'general', group: 'g', priority: 1, observations: obs, units: UNITS, months, releases, params: fade });
+
+    it('is fully fresh while the latest snapshot is at most snapshotMaxAgeDays old, and for reconstructed months', () => {
+      expect(t.freshness.get('2024-12')).toBe(1); // reconstructed (before the first snapshot)
+      expect(t.points.get('gpt')?.get('2024-12')?.reconstructed).toBe(true);
+      expect(t.freshness.get('2025-01')).toBe(1);
+      expect(t.freshness.get('2025-03')).toBe(1); // 2025-01-05 → 2025-03-31: 85 days
+      expect(t.freshness.get('2025-06')).toBe(1); // new snapshot
+      expect(t.freshness.get('2025-08')).toBe(1); // 2025-06-20 → 2025-08-31: 72 days
+    });
+    it('keeps using a stale snapshot for fadeMonths months beyond the age limit, with decreasing freshness', () => {
+      // 2025-01-05 is too old from 2025-04 on (115 days) until the next snapshot arrives in 2025-06
+      expect(t.freshness.get('2025-04')).toBeCloseTo(6 / 7, 12);
+      expect(t.freshness.get('2025-05')).toBeCloseTo(5 / 7, 12);
+      expect(t.points.get('gpt')?.get('2025-05')).toEqual({ value: 1250, model: 'gpt-4o', reconstructed: false });
+      // 2025-06-20 is too old from 2025-09 on (102 days): six fading months, then nothing
+      const expected: [string, number][] = [
+        ['2025-09', 6 / 7],
+        ['2025-10', 5 / 7],
+        ['2025-11', 4 / 7],
+        ['2025-12', 3 / 7],
+        ['2026-01', 2 / 7],
+        ['2026-02', 1 / 7],
+      ];
+      for (const [m, f] of expected) expect(t.freshness.get(m), m).toBeCloseTo(f, 12);
+      expect(t.points.get('claude')?.get('2026-02')).toEqual({ value: 1270, model: 'claude-3', reconstructed: false });
+      expect(t.freshness.has('2026-03')).toBe(false);
+      expect(t.points.get('claude')?.get('2026-03')).toBeUndefined();
+      expect(t.points.get('gpt')?.get('2026-06')).toBeUndefined();
+    });
+  });
+
+  it('fadeMonths 0 keeps the old cut-off (no fading months)', () => {
+    const t = assignSeries({
+      front: 'general',
+      group: 'g',
+      priority: 1,
+      observations: [ob({ model: 'gpt-4o', date: '2025-01-05', value: 1250 }), ob({ model: 'claude-3', date: '2025-01-05', value: 1240 })],
+      units: UNITS,
+      months,
+      releases: [],
+      params,
+    });
+    expect(t.freshness.get('2025-03')).toBe(1);
+    expect(t.freshness.has('2025-04')).toBe(false);
+    expect(t.points.get('gpt')?.get('2025-04')).toBeUndefined();
   });
 });
 

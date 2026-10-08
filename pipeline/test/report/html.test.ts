@@ -3,15 +3,20 @@ import { renderReport } from '../../src/report/html';
 import type { World } from '../../src/compute/world';
 
 const w: World = {
+  schemaVersion: 2,
   generatedAt: '2026-10-12T00:00:00.000Z',
+  dataLicense: 'Derived data.',
+  dataLicenseJa: '派生データ。',
   months: ['2026-09', '2026-10'],
   partialMonth: '2026-10',
   orgs: { openai: { name: 'OpenAI', color: '#19c37d' } },
   fronts: [{ id: 'general', name: { ja: '総合戦線', en: 'General Front' } }],
-  units: { general: { gpt: { org: 'openai', name: 'GPT' } } },
-  series: { general: { gpt: [{ s: 90, c: 100, q: 'high' }, { s: 100, c: 100, q: 'medium' }] } },
+  units: { general: { gpt: { org: 'openai', name: 'GPT', since: '2022-11' } } },
+  announcements: {},
+  series: { general: { gpt: [{ s: 90, c: 100, q: 'high', qs: 'high', qc: 'high' }, { s: 100, c: 100, q: 'medium', qs: 'high', qc: 'medium' }] } },
   breakdown: { general: { gpt: {} } },
-  events: [{ month: '2026-10', front: 'general', unit: 'gpt', type: 'lead_change', text: { ja: '首位交代', en: 'Lead' } }],
+  scaleBreakdown: { general: { gpt: {} } },
+  events: [{ month: '2026-10', front: 'general', unit: 'gpt', type: 'lead_change', text: { ja: '首位交代', en: 'Lead' }, major: true }],
   sources: [],
 };
 
@@ -43,7 +48,7 @@ describe('renderReport', () => {
   it('does not crash for a unit that has no series entry (or a front without a series table)', () => {
     const extra: World = {
       ...w,
-      units: { general: { gpt: { org: 'openai', name: 'GPT' }, ghost: { org: 'openai', name: 'Ghost' } } },
+      units: { general: { gpt: { org: 'openai', name: 'GPT', since: '2022-11' }, ghost: { org: 'openai', name: 'Ghost', since: '2022-11' } } },
     };
     const html = renderReport(extra);
     expect(html).toContain('Ghost');

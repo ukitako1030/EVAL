@@ -14,10 +14,27 @@ export interface WorldEvent {
   text: Localized;
   model?: string;
   from?: string;
+  /** lead changes, scale lead changes, custom events and the new model of the month's strength leader */
+  major: boolean;
 }
 
-/** unitId → per-month cell aligned with `months` (null = not present). `bestModel` comes from the front's event group. */
-export type FrontCells = Map<string, ({ s: number; c: number; bestModel: string | null; q: Confidence } | null)[]>;
+export interface EventCell {
+  s: number;
+  c: number;
+  /** model of the front's event group */
+  bestModel: string | null;
+  q: Confidence;
+  /** strength source groups that contributed to `s` (its breakdown; empty for an estimate) */
+  groups: string[];
+  /** group → score and effective weight (the breakdown), for like-for-like comparisons when `groups` changed */
+  parts?: Record<string, { value: number; weight: number }>;
+}
+
+/** unitId → per-month cell aligned with `months` (null = not present). */
+export type FrontCells = Map<string, (EventCell | null)[]>;
+
+/** Units ranked in the top N by strength in a month get new_model events. */
+const NEW_MODEL_TOP = 3;
 
 const PRIORITY: Record<EventType, number> = { lead_change: 0, new_unit: 1, new_model: 2, scale_lead_change: 3, surge: 4, custom: 5 };
 
@@ -37,11 +54,13 @@ function caseToken(t: string): string {
 }
 
 const UNKNOWN_SUFFIX = /^(.+?)_unknown$/i; // Epoch ids such as gpt-5.5_unknown: the reasoning effort is unknown
-const EFFORT_SUFFIX = /^(.+?)_(max|high|xhigh|medium|low|minimal)$/i; // gpt-5.2-2025-12-11_high: a reasoning-effort variant
+// a reasoning-effort variant: gpt-5.2-2025-12-11_high, claude-sonnet-5.5-xhigh. `max` only after an underscore:
+// with a hyphen it is part of the model name (gpt-5.1-codex-max, flux-2-max)
+const EFFORT_SUFFIX = /^(.+?)(?:[-_](xhigh|high|medium|low|minimal)|_(max))$/i;
 
 /**
  * Display name for a model id. Release display names win; otherwise strip dates/suffixes and title-case.
- * A trailing `_unknown` is dropped and a trailing `_<effort>` becomes ` (<Effort>)`.
+ * A trailing `_unknown` is dropped and a trailing effort (`-high`, `_xhigh`, `_max`, …) becomes ` (high)` etc.
  */
 export function prettyModel(model: string, releases: CompiledRelease[]): string {
   const r = releaseOf(releases, model);
@@ -50,7 +69,7 @@ export function prettyModel(model: string, releases: CompiledRelease[]): string 
   const unknown = UNKNOWN_SUFFIX.exec(model);
   if (unknown) model = unknown[1];
   const effort = EFFORT_SUFFIX.exec(model);
-  if (effort) return `${cleanModel(effort[1])} (${effort[2].charAt(0).toUpperCase()}${effort[2].slice(1).toLowerCase()})`;
+  if (effort) return `${cleanModel(effort[1])} (${(effort[2] ?? effort[3]).toLowerCase()})`;
   return cleanModel(model);
 }
 
@@ -81,7 +100,7 @@ function titleParen(tail: string): string {
   return tail.replace(/[-_]+/g, ' ').replace(/[^\s()]+/g, (w) => caseToken(w));
 }
 
-function text(type: EventType, front: { name: Localized }, unit: string, extra: { model?: string; from?: string; down?: boolean }): Localized {
+function text(type: EventType, front: { name: Localized }, unit: string, extra: { model?: string; from?: string }): Localized {
   // `unit` and `extra.from` are display names here; the event itself stores unit ids
   const f = front.name;
   switch (type) {
@@ -94,9 +113,7 @@ function text(type: EventType, front: { name: Localized }, unit: string, extra: 
     case 'scale_lead_change':
       return { ja: `${f.ja}で最大勢力が交代：${extra.from} → ${unit}`, en: `Largest force on the ${f.en}: ${extra.from} → ${unit}` };
     case 'surge':
-      return extra.down
-        ? { ja: `${unit} 後退 — ${f.ja}`, en: `${unit} falls back — ${f.en}` }
-        : { ja: `${unit} 急伸 — ${f.ja}`, en: `${unit} surges — ${f.en}` };
+      return { ja: `${unit} 急伸 — ${f.ja}`, en: `${unit} surges — ${f.en}` };
     case 'custom':
       return { ja: '', en: '' };
   }
@@ -106,6 +123,30 @@ function argmax(ids: string[], v: (id: string) => number): string | null {
   let best: string | null = null;
   for (const id of ids) if (best === null || v(id) > v(best)) best = id;
   return best;
+}
+
+function sameSet(a: string[], b: string[]): boolean {
+  const sa = new Set(a);
+  const sb = new Set(b);
+  return sa.size === sb.size && [...sa].every((x) => sb.has(x));
+}
+
+/**
+ * The strength change from `prev` to `cur` measured only on the groups present in both months, at this month's weights:
+ * what the unit's move would have been without the source-mix change. null when no group is common (or values are unknown).
+ */
+function likeForLikeDelta(prev: EventCell, cur: EventCell): number | null {
+  if (!prev.parts || !cur.parts) return null;
+  let sw = 0;
+  let d = 0;
+  for (const g of cur.groups) {
+    const p = prev.parts[g];
+    const c = cur.parts[g];
+    if (!p || !c || !prev.groups.includes(g)) continue;
+    sw += c.weight;
+    d += c.weight * (c.value - p.value);
+  }
+  return sw > 0 ? d / sw : null;
 }
 
 export function detectEvents(args: {
@@ -134,7 +175,7 @@ export function detectEvents(args: {
     for (const u of present) seen.add(u);
     // estimated values are placeholders, not measurements: they never lead and never move
     const measured = present.filter((u) => at(u, i)!.q !== 'estimated');
-    const push = (type: EventType, unit: string, extra: { model?: string; from?: string; down?: boolean } = {}) =>
+    const push = (type: EventType, unit: string, extra: { model?: string; from?: string; major?: boolean } = {}) =>
       raw.push({
         month: m,
         front: front.id,
@@ -143,7 +184,23 @@ export function detectEvents(args: {
         text: text(type, front, name(unit), { ...extra, ...(extra.from ? { from: name(extra.from) } : {}) }),
         ...(extra.model ? { model: extra.model } : {}),
         ...(extra.from ? { from: extra.from } : {}),
+        major: extra.major ?? false,
       });
+    // A unit whose contributing strength sources changed since last month (one appeared, or one faded out completely)
+    // moves partly because of the source mix. Its strength is then also judged like-for-like: last month's value plus its
+    // change on the groups present in both months (no common group → no evidence of a move). Surges and lead changes
+    // must hold on that basis too, so a source appearing or dropping out never makes news by itself.
+    const sourcesChanged = (u: string) => {
+      const prev = i > 0 ? at(u, i - 1) : null;
+      const cur = at(u, i);
+      return !!prev && !!cur && !sameSet(prev.groups, cur.groups);
+    };
+    const likeS = (u: string): number => {
+      const cur = at(u, i)!;
+      if (!sourcesChanged(u)) return cur.s;
+      const prev = at(u, i - 1)!;
+      return prev.s + (likeForLikeDelta(prev, cur) ?? 0);
+    };
 
     // leaders with hysteresis. A leader whose cell is merely *estimated* keeps the lead (an estimate is a placeholder,
     // not evidence that it fell behind); the lead is handed over without hysteresis only when the leader's cell is null.
@@ -152,7 +209,9 @@ export function detectEvents(args: {
       const cellS = leadS ? at(leadS, i) : null;
       const take = !leadS || !cellS || (cellS.q !== 'estimated' && candS !== leadS && at(candS, i)!.s >= cellS.s + params.leadHysteresis);
       if (take) {
-        if (i > 0 && leadS) push('lead_change', candS, { from: leadS });
+        // a lead that changed only because of a source-mix change is handed over silently
+        const genuine = !cellS || likeS(candS) >= likeS(leadS!) + params.leadHysteresis;
+        if (i > 0 && leadS && genuine) push('lead_change', candS, { from: leadS, major: true });
         leadS = candS;
       }
     }
@@ -161,11 +220,14 @@ export function detectEvents(args: {
       const cellC = leadC ? at(leadC, i) : null;
       const take = !leadC || !cellC || (candC !== leadC && at(candC, i)!.c >= cellC.c + params.leadHysteresis);
       if (take) {
-        if (i > 0 && leadC) push('scale_lead_change', candC, { from: leadC });
+        if (i > 0 && leadC) push('scale_lead_change', candC, { from: leadC, major: true });
         leadC = candC;
       }
     }
     if (i === 0) return;
+    // new models are news only near the top: the units ranked in the top 3 by (measured) strength this month
+    const ranked = measured.map((u) => at(u, i)!.s).sort((a, b) => b - a);
+    const topCut = ranked[Math.min(NEW_MODEL_TOP, ranked.length) - 1];
     for (const u of present) {
       const cur = at(u, i)!;
       const prev = at(u, i - 1);
@@ -175,9 +237,10 @@ export function detectEvents(args: {
       }
       if (cur.q === 'estimated' || prev.q === 'estimated') continue;
       const ds = cur.s - prev.s;
-      const newModel = cur.bestModel && prev.bestModel && cur.bestModel !== prev.bestModel && ds >= params.newModelMinDelta;
-      if (newModel) push('new_model', u, { model: prettyModel(cur.bestModel!, args.releases) });
-      else if (Math.abs(ds) >= params.surgeStrength || cur.c - prev.c >= params.surgeScale) push('surge', u, { down: ds <= -params.surgeStrength });
+      const newModel = cur.s >= topCut && cur.bestModel && prev.bestModel && cur.bestModel !== prev.bestModel && ds >= params.newModelMinDelta;
+      if (newModel) push('new_model', u, { model: prettyModel(cur.bestModel!, args.releases), major: u === leadS });
+      // only upward moves are news (a fall is visible on the map anyway); see sourcesChanged for the like-for-like rule
+      else if ((ds >= params.surgeStrength && likeS(u) - prev.s >= params.surgeStrength) || cur.c - prev.c >= params.surgeScale) push('surge', u);
     }
   });
 
@@ -208,7 +271,7 @@ export function detectEvents(args: {
     out.push(...list.slice(0, params.maxPerFrontMonth).map((x) => x.e));
   }
   for (const c of args.custom.filter((c) => c.front === front.id)) {
-    out.push({ month: c.month, front: c.front, unit: c.unit, type: 'custom', text: c.text });
+    out.push({ month: c.month, front: c.front, unit: c.unit, type: 'custom', text: c.text, major: true });
   }
   return out.sort((a, b) => a.month.localeCompare(b.month) || PRIORITY[a.type] - PRIORITY[b.type]);
 }

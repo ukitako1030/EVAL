@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { parse as parseYaml } from 'yaml';
-import { parseAnnouncements, parseEvents, parseReleases, parseUnits, type CompiledUnit } from '../src/config/load';
+import { parseAnnouncements, parseCredits, parseEvents, parseReleases, parseUnits, type CompiledUnit } from '../src/config/load';
+import { SOURCES } from '../src/sources/index';
 import { FRONT_IDS, type FrontId, type Observation } from '../src/core/types';
 import { toMonth } from '../src/core/months';
 import { arenaImageEdit, arenaI2v, arenaT2i, arenaT2v, arenaText, arenaTextStyle, arenaWebdev } from '../src/sources/arena';
@@ -296,6 +297,21 @@ describe('announcements.yaml', () => {
         expect(p.url, `${id} ${p.date}`).toMatch(/^https:\/\//);
       }
     }
+  });
+});
+
+describe('credits.yaml', () => {
+  const credits = parseCredits(curated('credits.yaml'));
+  it('credits the Epoch AI "AI Companies" usage data that seeded announcements.yaml', () => {
+    const epoch = credits.find((c) => c.url === 'https://epoch.ai/data/ai-companies');
+    expect(epoch?.license).toBe('CC BY 4.0');
+    expect(epoch?.credit).toMatch(/Epoch AI/);
+  });
+  it('credits the company announcements behind each user count (their links are on the figures)', () => {
+    expect(credits.find((c) => c.id === 'company-announcements')?.name).toBe("Company announcements (see each figure's link)");
+  });
+  it('uses ids that no source module uses', () => {
+    for (const c of credits) expect(SOURCES.map((s) => s.id)).not.toContain(c.id);
   });
 });
 

@@ -9,9 +9,11 @@ import {
   AnnouncementsSchema,
   EventsFileSchema,
   ReleasesFileSchema,
+  CreditsFileSchema,
   type Method,
   type Announcements,
   type EventsFile,
+  type Credit,
 } from './schemas';
 
 export interface CompiledUnit {
@@ -120,6 +122,16 @@ export function parseAnnouncements(text: string): Announcements {
 
 export function parseEvents(text: string): EventsFile {
   return validate(EventsFileSchema, parseYaml(text) ?? {}, 'events.yaml');
+}
+
+export function parseCredits(text: string): Credit[] {
+  const { credits } = validate(CreditsFileSchema, parseYaml(text) ?? {}, 'credits.yaml');
+  const seen = new Set<string>();
+  for (const c of credits) {
+    if (seen.has(c.id)) throw new Error(`credits.yaml: duplicate credit id "${c.id}"`);
+    seen.add(c.id);
+  }
+  return credits;
 }
 
 export function parseReleases(text: string): CompiledRelease[] {

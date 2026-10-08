@@ -1,8 +1,9 @@
 import { join } from 'node:path';
-import { FRONT_IDS, SIGNAL_IDS, type FrontId, type Observation, type SignalObs } from '../core/types';
+import { FRONT_IDS, SIGNAL_IDS, minConfidence, type FrontId, type Observation, type SignalObs } from '../core/types';
 import { monthRange, toMonth, type Month } from '../core/months';
-import { round1 } from '../core/math';
-import { parseAnnouncements, parseEvents, parseMethod, parseReleases, parseUnits, readText } from '../config/load';
+import { round1, round3 } from '../core/math';
+import { parseAnnouncements, parseCredits, parseEvents, parseMethod, parseReleases, parseUnits, readText } from '../config/load';
+import type { AnnSeries } from '../config/schemas';
 import { latestSnapshotDate, loadSource } from '../raw/store';
 import type { SourceModule, StrengthModule } from '../sources/types';
 import { assignSeries, bySeries, unitExists, type SeriesTable } from './assign';
@@ -10,9 +11,9 @@ import { computeStrength, fillEstimatedStrength } from './strength';
 import { announcementMonthly } from './announcements';
 import { buildSignalTable } from './signals';
 import { computeScale } from './scale';
-import { unitConfidence } from './confidence';
+import { scaleConfidence, strengthConfidence } from './confidence';
 import { detectEvents, type FrontCells, type WorldEvent } from './events';
-import { validateWorld, type World } from './world';
+import { DATA_LICENSE, DATA_LICENSE_JA, SCHEMA_VERSION, validateWorld, type World } from './world';
 
 export interface ComputeOpts {
   rawDir: string;
@@ -67,17 +68,30 @@ function latestWins(obs: SignalObs[]): SignalObs[] {
   return [...last.values()];
 }
 
+/** The public part of a curated announcements series: points sorted by date, notes left out. */
+function exportAnnouncements(s: AnnSeries): World['announcements'][string] {
+  return {
+    metric: s.metric,
+    points: [...s.points]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((p) => ({ date: p.date, value: p.value, url: p.url, ...(p.metric && p.metric !== s.metric ? { metric: p.metric } : {}) })),
+  };
+}
+
 export function computeWorld(opts: ComputeOpts): World {
   const method = parseMethod(readText(opts.methodPath));
   const units = parseUnits(readText(join(opts.curatedDir, 'units.yaml')));
   const announcements = parseAnnouncements(readText(join(opts.curatedDir, 'announcements.yaml')));
   const eventsFile = parseEvents(readText(join(opts.curatedDir, 'events.yaml')));
   const releases = parseReleases(readText(join(opts.curatedDir, 'releases.yaml')));
+  const credits = parseCredits(readText(join(opts.curatedDir, 'credits.yaml')));
   const months = monthRange(method.start, toMonth(opts.now));
   const warn = opts.onWarn ?? ((msg: string) => console.warn(msg));
 
   const strengthObs = new Map<string, Observation[]>();
   const signalObs: SignalObs[] = [];
+  /** source id → latest observation date (strength) or signal month (scale) among its valid raw items */
+  const dataThrough = new Map<string, string>();
   for (const mod of opts.modules) {
     let items: unknown[];
     try {
@@ -89,30 +103,55 @@ export function computeWorld(opts: ComputeOpts): World {
     }
     const valid = mod.role === 'strength' ? items.filter(isObservation) : items.filter(isSignalObs);
     if (valid.length < items.length) warn(`source "${mod.id}": dropped ${items.length - valid.length} of ${items.length} raw items that are not valid ${mod.role === 'strength' ? 'observations' : 'signal observations'}`);
-    if (mod.role === 'strength') strengthObs.set(mod.id, valid as Observation[]);
-    else for (const o of valid as SignalObs[]) signalObs.push(o); // not push(...valid): scale sources can hold 100k+ rows
+    let latest = '';
+    if (mod.role === 'strength') {
+      strengthObs.set(mod.id, valid as Observation[]);
+      for (const o of valid as Observation[]) if (o.date.slice(0, 10) > latest) latest = o.date.slice(0, 10);
+    } else {
+      for (const o of valid as SignalObs[]) {
+        signalObs.push(o); // not push(...valid): scale sources can hold 100k+ rows
+        if (o.month > latest) latest = o.month;
+      }
+    }
+    if (latest) dataThrough.set(mod.id, latest);
   }
   const scaleObs = latestWins(signalObs);
 
   const world: World = {
+    schemaVersion: SCHEMA_VERSION,
     generatedAt: opts.now.toISOString(),
+    dataLicense: DATA_LICENSE,
+    dataLicenseJa: DATA_LICENSE_JA,
     months,
     partialMonth: months[months.length - 1],
     orgs: units.orgs,
     fronts: FRONT_IDS.map((id) => ({ id, name: units.fronts[id].name })),
     units: {},
+    announcements: {},
     series: {},
     breakdown: {},
+    scaleBreakdown: {},
     events: [],
-    sources: opts.modules.map((m) => ({
-      id: m.id,
-      group: m.role === 'strength' ? m.group : m.id,
-      name: m.meta.name,
-      url: m.meta.url,
-      license: m.meta.license,
-      credit: m.meta.credit,
-      asOf: latestSnapshotDate(opts.rawDir, m.id),
-    })),
+    // only sources whose raw data was actually loaded are credited
+    sources: opts.modules
+      .filter((m) => dataThrough.has(m.id))
+      .map((m): World['sources'][number] => {
+        const asOf = latestSnapshotDate(opts.rawDir, m.id);
+        return {
+          id: m.id,
+          group: m.role === 'strength' ? m.group : m.id,
+          name: m.meta.name,
+          url: m.meta.url,
+          license: m.meta.license,
+          credit: m.meta.credit.replaceAll('<date>', asOf ?? ''),
+          asOf,
+          dataThrough: dataThrough.get(m.id)!,
+        };
+      })
+      .concat(
+        // material used outside the source modules (curated/credits.yaml)
+        credits.map((c) => ({ id: c.id, group: 'curated', name: c.name, url: c.url ?? null, license: c.license, credit: c.credit, asOf: null, dataThrough: null })),
+      ),
   };
 
   for (const front of FRONT_IDS) {
@@ -120,7 +159,9 @@ export function computeWorld(opts: ComputeOpts): World {
     const ids = fUnits.map((u) => u.id);
     const byId = new Map(fUnits.map((u) => [u.id, u]));
     const exists = (id: string, m: Month) => unitExists(byId.get(id)!, m);
-    world.units[front] = Object.fromEntries(fUnits.map((u) => [u.id, { org: u.org, name: u.name }]));
+    world.units[front] = Object.fromEntries(
+      fUnits.map((u) => [u.id, { org: u.org, name: u.name, since: u.since, ...(u.scale.announcements ? { announcements: u.scale.announcements } : {}) }]),
+    );
 
     // strength
     const weights = method.strength.weights[front] ?? {};
@@ -165,6 +206,7 @@ export function computeWorld(opts: ComputeOpts): World {
       const key = u.scale.announcements;
       if (key && announcements.series[key]) {
         ann.set(u.id, announcementMonthly(announcements.series[key], months, method.scale.metricFactors, method.scale.announcementStaleMonths));
+        world.announcements[key] = exportAnnouncements(announcements.series[key]);
       }
     }
     if (ann.size) signals.set('announcements', ann);
@@ -175,36 +217,55 @@ export function computeWorld(opts: ComputeOpts): World {
     // assemble series + breakdown
     world.series[front] = {};
     world.breakdown[front] = {};
+    world.scaleBreakdown[front] = {};
     const cells: FrontCells = new Map();
     for (const u of ids) {
       const arr = months.map((m) => {
         if (!exists(u, m)) return null;
         const st = strength.get(u)!.get(m)!;
         const sc = scale.get(u)!.get(m)!;
-        return { s: round1(st.s!), c: round1(sc.c), q: unitConfidence(st, sc.components) };
+        const qs = strengthConfidence(st);
+        const qc = scaleConfidence(sc.components);
+        return { s: round1(st.s!), c: round1(sc.c), q: minConfidence(qs, qc), qs, qc };
       });
       world.series[front][u] = arr;
       cells.set(
         u,
-        months.map((m, i) =>
-          arr[i]
-            ? {
-                s: arr[i]!.s,
-                c: arr[i]!.c,
-                q: arr[i]!.q,
-                bestModel: strength.get(u)!.get(m)!.breakdown.find((g) => g.group === eventGroup)?.model ?? null,
-              }
-            : null,
-        ),
+        months.map((m, i) => {
+          if (!arr[i]) return null;
+          const breakdown = strength.get(u)!.get(m)!.breakdown;
+          return {
+            s: arr[i]!.s,
+            c: arr[i]!.c,
+            q: arr[i]!.q,
+            bestModel: breakdown.find((g) => g.group === eventGroup)?.model ?? null,
+            groups: breakdown.map((g) => g.group),
+            parts: Object.fromEntries(breakdown.map((g) => [g.group, { value: g.score, weight: g.weight }])),
+          };
+        }),
       );
       const bd: World['breakdown'][string][string] = {};
       for (const m of months) {
         const st = strength.get(u)!.get(m);
         if (st && st.breakdown.length) {
-          bd[m] = st.breakdown.map((g) => ({ source: g.group, value: round1(g.score), weight: g.weight, kind: g.reconstructed ? 'reconstructed' : 'measured' }));
+          const total = st.breakdown.reduce((a, g) => a + g.weight, 0);
+          bd[m] = st.breakdown.map((g) => ({
+            source: g.group,
+            value: round1(g.score),
+            weight: round3(g.weight),
+            kind: g.reconstructed ? 'reconstructed' : 'measured',
+            model: g.model,
+            share: round3(g.weight / total),
+          }));
         }
       }
       world.breakdown[front][u] = bd;
+      const sbd: World['scaleBreakdown'][string][string] = {};
+      for (const m of months) {
+        const sc = scale.get(u)!.get(m);
+        if (sc) sbd[m] = sc.byComponent.map((p) => ({ component: p.component, share: round1(p.share), signals: p.signals }));
+      }
+      world.scaleBreakdown[front][u] = sbd;
     }
 
     const ev: WorldEvent[] = detectEvents({

@@ -44,3 +44,4 @@ export function logInterp(x0: number, y0: number, x1: number, y1: number, x: num
 }
 
 export const round1 = (x: number): number => Math.round(x * 10 + Number.EPSILON) / 10;
+export const round3 = (x: number): number => Math.round(x * 1000 + Number.EPSILON) / 1000;

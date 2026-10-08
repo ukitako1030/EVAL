@@ -12,6 +12,9 @@ const meta = { name: 'Fake', url: 'https://fake', license: 'CC BY 4.0', credit: 
 const arena: SourceModule = { id: 'fake-arena', role: 'strength', group: 'arena-text', history: 'full', meta, fetch: async () => null, parse: () => [] };
 const wiki: SourceModule = { id: 'fake-wiki', role: 'scale', history: 'full', meta, fetch: async () => null, parse: () => [] };
 
+const readItems = (rawDir: string, id: string): unknown[] =>
+  JSON.parse(readFileSync(join(rawDir, id, '2026-10-05.json'), 'utf8')).items;
+
 let dir: string;
 beforeAll(() => {
   dir = mkdtempSync(join(tmpdir(), 'world-'));
@@ -22,7 +25,7 @@ beforeAll(() => {
       ? `  general:
     name: { ja: 総合戦線, en: General Front }
     units:
-      gpt: { org: openai, name: GPT, since: 2022-11, match: ['^gpt'], scale: { wikipedia: [ChatGPT] } }
+      gpt: { org: openai, name: GPT, since: 2022-11, match: ['^gpt'], scale: { wikipedia: [ChatGPT], announcements: chatgpt } }
       claude: { org: anthropic, name: Claude, since: 2023-03, match: ['^claude'], scale: { wikipedia: [Claude] } }`
       : `  ${f}:\n    name: { ja: ${f}, en: ${f} }\n    units: {}`,
   ).join('\n');
@@ -30,9 +33,30 @@ beforeAll(() => {
     join(dir, 'curated', 'units.yaml'),
     `orgs:\n  openai: { name: OpenAI, color: '#19c37d' }\n  anthropic: { name: Anthropic, color: '#ff8a4c' }\nfronts:\n${fronts}\n`,
   );
-  writeFileSync(join(dir, 'curated', 'announcements.yaml'), 'series: {}\n');
+  // announcements start after the months the tests compute, so they never change the scale values
+  writeFileSync(
+    join(dir, 'curated', 'announcements.yaml'),
+    `series:
+  chatgpt:
+    metric: WAU
+    points:
+      - { date: 2024-01-15, value: 100000000, url: 'https://openai.com/a', note: 'not exported' }
+      - { date: 2024-06-01, value: 200000000, metric: MAU, url: 'https://openai.com/b' }
+  unused:
+    metric: MAU
+    points:
+      - { date: 2024-01-15, value: 5, url: 'https://example.com/' }
+`,
+  );
   writeFileSync(join(dir, 'curated', 'events.yaml'), 'custom:\n  - { month: 2022-11, front: general, unit: gpt, text: { ja: 開戦, en: War begins } }\n');
   writeFileSync(join(dir, 'curated', 'releases.yaml'), 'models: []\n');
+  writeFileSync(
+    join(dir, 'curated', 'credits.yaml'),
+    `credits:
+  - { id: fake-usage, name: Fake usage data, url: 'https://example.com/usage', license: CC BY 4.0, credit: 'Fake, CC BY 4.0' }
+  - { id: fake-statements, name: Fake statements, license: Cited facts, credit: See each figure }
+`,
+  );
   writeFileSync(
     join(dir, 'config', 'method.yaml'),
     `start: 2022-11
@@ -86,22 +110,160 @@ describe('computeWorld', () => {
       modules: [arena, wiki],
       now: new Date('2023-06-15T00:00:00Z'),
     });
+    expect(w.schemaVersion).toBe(2);
+    expect(w.generatedAt).toBe('2023-06-15T00:00:00.000Z');
     expect(w.months).toEqual(['2022-11', '2022-12', '2023-01', '2023-02', '2023-03', '2023-04', '2023-05', '2023-06']);
     expect(w.partialMonth).toBe('2023-06');
     const gpt = w.series.general.gpt;
     const claude = w.series.general.claude;
-    expect(gpt[0]).toEqual({ s: 100, c: 100, q: 'estimated' }); // alone, no data
+    expect(gpt[0]).toEqual({ s: 100, c: 100, q: 'estimated', qs: 'estimated', qc: 'estimated' }); // alone, no data
     expect(claude[3]).toBeNull(); // 2023-02: not yet
     expect(gpt[6]!.s).toBe(100);
     expect(claude[6]!.s).toBeCloseTo(200 / (1 + 10 ** 0.25), 1);
     expect(gpt[6]!.c).toBeCloseTo(90, 1);
-    expect(gpt[6]!.q).toBe('medium');
-    expect(w.breakdown.general.gpt['2023-05'][0]).toMatchObject({ source: 'arena-text', weight: 1, kind: 'measured' });
+    expect(gpt[6]).toMatchObject({ q: 'medium', qs: 'medium', qc: 'medium' });
+    expect(w.breakdown.general.gpt['2023-05']).toEqual([{ source: 'arena-text', value: 100, weight: 1, kind: 'measured', model: 'gpt-4', share: 1 }]);
     expect(w.events.find((e) => e.type === 'new_unit' && e.unit === 'claude')?.month).toBe('2023-03');
     expect(w.events.find((e) => e.type === 'custom')?.text.ja).toBe('開戦');
-    expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki']);
+    expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki', 'fake-usage', 'fake-statements']);
     expect(w.sources[0].asOf).toBe('2026-10-05');
+    expect(w.sources[0].dataThrough).toBe('2023-05-31'); // latest observation date
+    expect(w.sources[1].dataThrough).toBe('2023-05'); // latest signal month
     expect(w.fronts).toHaveLength(7);
+  });
+  it('lists per month each source group with its model, effective weight and share of the unit\'s total weight', () => {
+    // a second group whose only release (2022-12) is fading in 2023-05: 2 months past its active window (2023-03)
+    writeFileSync(
+      join(dir, 'config', 'method-two.yaml'),
+      readFileSync(join(dir, 'config', 'method.yaml'), 'utf8')
+        .replace('general: { arena-text: 1 }', 'general: { arena-text: 0.6, epoch-eci: 0.4 }')
+        .replace('releaseActiveMonths: 3', 'releaseActiveMonths: 3\n  fadeMonths: 6'),
+    );
+    const eci: SourceModule = { ...arena, id: 'fake-eci', group: 'epoch-eci' };
+    const raw = join(dir, 'raw-two');
+    saveSnapshot(raw, 'fake-arena', '2026-10-05', readItems(join(dir, 'raw'), 'fake-arena'), 'full');
+    saveSnapshot(
+      raw,
+      'fake-eci',
+      '2026-10-05',
+      [
+        { series: 'fake-eci', kind: 'eci', model: 'gpt-4-0613', date: '2022-12-10', dateKind: 'release', value: 130 },
+        { series: 'fake-eci', kind: 'eci', model: 'claude-1', date: '2022-12-20', dateKind: 'release', value: 120 },
+      ] satisfies Observation[],
+      'full',
+    );
+    const w = computeWorld({
+      rawDir: raw,
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method-two.yaml'),
+      modules: [arena, eci],
+      now: new Date('2023-06-15T00:00:00Z'),
+    });
+    const eciWeight = 0.4 * (5 / 7);
+    expect(w.breakdown.general.gpt['2023-05']).toEqual([
+      { source: 'arena-text', value: 100, weight: 0.6, kind: 'measured', model: 'gpt-4', share: 0.677 },
+      { source: 'epoch-eci', value: 100, weight: 0.286, kind: 'measured', model: 'gpt-4-0613', share: 0.323 },
+    ]);
+    expect(0.6 / (0.6 + eciWeight)).toBeCloseTo(0.677, 3);
+  });
+  it('explains each unit-month\'s scale by component (implied share 0–100, covering signals), only while the unit exists', () => {
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena, wiki],
+      now: new Date('2023-06-15T00:00:00Z'),
+    });
+    // 2023-05: Wikipedia ChatGPT 900 vs Claude 100; no user counts yet, so the users component keeps the base share
+    expect(w.scaleBreakdown.general.gpt['2023-05']).toEqual([
+      { component: 'users', share: 90, signals: [] },
+      { component: 'attention', share: 90, signals: ['wikipedia'] },
+    ]);
+    expect(Object.keys(w.scaleBreakdown.general.gpt)).toEqual(w.months);
+    expect(Object.keys(w.scaleBreakdown.general.claude)).toEqual(['2023-03', '2023-04', '2023-05', '2023-06']);
+    expect(w.scaleBreakdown.code).toEqual({});
+  });
+  it('lists only sources with raw data, and fills the <date> placeholder of a credit with the snapshot date', () => {
+    const noData: SourceModule = { ...wiki, id: 'fake-nodata' };
+    const corrupt: SourceModule = { ...arena, id: 'fake-corrupt' };
+    const dated: SourceModule = { ...wiki, meta: { ...meta, credit: 'Source: Fake, as of <date> (<date>)' } };
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena, noData, corrupt, dated],
+      now: new Date('2023-06-15T00:00:00Z'),
+      onWarn: () => {},
+    });
+    expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki', 'fake-usage', 'fake-statements']);
+    expect(w.sources[1].credit).toBe('Source: Fake, as of 2026-10-05 (2026-10-05)');
+  });
+  it('states the licence of the derived data in English and Japanese', () => {
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena],
+      now: new Date('2023-06-15T00:00:00Z'),
+    });
+    expect(w.dataLicense).toBe(
+      'Derived data. Contains material from sources under CC BY 4.0, CC BY-SA 3.0/4.0 and CC BY-NC 4.0 among others; see sources[] for each licence and credit. Non-commercial use only.',
+    );
+    for (const s of ['派生データ', 'CC BY 4.0', 'CC BY-SA 3.0/4.0', 'CC BY-NC 4.0', 'sources[]', '非営利']) expect(w.dataLicenseJa).toContain(s);
+  });
+  it('appends the curated credits (credits.yaml) as group "curated" without dates', () => {
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena],
+      now: new Date('2023-06-15T00:00:00Z'),
+    });
+    expect(w.sources.slice(1)).toEqual([
+      { id: 'fake-usage', group: 'curated', name: 'Fake usage data', url: 'https://example.com/usage', license: 'CC BY 4.0', credit: 'Fake, CC BY 4.0', asOf: null, dataThrough: null },
+      { id: 'fake-statements', group: 'curated', name: 'Fake statements', url: null, license: 'Cited facts', credit: 'See each figure', asOf: null, dataThrough: null },
+    ]);
+  });
+  it('describes each unit with its org, name, first month and announcements series', () => {
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena, wiki],
+      now: new Date('2023-06-15T00:00:00Z'),
+    });
+    expect(w.units.general.gpt).toEqual({ org: 'openai', name: 'GPT', since: '2022-11', announcements: 'chatgpt' });
+    expect(w.units.general.claude).toEqual({ org: 'anthropic', name: 'Claude', since: '2023-03' });
+    expect(w.units.general.claude).not.toHaveProperty('announcements');
+  });
+  it('exports the announcement series that units refer to (without notes), and only those', () => {
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena, wiki],
+      now: new Date('2023-06-15T00:00:00Z'),
+    });
+    expect(w.announcements).toEqual({
+      chatgpt: {
+        metric: 'WAU',
+        points: [
+          { date: '2024-01-15', value: 100000000, url: 'https://openai.com/a' },
+          { date: '2024-06-01', value: 200000000, url: 'https://openai.com/b', metric: 'MAU' },
+        ],
+      },
+    });
+  });
+  it('gives each cell the strength (qs) and scale (qc) confidence; q is the lower of the two', () => {
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena, wiki],
+      now: new Date('2023-08-15T00:00:00Z'),
+    });
+    // 2023-08: the 2023-05-31 arena snapshot is 92 days old (still fresh); the 2023-05 Wikipedia value is no longer carried
+    expect(w.series.general.gpt[9]).toMatchObject({ q: 'estimated', qs: 'medium', qc: 'estimated' });
   });
   it('skips a corrupt source and a series that mixes kinds with warnings, and still produces the world', () => {
     const corrupt: SourceModule = { ...arena, id: 'fake-corrupt' };
@@ -182,7 +344,7 @@ describe('computeWorld', () => {
   it("passes units.yaml's top-level exclude to the unit matching", () => {
     const curated = join(dir, 'curated-exclude');
     mkdirSync(curated);
-    for (const f of ['announcements.yaml', 'events.yaml', 'releases.yaml']) writeFileSync(join(curated, f), readFileSync(join(dir, 'curated', f)));
+    for (const f of ['announcements.yaml', 'events.yaml', 'releases.yaml', 'credits.yaml']) writeFileSync(join(curated, f), readFileSync(join(dir, 'curated', f)));
     const unitsYaml = readFileSync(join(dir, 'curated', 'units.yaml'), 'utf8');
     writeFileSync(join(curated, 'units.yaml'), `exclude:\n  - 'ft$'\n${unitsYaml}`);
     const withFineTune: Observation[] = [

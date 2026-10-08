@@ -47,6 +47,31 @@ describe('scaleMonth', () => {
     expect(r.get('c')!.share).toBeCloseTo(0.25, 10);
     expect(r.get('c')!.components).toBe(1);
   });
+  it('returns each component\'s implied share for a unit and the signals that covered it', () => {
+    const r = scaleMonth(
+      ['a', 'b', 'c'],
+      '2025-01',
+      tbl({
+        wikipedia: { a: { '2025-01': 2 }, b: { '2025-01': 1 }, c: { '2025-01': 1 } },
+        announcements: { a: { '2025-01': 10 }, b: { '2025-01': 30 } },
+      }),
+      method,
+    );
+    const parts = (u: string) => r.get(u)!.byComponent.map((p) => ({ ...p, implied: Math.round(p.implied * 1e10) / 1e10 }));
+    expect(parts('a')).toEqual([
+      { component: 'users', implied: 0.1875, signals: ['announcements'] },
+      { component: 'attention', implied: 0.5, signals: ['wikipedia'] },
+    ]);
+    expect(parts('c')).toEqual([
+      { component: 'users', implied: 0.25, signals: [] }, // not covered: keeps its base share
+      { component: 'attention', implied: 0.25, signals: ['wikipedia'] },
+    ]);
+    // the share is the weighted mean of the components' implied shares
+    for (const u of ['a', 'b', 'c']) {
+      const p = r.get(u)!.byComponent;
+      expect(r.get(u)!.share).toBeCloseTo(0.5 * p[0].implied + 0.5 * p[1].implied, 12);
+    }
+  });
   it('carries a signal value forward up to 2 months (current month often has no data yet)', () => {
     const r = scaleMonth(['a', 'b'], '2025-03', tbl({ wikipedia: { a: { '2025-01': 3 }, b: { '2025-03': 1 } } }), method);
     expect(r.get('a')!.share).toBeCloseTo(0.75, 10);
@@ -247,5 +272,22 @@ describe('computeScale', () => {
     const gone = computeScale({ unitIds: ['a', 'b'], months: ['2025-01'], exists: (u) => u === 'a', signals, method });
     expect(gone.get('b')!.get('2025-01')).toBeNull();
     expect(gone.get('a')!.get('2025-01')!.c).toBe(100);
+  });
+  it('returns per-component shares smoothed and normalised like c, so c is their weighted mean', () => {
+    // Jan: wikipedia a=b, no announcements; Feb: wikipedia a:b = 3:1, announcements a:b = 1:3
+    const signals = tbl({
+      wikipedia: { a: { '2025-01': 1, '2025-02': 3 }, b: { '2025-01': 1, '2025-02': 1 } },
+      announcements: { a: { '2025-02': 1 }, b: { '2025-02': 3 } },
+    });
+    const out = computeScale({ unitIds: ['a', 'b'], months: ['2025-01', '2025-02'], exists: () => true, signals, method: { ...method, smoothingMonths: 2 } });
+    const feb = out.get('a')!.get('2025-02')!;
+    // users implied a: Jan .5 (base), Feb .25 → smoothed .375; attention: Jan .5, Feb .75 → .625; c = (.375 + .625)/2 = .5
+    expect(feb.byComponent.map((p) => p.component)).toEqual(['users', 'attention']);
+    expect(feb.byComponent[0].share).toBeCloseTo(37.5, 10);
+    expect(feb.byComponent[0].signals).toEqual(['announcements']);
+    expect(feb.byComponent[1].share).toBeCloseTo(62.5, 10);
+    expect(feb.byComponent[1].signals).toEqual(['wikipedia']);
+    expect(feb.c).toBeCloseTo(0.5 * feb.byComponent[0].share + 0.5 * feb.byComponent[1].share, 10);
+    expect(out.get('a')!.get('2025-01')!.byComponent[0]).toEqual({ component: 'users', share: 50, signals: [] });
   });
 });

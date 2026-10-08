@@ -3,15 +3,19 @@ import { fileURLToPath } from 'node:url';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { SOURCES } from '../sources/index';
 import { computeWorld } from '../compute/index';
+import { runDate } from './runDate';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const warnings: string[] = [];
+const rawDir = join(root, 'raw');
+// noon UTC of the latest fetch (raw/_status), so that rerunning compute on the same raw data is deterministic
+const now = runDate(rawDir);
 const world = computeWorld({
-  rawDir: join(root, 'raw'),
+  rawDir,
   curatedDir: join(root, 'curated'),
   methodPath: join(root, 'config', 'method.yaml'),
   modules: SOURCES,
-  now: new Date(),
+  now,
   onWarn: (msg) => warnings.push(msg),
 });
 const outDir = join(root, '..', 'site', 'public', 'data');
@@ -24,7 +28,7 @@ for (const f of world.fronts) {
     .sort((a, b) => b[1][last]!.s - a[1][last]!.s)[0];
   console.log(`${f.name.ja}: ${Object.keys(world.units[f.id]).length} units, leader ${top ? world.units[f.id][top[0]].name : '—'}`);
 }
-console.log(`events: ${world.events.length}; wrote site/public/data/world.json`);
+console.log(`events: ${world.events.length}; generatedAt ${world.generatedAt}; wrote site/public/data/world.json`);
 if (warnings.length) {
   const unique = [...new Set(warnings)];
   console.log('');

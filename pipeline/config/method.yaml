@@ -3,6 +3,7 @@ strength:
   minUnits: 2
   snapshotMaxAgeDays: 92
   releaseActiveMonths: 3
+  fadeMonths: 6
   kinds:
     elo: { scale: 400 }
     percent: { clampLo: 0.5, clampHi: 99.5, scale: 0.4 }
@@ -25,7 +26,7 @@ scale:
   components:
     users: { weight: 0.45, signals: [announcements] }
     consumer: { weight: 0.25, signals: [crux, tranco, statcounter, cloudflare] }
-    business: { weight: 0.20, signals: [ramp, openrouter] }
+    business: { weight: 0.20, signals: [openrouter] } # Ramp: no usable public data (the `ramp` signal id stays valid)
     attention: { weight: 0.10, signals: [wikipedia, itunes] }
   base: [consumer, attention]
-events: { newModelMinDelta: 3, surgeStrength: 5, surgeScale: 5, leadHysteresis: 1, maxPerFrontMonth: 3 }
+events: { newModelMinDelta: 3, surgeStrength: 8, surgeScale: 5, leadHysteresis: 1, maxPerFrontMonth: 3 }

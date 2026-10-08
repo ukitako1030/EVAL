@@ -8,7 +8,8 @@ export function strengthConfidence(c: { measured: number; reconstructed: number;
   return 'estimated';
 }
 
-export function scaleConfidence(components: number): Confidence {
+/** Scale is never reconstructed: only high, medium or estimated. */
+export function scaleConfidence(components: number): Extract<Confidence, 'high' | 'medium' | 'estimated'> {
   if (components >= 2) return 'high';
   if (components === 1) return 'medium';
   return 'estimated';

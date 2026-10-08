@@ -7,6 +7,7 @@ import type { SeriesTable } from './assign';
 export interface GroupScore {
   group: string;
   score: number;
+  /** effective weight: configured group weight × freshness of the freshest series that scored the unit (see computeStrength) */
   weight: number;
   reconstructed: boolean;
   model: string;
@@ -48,6 +49,13 @@ interface UnitSeriesScore {
   model: string;
 }
 
+/**
+ * Per month: every series scores its units against the series leader; per group, the series used are the highest-priority
+ * ones with measured data (any data if none is measured), where a fully fresh series beats a fading one of higher priority
+ * (assign.ts freshness). For each unit, the hits of the chosen series are averaged weighted by freshness, and the group's
+ * effective weight is its configured weight × the freshness of the freshest of those hits — so a source that stops
+ * publishing fades out of the weighted mean over `fadeMonths` instead of dropping out at once.
+ */
 export function computeStrength(args: {
   tables: SeriesTable[];
   unitIds: string[];
@@ -59,7 +67,7 @@ export function computeStrength(args: {
   const out = new Map<string, Map<Month, StrengthCell>>(args.unitIds.map((id) => [id, new Map()]));
   for (const m of args.months) {
     // 1) per-series scores relative to the series leader
-    const perSeries: { table: SeriesTable; scores: Map<string, UnitSeriesScore> }[] = [];
+    const perSeries: { table: SeriesTable; fresh: number; scores: Map<string, UnitSeriesScore> }[] = [];
     for (const t of args.tables) {
       const present: [string, { value: number; model: string; reconstructed: boolean }][] = [];
       for (const [uid, byMonth] of t.points) {
@@ -72,9 +80,11 @@ export function computeStrength(args: {
       for (const [uid, p] of present) {
         scores.set(uid, { score: 200 * winProb(t.kind, p.value, lead, args.kinds), reconstructed: p.reconstructed, model: p.model });
       }
-      perSeries.push({ table: t, scores });
+      // a series without a freshness entry for a month that has points counts as fully fresh
+      perSeries.push({ table: t, fresh: t.freshness.get(m) ?? 1, scores });
     }
-    // 2) per group: highest-priority series with measured data (any data if none is measured), ties averaged
+    // 2) per group: highest-priority series with measured data (any data if none is measured; a fresh series beats a
+    //    fading one of higher priority), ties blended by freshness
     const groups = new Map<string, typeof perSeries>();
     for (const s of perSeries) {
       if (!groups.has(s.table.group)) groups.set(s.table.group, []);
@@ -87,14 +97,27 @@ export function computeStrength(args: {
       // a series that is only reconstructed this month must neither be averaged with nor override a measured one
       const hasMeasured = (s: (typeof perSeries)[number]) => [...s.scores.values()].some((h) => !h.reconstructed);
       const pool = list.some(hasMeasured) ? list.filter(hasMeasured) : list;
-      const maxP = Math.max(...pool.map((s) => s.table.priority));
+      // a stale (fading) series must not override a fresh one, e.g. the frozen arena-legacy snapshots vs current Arena data
+      const freshPool = pool.filter((s) => s.fresh >= 1);
+      const maxP = Math.max(...(freshPool.length ? freshPool : pool).map((s) => s.table.priority));
       const top = pool.filter((s) => s.table.priority === maxP);
       const ids = new Set(top.flatMap((s) => [...s.scores.keys()]));
       for (const uid of ids) {
-        const hits = top.map((s) => s.scores.get(uid)).filter((h): h is UnitSeriesScore => h !== undefined);
-        const score = hits.reduce((a, h) => a + h.score, 0) / hits.length;
+        const hits = top.flatMap((s) => {
+          const h = s.scores.get(uid);
+          return h ? [{ ...h, fresh: s.fresh }] : [];
+        });
+        const totalFresh = hits.reduce((a, h) => a + h.fresh, 0);
+        const score = hits.reduce((a, h) => a + h.fresh * h.score, 0) / totalFresh;
+        const freshest = hits.reduce((best, h) => (h.fresh > best.fresh ? h : best));
         if (!unitGroups.has(uid)) unitGroups.set(uid, []);
-        unitGroups.get(uid)!.push({ group, score, weight, reconstructed: hits.every((h) => h.reconstructed), model: hits[0].model });
+        unitGroups.get(uid)!.push({
+          group,
+          score,
+          weight: weight * freshest.fresh,
+          reconstructed: hits.every((h) => h.reconstructed),
+          model: freshest.model,
+        });
       }
     }
     // 3) weighted combination

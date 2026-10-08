@@ -58,6 +58,13 @@ describe('MethodSchema', () => {
     },
     events: { newModelMinDelta: 3, surgeStrength: 5, surgeScale: 5, leadHysteresis: 1, maxPerFrontMonth: 3 },
   });
+  it('defaults strength.fadeMonths to 0 (no fading) and accepts a non-negative integer', () => {
+    const base = method({ clampLo: 0.5, clampHi: 99.5 });
+    expect(MethodSchema.parse(base).strength.fadeMonths).toBe(0);
+    expect(MethodSchema.parse({ ...base, strength: { ...base.strength, fadeMonths: 6 } }).strength.fadeMonths).toBe(6);
+    expect(MethodSchema.safeParse({ ...base, strength: { ...base.strength, fadeMonths: -1 } }).success).toBe(false);
+    expect(MethodSchema.safeParse({ ...base, strength: { ...base.strength, fadeMonths: 1.5 } }).success).toBe(false);
+  });
   it('accepts 0 < clampLo < clampHi < 100', () => {
     expect(MethodSchema.safeParse(method({ clampLo: 0.5, clampHi: 99.5 })).success).toBe(true);
   });
