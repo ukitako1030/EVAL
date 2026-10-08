@@ -79,7 +79,7 @@ export function parseTau2(raw: unknown): Observation[] {
     for (const domain of DOMAINS) {
       const res = results[domain];
       const value = isObject(res) ? toNumber(res['pass_1']) : null;
-      if (value === null) continue;
+      if (value === null || value < 0 || value > 100) continue; // not a percentage: drop, like osworld/vbench
       out.push({
         series: `tau2@${domain}`,
         kind: 'percent',

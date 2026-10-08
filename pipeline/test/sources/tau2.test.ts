@@ -102,6 +102,17 @@ describe('tau2 parse', () => {
     expect(parseTau2([voice, noScore, null, 'x', 42, {}, { model_name: 'M', submission_date: 'garbage', results: { retail: { pass_1: 1 } } }])).toEqual([]);
   });
 
+  it('drops out-of-range pass_1 values but keeps the 0 and 100 boundaries', () => {
+    const sub = {
+      ...load('submission-gpt-5-2_sierra_2026-02-26.json'),
+      results: { airline: { pass_1: 130 }, retail: { pass_1: -0.5 }, telecom: { pass_1: 100 }, banking_knowledge: { pass_1: 0 } },
+    };
+    expect(parseTau2([sub]).map((o) => [o.series, o.value])).toEqual([
+      ['tau2@telecom', 100],
+      ['tau2@banking_knowledge', 0],
+    ]);
+  });
+
   it('whole sample: only standard text rows, four known series', () => {
     const obs = parseTau2(sample);
     expect(new Set(obs.map((o) => o.series))).toEqual(new Set(['tau2@airline', 'tau2@retail', 'tau2@telecom', 'tau2@banking_knowledge']));
