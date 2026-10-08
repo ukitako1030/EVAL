@@ -8,7 +8,11 @@
   display: flex;
   flex-direction: column;
   pointer-events: auto;
-  background: rgba(4, 11, 26, 0.94); /* text over the galaxy and the news must stay readable */
+  /* text over the galaxy must stay readable: nearly opaque, and what still shows through is blurred to a haze
+     (no ghost letters from the battle labels underneath) */
+  background: rgba(4, 11, 26, 0.95);
+  -webkit-backdrop-filter: blur(12px) saturate(0.7);
+  backdrop-filter: blur(12px) saturate(0.7);
   border-left: 3px solid var(--c, var(--cyan));
   animation: detailIn 0.35s cubic-bezier(0.2, 0.9, 0.2, 1) both;
 }
@@ -231,6 +235,7 @@
 .bd-table thead th {
   font-weight: 500;
   font-size: 9.5px;
+  white-space: nowrap; /* short column heads (寄与 / share) never break into one glyph per line */
   color: var(--text-dim);
 }
 

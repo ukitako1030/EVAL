@@ -115,7 +115,9 @@
   padding-bottom: var(--safe-b);
   border-left: 0;
   border-top: 3px solid var(--c, var(--cyan));
-  background: rgba(4, 11, 26, 0.97);
+  background: #040b1a; /* opaque: the ranking rows under the sheet must not ghost through its text */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none; /* nothing shows through: no blur cost on phones */
   z-index: 30;
   animation: sheetIn 0.35s cubic-bezier(0.2, 0.9, 0.2, 1) backwards;
   transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.2, 1);

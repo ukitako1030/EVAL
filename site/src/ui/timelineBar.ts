@@ -8,6 +8,8 @@ import { clamp, dotMonth, frontName, h, isTypingTarget, setAccent, setAttr, setS
 const SPEEDS: AppState['speed'][] = [1, 2, 4];
 /** In the compact (mobile) timeline, news months closer than this share one marker. */
 export const COMPACT_MONTH_GAP = 3;
+/** months before / after a year's first month in which the thumb's month badge overlaps that year's label */
+const YEAR_COVER = [1.6, 3.2] as const;
 
 /**
  * Sorted month indices → groups that share one marker: a month joins the current group while it is less than `gap`
@@ -69,6 +71,7 @@ export function createTimelineBar(root: HTMLElement, world: World, store: Store<
   const el = h('div', { class: 'timeline-bar' }, [play, speed, h('div', { class: 'tl-wrap' }, [markers, track, years]), skip]);
   root.appendChild(el);
 
+  const yearEls: { i: number; el: HTMLElement; covered: boolean }[] = [];
   world.months.forEach((m, i) => {
     const tick = h('i', { class: m.endsWith('-01') ? 'yr' : undefined });
     tick.style.left = `${pct(i)}%`;
@@ -77,8 +80,19 @@ export function createTimelineBar(root: HTMLElement, world: World, store: Store<
       const y = h('span', {}, [m.slice(0, 4)]);
       y.style.left = `${pct(i)}%`;
       years.appendChild(y);
+      yearEls.push({ i, el: y, covered: false });
     }
   });
+
+  /** the month badge under the thumb would cut a year label in half ("202[2025.03]"): that label steps aside */
+  function coverYears(t: number): void {
+    for (const y of yearEls) {
+      const covered = !compact && t > y.i - YEAR_COVER[0] && t < y.i + YEAR_COVER[1];
+      if (covered === y.covered) continue;
+      y.covered = covered;
+      y.el.classList.toggle('covered', covered);
+    }
+  }
 
   let markerEls: { i: number; el: HTMLButtonElement }[] = [];
   let markerKey = '';
@@ -208,6 +222,7 @@ export function createTimelineBar(root: HTMLElement, world: World, store: Store<
     setStyle(el, '--tl-f', f.toFixed(3)); // lets the compact layout keep the month badge inside the track
     const lbl = monthLabel(world, t);
     setText(label, lbl);
+    coverYears(t);
     const mi = monthIndex(world, t);
     setAttr(track, 'aria-valuenow', String(mi));
     setAttr(track, 'aria-valuetext', lbl);

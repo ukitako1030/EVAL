@@ -51,6 +51,9 @@ const WORDS = {
 } as const;
 const DARK = 0x00030c;
 const MIN_INSIDE = (18 * Math.PI) / 180;
+/** satellite planets smaller than this (screen px radius) drop the tiny sub-title line (unreadable, and it pushes the
+ * title stack into the HUD on short windows) */
+const SUB_MIN_R = 56;
 
 /** a label and whether this frame placed it */
 interface Label {
@@ -423,7 +426,7 @@ export function createGalaxyLabels(): GalaxyLabels {
           }
           const lc = L ? hexColor(L.color) : 0x8899bb;
           set(T.lead.t, T.leadStr, Math.round(11.5 * k * 2) / 2, lc, L ? lc : DARK);
-          const showSub = !(v.compact && !big);
+          const showSub = big || (!v.compact && sr >= SUB_MIN_R);
           const gap = 15 * k;
           const block = (showSub ? 2 : 1) * gap;
           const below = p.slot.labelSide === 'below';
