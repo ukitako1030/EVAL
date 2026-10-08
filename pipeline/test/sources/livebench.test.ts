@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { latestLivebenchRelease, livebenchCoding } from '../../src/sources/livebench';
+import { latestLivebenchRelease, livebenchCoding, livebenchReleases } from '../../src/sources/livebench';
 import type { FetchCtx } from '../../src/sources/types';
 import type { Observation } from '../../src/core/types';
 
@@ -123,6 +123,18 @@ describe('latestLivebenchRelease', () => {
   });
 });
 
+describe('livebenchReleases', () => {
+  it('lists every release date of the set once, oldest first', () => {
+    const py = 'LIVE_BENCH_RELEASES = {"2026-06-25", "2024-07-26", "2025-04-02", "2024-07-26"}\nOTHER = "2030-01-01"\n';
+    expect(livebenchReleases(py)).toEqual(['2024-07-26', '2025-04-02', '2026-06-25']);
+  });
+
+  it('throws when the definition is missing or holds no dates', () => {
+    expect(() => livebenchReleases('x = 1')).toThrow('LIVE_BENCH_RELEASES');
+    expect(() => livebenchReleases('LIVE_BENCH_RELEASES = set()')).toThrow('LIVE_BENCH_RELEASES');
+  });
+});
+
 describe('livebenchCoding.fetch', () => {
   const COMMON =
     'LAST = "2031-01-01"\nLIVE_BENCH_RELEASES = {"2024-07-26", "2026-06-25", "2026-01-08"}\n';
@@ -130,6 +142,7 @@ describe('livebenchCoding.fetch', () => {
   it('reads the newest release from common.py, then the table and categories of that release', async () => {
     const texts: string[] = [];
     const jsons: string[] = [];
+    const logs: string[] = [];
     const ctx = {
       fetchText: async (url: string) => {
         texts.push(url);
@@ -139,6 +152,7 @@ describe('livebenchCoding.fetch', () => {
         jsons.push(url);
         return CATEGORIES;
       },
+      log: (msg: string) => logs.push(msg),
     } as unknown as FetchCtx;
 
     const raw = await livebenchCoding.fetch(ctx);
@@ -150,6 +164,10 @@ describe('livebenchCoding.fetch', () => {
     expect(jsons).toEqual(['https://livebench.ai/categories_2026_06_25.json']);
     expect(raw).toEqual({ release: '2026-06-25', table: TABLE, categories: CATEGORIES });
     expect(parse(raw)).toHaveLength(69);
+    // one log line naming the chosen release and how many releases common.py lists (3 in COMMON)
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toContain('2026-06-25');
+    expect(logs[0]).toMatch(/\b3 releases\b/);
   });
 
   it('propagates a download failure instead of returning a half-filled payload', async () => {
@@ -159,6 +177,7 @@ describe('livebenchCoding.fetch', () => {
         throw new Error('HTTP 404 for table');
       },
       fetchJson: async () => CATEGORIES,
+      log: () => {},
     } as unknown as FetchCtx;
     await expect(livebenchCoding.fetch(ctx)).rejects.toThrow('HTTP 404');
   });

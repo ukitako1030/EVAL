@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AnnouncementsSchema, MethodSchema, UnitSchema } from '../../src/config/schemas';
+import { AnnouncementsSchema, MethodSchema, UnitSchema, UnitsFileSchema } from '../../src/config/schemas';
 
 describe('AnnouncementsSchema', () => {
   const ann = (url: string) => ({ series: { chatgpt: { metric: 'WAU', points: [{ date: '2023-11-06', value: 1, url }] } } });
@@ -22,6 +22,18 @@ describe('UnitSchema', () => {
   });
   it('rejects until < since', () => {
     expect(UnitSchema.safeParse(unit({ until: '2023-04' })).success).toBe(false);
+  });
+});
+
+describe('UnitsFileSchema', () => {
+  const file = (extra: Record<string, unknown>) => ({ orgs: {}, fronts: {}, ...extra });
+  it('defaults exclude to an empty list and accepts a list of regex strings', () => {
+    expect(UnitsFileSchema.parse(file({})).exclude).toEqual([]);
+    expect(UnitsFileSchema.parse(file({ exclude: ['nemotron', ' \\+ '] })).exclude).toEqual(['nemotron', ' \\+ ']);
+  });
+  it('rejects an exclude that is not a list of strings', () => {
+    expect(UnitsFileSchema.safeParse(file({ exclude: 'nemotron' })).success).toBe(false);
+    expect(UnitsFileSchema.safeParse(file({ exclude: [1] })).success).toBe(false);
   });
 });
 

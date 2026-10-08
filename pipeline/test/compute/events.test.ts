@@ -54,6 +54,27 @@ describe('prettyModel fallback', () => {
     expect(pm('foo (bar-preview)')).toBe('Foo (Bar Preview)');
     expect(pm('preview')).toBe('Preview');
   });
+  it('strips a trailing _unknown', () => {
+    expect(pm('gpt-5.5_unknown')).toBe('GPT 5.5');
+    expect(pm('claude-opus-5-5_unknown')).toBe('Claude Opus 5.5');
+    expect(pm('gpt-5.5_UNKNOWN')).toBe('GPT 5.5');
+  });
+  it('turns a trailing _<effort> into a parenthesised, capitalised suffix', () => {
+    expect(pm('claude-sonnet-5-5_max')).toBe('Claude Sonnet 5.5 (Max)');
+    expect(pm('gpt-5.2-2025-12-11_high')).toBe('GPT 5.2 (High)');
+    expect(pm('gpt-5.4-2026-03-05_xhigh')).toBe('GPT 5.4 (Xhigh)');
+    expect(pm('o4-mini-2025-04-16_medium')).toBe('o4 Mini (Medium)');
+    expect(pm('gpt-5-nano_low')).toBe('GPT 5 Nano (Low)');
+    expect(pm('gpt-5_minimal')).toBe('GPT 5 (Minimal)');
+    expect(pm('glm-5.2_MAX')).toBe('Glm 5.2 (Max)');
+  });
+  it('handles _unknown together with an effort, and leaves other suffixes and lone words alone', () => {
+    expect(pm('gpt-5.5_high_unknown')).toBe('GPT 5.5 (High)');
+    expect(pm('claude-opus-4-5-20251101_16K')).toBe('Claude Opus 4.5');
+    expect(pm('high')).toBe('High');
+    expect(pm('_high')).toBe('High');
+    expect(pm('gpt-5-high')).toBe('GPT 5 High'); // only an underscore-separated suffix is an effort
+  });
   it('lets release display names take precedence', () => {
     expect(pm('claude-3-5-sonnet-20240620')).toBe('Claude 3.5 Sonnet');
     expect(prettyModel('claude-3-5-sonnet-20240620', [{ regex: /^claude-3-5-sonnet/i, release: '2024-06', display: 'Sonnet 3.5 (June)' }])).toBe('Sonnet 3.5 (June)');

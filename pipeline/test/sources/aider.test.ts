@@ -12,7 +12,7 @@ describe('aiderEdit', () => {
   const obs = aiderEdit.parse(yml('aider-edit'), { now: NOW });
 
   it('maps model, pass_rate_2 and the model release date', () => {
-    expect(obs).toHaveLength(27);
+    expect(obs).toHaveLength(25); // 27 entries, minus the two partial runs
     expect(byModel(obs, 'claude-3-5-sonnet-20241022')).toEqual([
       { series: 'aider-edit', kind: 'percent', model: 'claude-3-5-sonnet-20241022', date: '2024-10-22', dateKind: 'release', value: 84.2 },
     ]);
@@ -27,6 +27,14 @@ describe('aiderEdit', () => {
     expect(byModel(obs, 'ollama/granite3-dense:8b')).toEqual([
       { series: 'aider-edit', kind: 'percent', model: 'ollama/granite3-dense:8b', date: '2024-11-28', dateKind: 'release', value: 20.3 },
     ]);
+  });
+
+  it('skips partial runs (test_cases below 95% of the usual 133)', () => {
+    // 33 and 36 of 133 exercises
+    expect(byModel(obs, 'gpt-4-turbo-2024-04-09 (diff)')).toEqual([]);
+    expect(byModel(obs, 'o1-mini')).toEqual([]);
+    // a run with MORE cases than usual (the polyglot set) is not partial
+    expect(byModel(obs, 'o1-mini-2024-09-12')).toHaveLength(1);
   });
 
   it('parses a CRLF file to the same observations as the LF one', () => {
@@ -72,7 +80,7 @@ describe('aiderPolyglot', () => {
   const obs = aiderPolyglot.parse(yml('aider-polyglot'), { now: NOW });
 
   it('maps model, pass_rate_2 and the run date (the file has no release dates)', () => {
-    expect(obs).toHaveLength(26);
+    expect(obs).toHaveLength(25); // 26 entries, minus the architect run
     expect(byModel(obs, 'gpt-5 (high)')).toEqual([
       { series: 'aider-polyglot', kind: 'percent', model: 'gpt-5 (high)', date: '2025-08-23', dateKind: 'release', value: 88 },
     ]);
@@ -81,8 +89,14 @@ describe('aiderPolyglot', () => {
     ]);
   });
 
-  it('keeps architect combos as written', () => {
-    expect(byModel(obs, 'DeepSeek R1 + claude-3-5-sonnet-20241022')).toHaveLength(1);
+  it('skips two-model architect runs but keeps their single-model parts', () => {
+    expect(byModel(obs, 'DeepSeek R1 + claude-3-5-sonnet-20241022')).toEqual([]);
+    expect(byModel(obs, 'DeepSeek R1')).toHaveLength(1);
+  });
+
+  it('keeps near-complete runs (224 of 225 exercises)', () => {
+    expect(byModel(obs, 'o1-2024-12-17 (high)')).toHaveLength(1);
+    expect(byModel(obs, 'gpt-4.5-preview')).toHaveLength(1);
   });
 
   it('declares the Aider meta, group and priority', () => {
@@ -134,3 +148,48 @@ describe('aider parsing robustness', () => {
     expect(aiderPolyglot.parse(undefined, { now: NOW })).toEqual([]);
   });
 });
+
+describe('aider architect and partial runs', () => {
+  const entry = (model: string, extra: string[] = [], testCases: number | null = 225) =>
+    [`- model: ${model}`, ...(testCases === null ? [] : [`  test_cases: ${testCases}`]), '  pass_rate_2: 50', '  date: 2025-01-02', ...extra];
+  const models = (lines: string[]) => aiderPolyglot.parse(lines.join('\n'), { now: NOW }).map((o) => o.model);
+
+  it('skips an entry that has an editor_model, whatever its name or edit_format', () => {
+    expect(models([...entry('plain'), ...entry('with-editor', ['  editor_model: some-editor']), ...entry('plain-2')])).toEqual(['plain', 'plain-2']);
+  });
+
+  it("skips edit_format 'architect' even without an editor_model or ' + ' in the name", () => {
+    expect(models([...entry('plain'), ...entry('arch', ['  edit_format: architect']), ...entry('diff-one', ['  edit_format: diff'])])).toEqual(['plain', 'diff-one']);
+  });
+
+  it("skips a model string containing ' + ' even without editor fields", () => {
+    expect(models([...entry('plain'), ...entry('R1 + sonnet'), ...entry('c++'), ...entry('gpt-4+')])).toEqual(['plain', 'c++', 'gpt-4+']);
+  });
+
+  it('skips runs below 95% of the most common test_cases and keeps those at or above it', () => {
+    const doc = [
+      ...entry('full-a'),
+      ...entry('full-b'),
+      ...entry('full-c'),
+      ...entry('boundary', [], 214), // 214 >= 213.75
+      ...entry('too-few', [], 213), // 213 < 213.75
+      ...entry('tiny', [], 20),
+    ];
+    expect(models(doc)).toEqual(['full-a', 'full-b', 'full-c', 'boundary']);
+  });
+
+  it('uses the most common value in the file, not the largest', () => {
+    const doc = [...entry('a', [], 133), ...entry('b', [], 133), ...entry('c', [], 133), ...entry('big', [], 225), ...entry('partial', [], 100)];
+    expect(models(doc)).toEqual(['a', 'b', 'c', 'big']);
+  });
+
+  it('keeps entries without a usable test_cases (nothing to compare)', () => {
+    const doc = [...entry('a'), ...entry('b'), ...entry('no-count', [], null), ...entry('text-count', ['  total_tests: x']).map((l) => l.replace('test_cases: 225', 'test_cases: many'))];
+    expect(models(doc)).toEqual(['a', 'b', 'no-count', 'text-count']);
+  });
+
+  it('does not filter anything on a file with no test_cases at all', () => {
+    expect(models([...entry('a', [], null), ...entry('b', [], null)])).toEqual(['a', 'b']);
+  });
+});
+

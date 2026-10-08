@@ -20,9 +20,20 @@ What it does (idempotent; re-running produces the same file):
   6. writes pipeline/raw/arena-legacy/<date>.json, one item per line (same layout as
      pipeline/src/raw/store.ts saveSnapshot).
 
-Pickles are loaded with a restricted unpickler: only pandas/numpy/datetime/builtins
-container classes are resolved; everything else (plotly figures, anything unexpected,
-including os/subprocess-style callables) is replaced by an inert stub. So plotly is NOT needed.
+Safety of the pickles (they are code-carrying, so this matters):
+  * Every downloaded/cached file is verified against the digest the HF tree API reports for the pinned
+    revision: SHA-256 (`lfs.oid`) for the .pkl files, which are refused outright when no SHA-256 is
+    available; git-blob SHA-1 (`oid`) for the plain CSVs. A size match alone is never trusted.
+  * Pickles are loaded with a restricted unpickler whose `find_class` resolves ONLY an exact
+    (module, name) allow-list (`_ALLOWED`: the 16 pandas/numpy/datetime/builtins constructors that the
+    28 monthly pickles actually request). Every other global - plotly figures, anything unexpected,
+    os/sys/operator/subprocess callables, any module-prefix sibling, and any dotted name (which a
+    protocol-4 STACK_GLOBAL would walk with getattr) - is replaced by an inert stub class that is never
+    imported or called, and the stubbed names are printed. So plotly is NOT needed.
+  * This is defence in depth, not a sandbox: pickle opcodes can still call the allow-listed
+    constructors with arbitrary arguments, so the real guarantee is the pinned revision plus the digest
+    check, not the unpickler alone. To re-derive the allow-list after a data or library change, log the
+    (module, name) of every `find_class` call over all monthly pickles and review the new entries.
 
 Requirements (pip):
     pip install "pandas>=2.0" "numpy>=1.24"
@@ -34,6 +45,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import pickle
@@ -89,27 +101,38 @@ class _Inert:
         return self
 
 
-_ALLOWED_BUILTINS = {"slice", "set", "frozenset", "complex", "range", "bytearray", "object",
-                     "dict", "list", "tuple", "int", "float", "str", "bytes", "bool"}
-_ALLOWED_PREFIXES = ("pandas.core.frame", "pandas.core.series", "pandas.core.indexes.", "pandas.core.internals",
-                     "pandas.core.arrays.", "pandas.core.dtypes.", "pandas._libs.",
-                     "numpy.core.multiarray", "numpy._core.multiarray", "numpy.dtypes")
-_ALLOWED_EXACT = {("numpy", "dtype"), ("numpy", "ndarray"), ("collections", "OrderedDict"),
-                  ("copyreg", "_reconstructor"), ("datetime", "datetime"), ("datetime", "date"),
-                  ("datetime", "timedelta"), ("datetime", "timezone"), ("_codecs", "encode")}
+# Exact (module, name) pairs, derived by logging every find_class request made while importing all 28
+# monthly pickles of the pinned revision (numpy 1.x pickles use numpy.core.*, 2.x ones numpy._core.*).
+_ALLOWED = frozenset({
+    ("builtins", "slice"),
+    ("datetime", "datetime"),
+    ("numpy", "dtype"),
+    ("numpy", "ndarray"),
+    ("numpy._core.multiarray", "_reconstruct"),
+    ("numpy._core.multiarray", "scalar"),
+    ("numpy.core.multiarray", "_reconstruct"),
+    ("numpy.core.multiarray", "scalar"),
+    ("pandas._libs.internals", "_unpickle_block"),
+    ("pandas.core.frame", "DataFrame"),
+    ("pandas.core.indexes.base", "Index"),
+    ("pandas.core.indexes.base", "_new_Index"),
+    ("pandas.core.indexes.range", "RangeIndex"),
+    ("pandas.core.internals.managers", "BlockManager"),
+    ("pandas.core.internals.managers", "SingleBlockManager"),
+    ("pandas.core.series", "Series"),
+})
 
 
 class SafeUnpickler(pickle.Unpickler):
     stubbed: set[str] = set()
 
     def find_class(self, module: str, name: str):
-        ok = ((module == "builtins" and name in _ALLOWED_BUILTINS)
-              or (module, name) in _ALLOWED_EXACT
-              or module.startswith(_ALLOWED_PREFIXES))
-        if ok:
+        # A dotted name is never allowed: with protocol >= 4 the stock find_class walks it attribute by
+        # attribute, which can reach e.g. sys.modules from an allowed pandas module.
+        if "." not in name and (module, name) in _ALLOWED:
             return super().find_class(module, name)
         SafeUnpickler.stubbed.add(f"{module}.{name}")
-        return type(name, (_Inert,), {"__module__": "stub." + module})
+        return type(re.sub(r"\W", "_", name) or "_", (_Inert,), {"__module__": "stub." + module})
 
 
 def load_pickle(path: Path):
@@ -135,18 +158,50 @@ def http_get(url: str, retries: int = 4) -> bytes:
     raise RuntimeError(f"GET {url} failed: {last}")
 
 
-def list_space_files(rev: str) -> dict[str, int]:
+def list_space_files(rev: str) -> dict[str, dict]:
+    """{path: {size, algo, digest}} - SHA-256 from `lfs.oid` for LFS files (the pickles), else the git blob SHA-1."""
     tree = json.loads(http_get(TREE_URL.format(space=SPACE, rev=rev)))
-    return {f["path"]: int(f.get("size") or 0) for f in tree if f.get("type") == "file"}
+    out: dict[str, dict] = {}
+    for f in tree:
+        if f.get("type") != "file":
+            continue
+        lfs = f.get("lfs") or {}
+        if lfs.get("oid"):
+            out[f["path"]] = {"size": int(lfs.get("size") or f.get("size") or 0), "algo": "sha256", "digest": lfs["oid"]}
+        else:
+            out[f["path"]] = {"size": int(f.get("size") or 0), "algo": "git-sha1", "digest": f.get("oid") or ""}
+    return out
 
 
-def cached(name: str, size: int, cache: Path, rev: str) -> Path:
+def digest_of(data: bytes, algo: str) -> str:
+    if algo == "sha256":
+        return hashlib.sha256(data).hexdigest()
+    if algo == "git-sha1":  # git object id of a blob
+        return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+    raise ValueError(f"unknown digest algorithm {algo!r}")
+
+
+def verify(name: str, data: bytes, info: dict) -> None:
+    if len(data) != info["size"]:
+        raise RuntimeError(f"{name}: got {len(data)} bytes, expected {info['size']}")
+    got = digest_of(data, info["algo"])
+    if not info["digest"] or got != info["digest"].lower():
+        raise RuntimeError(f"{name}: {info['algo']} mismatch (got {got}, expected {info['digest'] or '<none>'})")
+
+
+def cached(name: str, info: dict, cache: Path, rev: str, require: str | None = None) -> Path:
+    """Path of a verified local copy of `name`; a cached file that fails verification is downloaded again."""
+    if require and info["algo"] != require:
+        raise RuntimeError(f"{name}: no {require} digest from the HF tree API (have {info['algo']}); refusing to use it")
     p = cache / name
-    if p.exists() and (size <= 0 or p.stat().st_size == size):
-        return p
+    if p.exists():
+        try:
+            verify(name, p.read_bytes(), info)
+            return p
+        except RuntimeError:
+            pass  # stale/corrupt cache entry
     data = http_get(FILE_URL.format(space=SPACE, rev=rev, name=name))
-    if size > 0 and len(data) != size:
-        raise RuntimeError(f"{name}: got {len(data)} bytes, expected {size}")
+    verify(name, data, info)
     tmp = p.with_suffix(p.suffix + ".part")
     tmp.write_bytes(data)
     os.replace(tmp, p)
@@ -234,7 +289,7 @@ def main() -> int:
     unmapped: set[str] = set()
     for ym in sorted(per_month):
         d, name = per_month[ym]
-        res = load_pickle(cached(name, files[name], cache, a.revision))
+        res = load_pickle(cached(name, files[name], cache, a.revision, require="sha256"))
         ratings, fmt = overall_ratings(res, a.min_votes)
         local = {}
         for cd in sorted(c for c in csv_maps if c <= d):

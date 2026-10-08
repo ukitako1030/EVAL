@@ -18,9 +18,31 @@ interface AiderBoardCfg {
   url: string;
 }
 
+/** A run counts as partial below this share of the file's usual exercise count (224 of 225 is fine, 33 of 133 is not). */
+const PARTIAL_RUN_SHARE = 0.95;
+
+/** Most common `test_cases` value in the file (the larger one on a tie); null when no entry has a usable count. */
+function usualTestCases(entries: unknown[]): number | null {
+  const counts = new Map<number, number>();
+  for (const e of entries) {
+    if (typeof e !== 'object' || e === null) continue;
+    const n = toNumber((e as Record<string, unknown>).test_cases);
+    if (n !== null && n > 0) counts.set(n, (counts.get(n) ?? 0) + 1);
+  }
+  let best: number | null = null;
+  for (const [n, c] of counts) if (best === null || c > counts.get(best)! || (c === counts.get(best)! && n > best)) best = n;
+  return best;
+}
+
+/** Two-model runs (an architect model plus an editor model) measure a pairing, not one model. */
+function isArchitectRun(entry: Record<string, unknown>, model: string): boolean {
+  return entry.editor_model != null || entry.edit_format === 'architect' || model.includes(' + ');
+}
+
 /**
  * One Aider leaderboard YAML (a list of benchmark runs). `pass_rate_2` is the headline score: percent of exercises
- * passing after one retry with test feedback. Several runs per model are all emitted.
+ * passing after one retry with test feedback. Several runs per model are all emitted, except two-model "architect"
+ * runs and partial runs (fewer than 95% of the file's usual `test_cases`).
  */
 function aiderBoard(cfg: AiderBoardCfg): StrengthModule {
   return {
@@ -47,6 +69,7 @@ function aiderBoard(cfg: AiderBoardCfg): StrengthModule {
       }
       if (!Array.isArray(entries)) return [];
       const out: Observation[] = [];
+      const usual = usualTestCases(entries);
       for (const e of entries) {
         if (typeof e !== 'object' || e === null) continue;
         const entry = e as Record<string, unknown>;
@@ -55,6 +78,9 @@ function aiderBoard(cfg: AiderBoardCfg): StrengthModule {
         const date = isoDate(entry.released) ?? isoDate(entry._released) ?? isoDate(entry.date);
         const value = toNumber(entry.pass_rate_2);
         if (!model || date === null || value === null) continue;
+        if (isArchitectRun(entry, model)) continue;
+        const cases = toNumber(entry.test_cases);
+        if (usual !== null && cases !== null && cases < PARTIAL_RUN_SHARE * usual) continue;
         out.push({ series: cfg.id, kind: 'percent', model, date, dateKind: 'release', value });
       }
       return out;

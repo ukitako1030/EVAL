@@ -3,7 +3,20 @@ import type { FetchCtx } from './types';
 export const USER_AGENT = 'AI-WAR-data-pipeline/0.1 (non-commercial research visualisation; https://github.com/ukitako1030)';
 
 /** A server-requested back-off (Retry-After) is never honoured for longer than this. */
-const MAX_RETRY_AFTER_MS = 60_000;
+export const MAX_RETRY_AFTER_MS = 60_000;
+
+/** A failed HTTP response. The message stays `HTTP <status> for <url>` (query string stripped), which sources match on. */
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    readonly url: string,
+    /** the server's `Retry-After` in ms (capped at 60 s), when it sent a usable one */
+    readonly retryAfterMs?: number,
+  ) {
+    super(`HTTP ${status} for ${url}`);
+    this.name = 'HttpError';
+  }
+}
 
 export interface RetryOpts {
   /** total tries per request (default 3) */
@@ -61,11 +74,19 @@ function anySignal(signals: AbortSignal[]): AbortSignal {
   return ctrl.signal;
 }
 
+/** True when an https request ended (after redirects) on a plain-http URL. `res.url` is '' for synthetic responses, which never match. */
+function isHttpsDowngrade(requested: string, finalUrl: string): boolean {
+  return /^https:/i.test(requested) && /^http:/i.test(finalUrl);
+}
+
 /**
  * One request with retries. `read` turns the response into the result and runs INSIDE the try/timeout, so the abort timer
  * covers the body download as well (a server that stalls after the headers can no longer hang the run).
  * Retries on network errors, timeouts, 5xx and 429 (Retry-After honoured); other 4xx fail at once; a caller-provided
  * `init.signal` that fires ends the request without a retry. No sleep after the last attempt.
+ * An https request that was redirected to plain http is refused without retry: the data would have travelled in cleartext.
+ * The redirected request has already been sent when this is detected, so source URLs must still point at the HTTPS host
+ * directly (see OSWORLD_XLSX_URL); the guard turns a later silent downgrade into a loud failure.
  */
 async function request<T>(url: string, init: RequestInit, read: (res: Response) => Promise<T>, retry: RetryOpts): Promise<T> {
   const attempts = retry.attempts ?? 3;
@@ -92,11 +113,16 @@ async function request<T>(url: string, init: RequestInit, read: (res: Response) 
     let delay = baseDelayMs * 2 ** i;
     try {
       const res = await fetch(url, { ...init, headers, signal });
+      if (isHttpsDowngrade(url, res.url)) {
+        void res.body?.cancel().catch(() => {});
+        lastErr = new Error(`refusing ${safeUrl}: it was redirected to cleartext ${stripQuery(res.url)} (https to http downgrade)`);
+        break;
+      }
       if (res.ok) return await read(res);
       void res.body?.cancel().catch(() => {});
-      lastErr = new Error(`HTTP ${res.status} for ${safeUrl}`);
+      const ra = res.status === 429 ? parseRetryAfter(res.headers.get('retry-after')) : null;
+      lastErr = new HttpError(res.status, safeUrl, ra ?? undefined);
       if (res.status === 429) {
-        const ra = parseRetryAfter(res.headers.get('retry-after'));
         if (ra != null) delay = ra;
       } else if (res.status < 500) {
         break;

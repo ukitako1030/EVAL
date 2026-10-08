@@ -8,16 +8,20 @@ const COMMON_PY = 'https://raw.githubusercontent.com/LiveBench/LiveBench/main/li
 const SITE = 'https://livebench.ai';
 
 /**
- * Newest date in the `LIVE_BENCH_RELEASES = {"2024-07-26", ...}` definition of LiveBench's common.py.
- * Only dates inside that one collection count, not the other dates the file may mention.
+ * Every release date in the `LIVE_BENCH_RELEASES = {"2024-07-26", ...}` definition of LiveBench's common.py, once each,
+ * oldest first. Only dates inside that one collection count, not the other dates the file may mention.
  */
-export function latestLivebenchRelease(commonPy: string): string {
+export function livebenchReleases(commonPy: string): string[] {
   const def = /LIVE_BENCH_RELEASES\s*(?::[^=\n]+)?=(?!=)\s*(?:\{([^}]*)\}|\[([^\]]*)\]|\(([^)]*)\))/.exec(commonPy);
   const body = def ? (def[1] ?? def[2] ?? def[3]) : '';
-  const dates = [...body.matchAll(/["'](\d{4}-\d{2}-\d{2})["']/g)].map((m) => m[1]).sort();
-  const latest = dates.at(-1);
-  if (latest === undefined) throw new Error('LIVE_BENCH_RELEASES not found in LiveBench common.py');
-  return latest;
+  const dates = [...new Set([...body.matchAll(/["'](\d{4}-\d{2}-\d{2})["']/g)].map((m) => m[1]))].sort();
+  if (dates.length === 0) throw new Error('LIVE_BENCH_RELEASES not found in LiveBench common.py');
+  return dates;
+}
+
+/** Newest date of `LIVE_BENCH_RELEASES` (see livebenchReleases). */
+export function latestLivebenchRelease(commonPy: string): string {
+  return livebenchReleases(commonPy).at(-1)!;
 }
 
 /** Task columns of the "Coding" category. They are renamed between releases, so the release's own categories file is the authority. */
@@ -46,7 +50,9 @@ export const livebenchCoding: StrengthModule = {
     credit: 'LiveBench (livebench.ai), Apache-2.0 / CC BY-SA 4.0',
   },
   async fetch(ctx) {
-    const release = latestLivebenchRelease(await ctx.fetchText(COMMON_PY));
+    const releases = livebenchReleases(await ctx.fetchText(COMMON_PY));
+    const release = releases.at(-1)!;
+    ctx.log(`livebench: using release ${release} (${releases.length} releases found in common.py)`);
     const stamp = release.replace(/-/g, '_');
     const [table, categories] = await Promise.all([
       ctx.fetchText(`${SITE}/table_${stamp}.csv`),
