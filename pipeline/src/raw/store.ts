@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export type HistoryMode = 'full' | 'accumulate';
@@ -13,6 +13,7 @@ interface SnapshotFile<T> {
 
 /**
  * Writes raw/<sourceId>/<date>.json with one item per line (git-friendly diffs).
+ * The file is written to <date>.json.tmp and renamed into place, so re-running on the same date replaces it atomically.
  * 'full' sources contain their whole history in every fetch, so older files are deleted.
  */
 export function saveSnapshot<T>(rawDir: string, sourceId: string, date: string, items: T[], mode: HistoryMode): string {
@@ -21,7 +22,14 @@ export function saveSnapshot<T>(rawDir: string, sourceId: string, date: string, 
   const body = items.map((it) => JSON.stringify(it)).join(',\n');
   const text = `{"sourceId":${JSON.stringify(sourceId)},"date":${JSON.stringify(date)},"items":[\n${body}\n]}\n`;
   const path = join(dir, `${date}.json`);
-  writeFileSync(path, text);
+  const tmp = `${path}.tmp`;
+  try {
+    writeFileSync(tmp, text);
+    renameSync(tmp, path);
+  } catch (e) {
+    rmSync(tmp, { force: true });
+    throw e;
+  }
   if (mode === 'full') {
     // delete older snapshots only after the new one is safely on disk
     for (const f of readdirSync(dir)) if (DATED_JSON.test(f) && f !== `${date}.json`) rmSync(join(dir, f));
