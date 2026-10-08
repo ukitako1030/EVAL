@@ -1,0 +1,156 @@
+import { join } from 'node:path';
+import { FRONT_IDS, type FrontId, type Observation, type SignalObs } from '../core/types';
+import { monthRange, toMonth, type Month } from '../core/months';
+import { round1 } from '../core/math';
+import { parseAnnouncements, parseEvents, parseMethod, parseReleases, parseUnits, readText } from '../config/load';
+import { latestSnapshotDate, loadSource } from '../raw/store';
+import type { SourceModule, StrengthModule } from '../sources/types';
+import { assignSeries, bySeries, unitExists, type SeriesTable } from './assign';
+import { computeStrength, fillEstimatedStrength } from './strength';
+import { announcementMonthly } from './announcements';
+import { buildSignalTable } from './signals';
+import { computeScale } from './scale';
+import { unitConfidence } from './confidence';
+import { detectEvents, type FrontCells, type WorldEvent } from './events';
+import { validateWorld, type World } from './world';
+
+export interface ComputeOpts {
+  rawDir: string;
+  curatedDir: string;
+  methodPath: string;
+  modules: SourceModule[];
+  now: Date;
+}
+
+export function computeWorld(opts: ComputeOpts): World {
+  const method = parseMethod(readText(opts.methodPath));
+  const units = parseUnits(readText(join(opts.curatedDir, 'units.yaml')));
+  const announcements = parseAnnouncements(readText(join(opts.curatedDir, 'announcements.yaml')));
+  const eventsFile = parseEvents(readText(join(opts.curatedDir, 'events.yaml')));
+  const releases = parseReleases(readText(join(opts.curatedDir, 'releases.yaml')));
+  const months = monthRange(method.start, toMonth(opts.now));
+
+  const strengthObs = new Map<string, Observation[]>();
+  const signalObs: SignalObs[] = [];
+  for (const mod of opts.modules) {
+    const items = loadSource<Observation | SignalObs>(opts.rawDir, mod.id, mod.history);
+    if (mod.role === 'strength') strengthObs.set(mod.id, items as Observation[]);
+    else signalObs.push(...(items as SignalObs[]));
+  }
+
+  const world: World = {
+    generatedAt: opts.now.toISOString(),
+    months,
+    partialMonth: months[months.length - 1],
+    orgs: units.orgs,
+    fronts: FRONT_IDS.map((id) => ({ id, name: units.fronts[id].name })),
+    units: {},
+    series: {},
+    breakdown: {},
+    events: [],
+    sources: opts.modules.map((m) => ({
+      id: m.id,
+      group: m.role === 'strength' ? m.group : m.id,
+      name: m.meta.name,
+      url: m.meta.url,
+      license: m.meta.license,
+      credit: m.meta.credit,
+      asOf: latestSnapshotDate(opts.rawDir, m.id),
+    })),
+  };
+
+  for (const front of FRONT_IDS) {
+    const fUnits = units.units[front];
+    const ids = fUnits.map((u) => u.id);
+    const byId = new Map(fUnits.map((u) => [u.id, u]));
+    const exists = (id: string, m: Month) => unitExists(byId.get(id)!, m);
+    world.units[front] = Object.fromEntries(fUnits.map((u) => [u.id, { org: u.org, name: u.name }]));
+
+    // strength
+    const weights = method.strength.weights[front] ?? {};
+    const tables: SeriesTable[] = [];
+    for (const mod of opts.modules) {
+      if (mod.role !== 'strength' || !(mod.group in weights)) continue;
+      for (const list of bySeries(strengthObs.get(mod.id) ?? []).values()) {
+        tables.push(
+          assignSeries({
+            front,
+            group: mod.group,
+            priority: (mod as StrengthModule).priority ?? 1,
+            observations: list,
+            units: fUnits,
+            months,
+            releases,
+            params: method.strength,
+          }),
+        );
+      }
+    }
+    const strength = computeStrength({ tables, unitIds: ids, months, weights, kinds: method.strength.kinds, minUnits: method.strength.minUnits });
+    // new_model events compare model names within ONE group so that a source going stale doesn't look like a new model
+    const eventGroup = Object.entries(weights).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
+
+    // scale
+    const signals = buildSignalTable(fUnits, signalObs);
+    const ann = new Map<string, Map<Month, number>>();
+    for (const u of fUnits) {
+      const key = u.scale.announcements;
+      if (key && announcements.series[key]) {
+        ann.set(u.id, announcementMonthly(announcements.series[key], months, method.scale.metricFactors, method.scale.announcementStaleMonths));
+      }
+    }
+    if (ann.size) signals.set('announcements', ann);
+    const scale = computeScale({ unitIds: ids, months, exists, signals, method: method.scale });
+    const shares = new Map(ids.map((u) => [u, new Map(months.map((m) => [m, scale.get(u)!.get(m)?.c ?? null]))]));
+    fillEstimatedStrength({ cells: strength, shares, months, exists, floor: method.strength.estimate.floor, step: method.strength.estimate.step });
+
+    // assemble series + breakdown
+    world.series[front] = {};
+    world.breakdown[front] = {};
+    const cells: FrontCells = new Map();
+    for (const u of ids) {
+      const arr = months.map((m) => {
+        if (!exists(u, m)) return null;
+        const st = strength.get(u)!.get(m)!;
+        const sc = scale.get(u)!.get(m)!;
+        return { s: round1(st.s!), c: round1(sc.c), q: unitConfidence(st, sc.components) };
+      });
+      world.series[front][u] = arr;
+      cells.set(
+        u,
+        months.map((m, i) =>
+          arr[i]
+            ? {
+                s: arr[i]!.s,
+                c: arr[i]!.c,
+                q: arr[i]!.q,
+                bestModel: strength.get(u)!.get(m)!.breakdown.find((g) => g.group === eventGroup)?.model ?? null,
+              }
+            : null,
+        ),
+      );
+      const bd: World['breakdown'][string][string] = {};
+      for (const m of months) {
+        const st = strength.get(u)!.get(m);
+        if (st && st.breakdown.length) {
+          bd[m] = st.breakdown.map((g) => ({ source: g.group, value: round1(g.score), weight: g.weight, kind: g.reconstructed ? 'reconstructed' : 'measured' }));
+        }
+      }
+      world.breakdown[front][u] = bd;
+    }
+
+    const ev: WorldEvent[] = detectEvents({
+      front: { id: front as FrontId, name: units.fronts[front].name },
+      months,
+      cells,
+      unitNames: Object.fromEntries(fUnits.map((u) => [u.id, u.name])),
+      params: method.events,
+      releases,
+      overrides: eventsFile.overrides.filter((o) => o.front === front),
+      custom: eventsFile.custom,
+    });
+    world.events.push(...ev);
+  }
+  world.events.sort((a, b) => a.month.localeCompare(b.month) || FRONT_IDS.indexOf(a.front) - FRONT_IDS.indexOf(b.front));
+  return validateWorld(world);
+}
