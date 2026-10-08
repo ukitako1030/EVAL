@@ -5,12 +5,14 @@ import { SOURCES } from '../sources/index';
 import { computeWorld } from '../compute/index';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const warnings: string[] = [];
 const world = computeWorld({
   rawDir: join(root, 'raw'),
   curatedDir: join(root, 'curated'),
   methodPath: join(root, 'config', 'method.yaml'),
   modules: SOURCES,
   now: new Date(),
+  onWarn: (msg) => warnings.push(msg),
 });
 const outDir = join(root, '..', 'site', 'public', 'data');
 mkdirSync(outDir, { recursive: true });
@@ -23,3 +25,9 @@ for (const f of world.fronts) {
   console.log(`${f.name.ja}: ${Object.keys(world.units[f.id]).length} units, leader ${top ? world.units[f.id][top[0]].name : '—'}`);
 }
 console.log(`events: ${world.events.length}; wrote site/public/data/world.json`);
+if (warnings.length) {
+  const unique = [...new Set(warnings)];
+  console.log('');
+  console.log(`warnings (${unique.length}):`);
+  for (const w of unique) console.log(`  - ${w}`);
+}

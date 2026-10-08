@@ -20,7 +20,11 @@ export interface ComputeOpts {
   methodPath: string;
   modules: SourceModule[];
   now: Date;
+  /** Receives one message per skipped source/series (a broken source must not crash the run). Default: console.warn. */
+  onWarn?: (msg: string) => void;
 }
+
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export function computeWorld(opts: ComputeOpts): World {
   const method = parseMethod(readText(opts.methodPath));
@@ -29,11 +33,19 @@ export function computeWorld(opts: ComputeOpts): World {
   const eventsFile = parseEvents(readText(join(opts.curatedDir, 'events.yaml')));
   const releases = parseReleases(readText(join(opts.curatedDir, 'releases.yaml')));
   const months = monthRange(method.start, toMonth(opts.now));
+  const warn = opts.onWarn ?? ((msg: string) => console.warn(msg));
 
   const strengthObs = new Map<string, Observation[]>();
   const signalObs: SignalObs[] = [];
   for (const mod of opts.modules) {
-    const items = loadSource<Observation | SignalObs>(opts.rawDir, mod.id, mod.history);
+    let items: (Observation | SignalObs)[];
+    try {
+      items = loadSource<Observation | SignalObs>(opts.rawDir, mod.id, mod.history);
+      if (!Array.isArray(items)) throw new Error('snapshot has no items array');
+    } catch (e) {
+      warn(`source "${mod.id}": cannot read raw data (${errMsg(e)}); skipped`);
+      continue;
+    }
     if (mod.role === 'strength') strengthObs.set(mod.id, items as Observation[]);
     else signalObs.push(...(items as SignalObs[]));
   }
@@ -71,19 +83,30 @@ export function computeWorld(opts: ComputeOpts): World {
     const tables: SeriesTable[] = [];
     for (const mod of opts.modules) {
       if (mod.role !== 'strength' || !(mod.group in weights)) continue;
-      for (const list of bySeries(strengthObs.get(mod.id) ?? []).values()) {
-        tables.push(
-          assignSeries({
-            front,
-            group: mod.group,
-            priority: (mod as StrengthModule).priority ?? 1,
-            observations: list,
-            units: fUnits,
-            months,
-            releases,
-            params: method.strength,
-          }),
-        );
+      let groups: Map<string, Observation[]>;
+      try {
+        groups = bySeries(strengthObs.get(mod.id) ?? []);
+      } catch (e) {
+        warn(`source "${mod.id}" (${front}): malformed observations (${errMsg(e)}); skipped`);
+        continue;
+      }
+      for (const [seriesId, list] of groups) {
+        try {
+          tables.push(
+            assignSeries({
+              front,
+              group: mod.group,
+              priority: (mod as StrengthModule).priority ?? 1,
+              observations: list,
+              units: fUnits,
+              months,
+              releases,
+              params: method.strength,
+            }),
+          );
+        } catch (e) {
+          warn(`source "${mod.id}" series "${seriesId}" (${front}): ${errMsg(e)}; skipped`);
+        }
       }
     }
     const strength = computeStrength({ tables, unitIds: ids, months, weights, kinds: method.strength.kinds, minUnits: method.strength.minUnits });

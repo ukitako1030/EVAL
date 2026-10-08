@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -66,6 +66,15 @@ events: { newModelMinDelta: 3, surgeStrength: 5, surgeScale: 5, leadHysteresis: 
     { signal: 'wikipedia', key: 'Claude', month: '2023-05', value: 100 },
   ];
   saveSnapshot(join(dir, 'raw'), 'fake-wiki', '2026-10-05', sig, 'full');
+  // a source whose raw file is corrupt JSON
+  mkdirSync(join(dir, 'raw', 'fake-corrupt'));
+  writeFileSync(join(dir, 'raw', 'fake-corrupt', '2026-10-05.json'), '{"sourceId":"fake-corrupt","date":"2026-10-05","items":[{"series":');
+  // a source whose single series mixes value kinds
+  const mixed: Observation[] = [
+    { series: 'fake-mixed', kind: 'elo', model: 'gpt-4', date: '2023-05-31', dateKind: 'snapshot', value: 1100 },
+    { series: 'fake-mixed', kind: 'percent', model: 'claude-1', date: '2023-05-31', dateKind: 'snapshot', value: 80 },
+  ];
+  saveSnapshot(join(dir, 'raw'), 'fake-mixed', '2026-10-05', mixed, 'full');
 });
 
 describe('computeWorld', () => {
@@ -93,5 +102,42 @@ describe('computeWorld', () => {
     expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki']);
     expect(w.sources[0].asOf).toBe('2026-10-05');
     expect(w.fronts).toHaveLength(7);
+  });
+  it('skips a corrupt source and a series that mixes kinds with warnings, and still produces the world', () => {
+    const corrupt: SourceModule = { ...arena, id: 'fake-corrupt' };
+    const mixed: SourceModule = { ...arena, id: 'fake-mixed' };
+    const base = {
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      now: new Date('2023-06-15T00:00:00Z'),
+    };
+    const clean = computeWorld({ ...base, modules: [arena, wiki] });
+    const warnings: string[] = [];
+    const w = computeWorld({ ...base, modules: [corrupt, arena, mixed, wiki], onWarn: (m) => warnings.push(m) });
+    expect(w.series).toEqual(clean.series);
+    expect(w.breakdown).toEqual(clean.breakdown);
+    expect(warnings.some((m) => m.includes('fake-corrupt'))).toBe(true);
+    expect(warnings.some((m) => m.includes('fake-mixed'))).toBe(true);
+    // the series warning says where it happened (general is the only front with weights for arena-text)
+    expect(warnings.find((m) => m.includes('fake-mixed'))).toMatch(/general/);
+    expect(warnings).toHaveLength(2);
+  });
+  it('reports through console.warn when no onWarn is given', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const corrupt: SourceModule = { ...arena, id: 'fake-corrupt' };
+      const w = computeWorld({
+        rawDir: join(dir, 'raw'),
+        curatedDir: join(dir, 'curated'),
+        methodPath: join(dir, 'config', 'method.yaml'),
+        modules: [corrupt, arena, wiki],
+        now: new Date('2023-06-15T00:00:00Z'),
+      });
+      expect(w.series.general.gpt[6]!.s).toBe(100);
+      expect(spy).toHaveBeenCalledWith(expect.stringContaining('fake-corrupt'));
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
