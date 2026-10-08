@@ -3,13 +3,13 @@
     "id": "arena-text",
     "status": "ok",
     "count": 7644,
-    "ms": 3884
+    "ms": 2723
   },
   {
     "id": "arena-text-style",
     "status": "ok",
     "count": 6921,
-    "ms": 2393
+    "ms": 2179
   },
   {
     "id": "arena-legacy",
@@ -22,73 +22,73 @@
     "id": "arena-coding",
     "status": "ok",
     "count": 6748,
-    "ms": 631
+    "ms": 848
   },
   {
     "id": "arena-coding-raw",
     "status": "ok",
     "count": 7227,
-    "ms": 712
+    "ms": 972
   },
   {
     "id": "arena-webdev",
     "status": "ok",
     "count": 935,
-    "ms": 1179
+    "ms": 518
   },
   {
     "id": "arena-t2i",
     "status": "ok",
     "count": 856,
-    "ms": 1126
+    "ms": 609
   },
   {
     "id": "arena-image-edit",
     "status": "ok",
     "count": 564,
-    "ms": 846
+    "ms": 413
   },
   {
     "id": "arena-t2v",
     "status": "ok",
     "count": 458,
-    "ms": 869
+    "ms": 390
   },
   {
     "id": "arena-i2v",
     "status": "ok",
     "count": 461,
-    "ms": 917
+    "ms": 426
   },
   {
     "id": "epoch-eci",
     "status": "ok",
     "count": 274,
-    "ms": 99
+    "ms": 136
   },
   {
     "id": "epoch-terminalbench",
     "status": "ok",
     "count": 202,
-    "ms": 304
+    "ms": 74
   },
   {
     "id": "epoch-swebench",
     "status": "ok",
     "count": 35,
-    "ms": 4
+    "ms": 6
   },
   {
     "id": "epoch-metr",
     "status": "ok",
     "count": 45,
-    "ms": 3
+    "ms": 5
   },
   {
     "id": "epoch-vending",
     "status": "ok",
     "count": 66,
-    "ms": 2
+    "ms": 3
   },
   {
     "id": "epoch-apex",
@@ -100,7 +100,7 @@
     "id": "epoch-osworld",
     "status": "ok",
     "count": 20,
-    "ms": 2
+    "ms": 3
   },
   {
     "id": "epoch-osworld2",
@@ -112,55 +112,55 @@
     "id": "swebench",
     "status": "ok",
     "count": 47,
-    "ms": 346
+    "ms": 155
   },
   {
     "id": "aider-edit",
     "status": "ok",
     "count": 96,
-    "ms": 277
+    "ms": 181
   },
   {
     "id": "aider-polyglot",
     "status": "ok",
     "count": 66,
-    "ms": 234
+    "ms": 136
   },
   {
     "id": "livebench-coding",
     "status": "ok",
     "count": 69,
-    "ms": 390
+    "ms": 251
   },
   {
     "id": "osworld",
     "status": "ok",
     "count": 37,
-    "ms": 183
+    "ms": 161
   },
   {
     "id": "tau2",
     "status": "ok",
     "count": 92,
-    "ms": 2113
+    "ms": 505
   },
   {
     "id": "vbench",
     "status": "ok",
     "count": 73,
-    "ms": 1240
+    "ms": 513
   },
   {
     "id": "tts-arena",
     "status": "ok",
     "count": 38,
-    "ms": 705
+    "ms": 331
   },
   {
     "id": "music-arena",
     "status": "ok",
     "count": 185,
-    "ms": 5749
+    "ms": 2689
   },
   {
     "id": "designarena-image",
@@ -193,44 +193,43 @@
   {
     "id": "crux",
     "status": "ok",
-    "count": 982,
-    "ms": 39826
+    "count": 62,
+    "ms": 1644
   },
   {
     "id": "tranco",
     "status": "ok",
-    "count": 1077,
-    "ms": 201369
+    "count": 68,
+    "ms": 5129
   },
   {
     "id": "statcounter",
     "status": "ok",
     "count": 108,
-    "ms": 908
+    "ms": 379
   },
   {
     "id": "cloudflare",
-    "status": "skipped",
-    "count": 0,
-    "error": "missing env: CLOUDFLARE_API_TOKEN",
-    "ms": 0
+    "status": "ok",
+    "count": 320,
+    "ms": 993
   },
   {
     "id": "openrouter",
     "status": "ok",
-    "count": 58,
-    "ms": 1117
+    "count": 1811,
+    "ms": 6084
   },
   {
     "id": "wikipedia",
     "status": "ok",
     "count": 983,
-    "ms": 16315
+    "ms": 17026
   },
   {
     "id": "itunes",
     "status": "ok",
     "count": 13,
-    "ms": 460
+    "ms": 622
   }
 ]
