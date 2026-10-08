@@ -18,7 +18,7 @@ import { createHighlight } from './render/highlight';
 import { createBattle } from './render/battle';
 import { FONT_DISP, FONT_JP, FONT_UI } from './render/labels';
 import { createQualityGovernor, type QualityLevel } from './fx/quality';
-import { createFlashBudget, logFlashes } from './fx/flashBudget';
+import { REDUCED_MOTION_FLASH, createFlashBudget, logFlashes, scaleGrants } from './fx/flashBudget';
 import { tr } from './i18n/strings';
 import { loadWorld } from './data/load';
 import { createFrameSource, monthIndex } from './data/timeline';
@@ -79,7 +79,8 @@ async function boot(mount: HTMLElement) {
     // every light flash goes through this budget; debug: ?debugFlash logs grants per second (window.__flashStats)
     const budget = createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 });
     const flashLog = params.has('debugFlash') ? logFlashes(budget, { clock: () => performance.now() / 1000, log: (m) => console.log(m) }) : null;
-    const flashes = flashLog?.budget ?? budget;
+    // reduced motion also means less light: every granted flash is dimmed here, in one place
+    const flashes = scaleGrants(flashLog?.budget ?? budget, () => (store.get().reducedMotion ? REDUCED_MOTION_FLASH : 1));
 
     // wait briefly for the web fonts so the first labels render in the right face (refreshed if they arrive later)
     await Promise.race([fonts, new Promise((r) => setTimeout(r, 1500))]);

@@ -211,8 +211,9 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
         cam = cameraFor(target, viewport);
         return;
       }
+      // (no hex-grid flicker: brightening the whole screen on every move — rapid ◀ ▶ taps, swipes — is a full-screen
+      // flash outside the flash budget; the warp streaks carry the move)
       tween = { from: o.from ? { ...o.from } : { ...cam }, t: 0, dur };
-      bg.flicker(0.8);
     },
     worldToScreen(x, y) {
       return worldToScreen(cam, viewport, x, y);

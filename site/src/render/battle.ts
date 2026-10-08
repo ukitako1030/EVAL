@@ -238,9 +238,10 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
       const id = sim.units.id[slot];
       if (!id || !homePoint(id, 0.6, home)) continue;
       sim.setWarp(slot, home.x, home.y, 0.9);
+      // one flash for the whole warp-in: the beam's glow and the spark spray are bright only if it is granted
       const grant = flashes ? flashes.request(1, now()) : 0;
       fx.warp(home.x, home.y, color[slot], grant);
-      view.burst(home.x, home.y, color[slot], 28, 240, 0.7);
+      view.burst(home.x, home.y, color[slot], 28, 240, 0.7, grant > 0);
     }
     first = false;
   }
@@ -366,11 +367,12 @@ export function createBattle(renderer: Renderer, galaxy: Galaxy, opts: BattleOpt
         x = home.x;
         y = home.y;
       }
+      // one flash for the whole shockwave (glow, rings, spark spray): denied → every part of it is dim
       const grant = flashes ? flashes.request(1, now()) : 0;
       fx.shock(x, y, color[slot], grant);
       if (!store.get().reducedMotion) {
         sim.shock(slot, x, y, 1);
-        view.burst(x, y, color[slot], 48, 320, 0.9);
+        view.burst(x, y, color[slot], 48, 320, 0.9, grant > 0);
       }
       return true;
     },

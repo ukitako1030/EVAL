@@ -23,8 +23,6 @@ export interface Background {
   /** call when the screen size changes; heavy textures are rebuilt once the size settles */
   resize(w: number, h: number, resolution: number): void;
   update(dt: number, view: BackgroundView): void;
-  /** brief hex-grid brighten (0..1), e.g. on a camera move */
-  flicker(amount: number): void;
   setReducedMotion(on: boolean): void;
   destroy(): void;
 }
@@ -56,6 +54,8 @@ const TWINKLE_COLS = [0xcfe9ff, 0xffd0f4, 0xb9a8ff];
 /** apparent dot diameter = star size × this */
 const DOT_SPREAD = 2;
 const REBUILD_DELAY = 0.15;
+/** the hex grid's constant opacity */
+const HEX_ALPHA = 0.05;
 
 interface Star {
   p: Particle;
@@ -121,7 +121,6 @@ export function createBackground(opts: { reducedMotion?: boolean } = {}): Backgr
   let rebuildIn = -1;
   let time = 0;
   let drift = 0;
-  let hexFlick = 0;
   let stars: Star[] = [];
   let twinkles: Twinkle[] = [];
   let artUrl: string | null = null;
@@ -311,23 +310,19 @@ export function createBackground(opts: { reducedMotion?: boolean } = {}): Backgr
 
     updateStars(view);
 
-    hexFlick = Math.max(0, hexFlick - dt * 1.5);
+    // a steady, faint grid: it never brightens (a full-screen brightening would be a flash outside the flash budget)
     hex.position.set(0, 0);
     hex.width = W;
     hex.height = H;
-    hex.alpha = 0.05 + hexFlick * 0.12;
+    hex.alpha = HEX_ALPHA;
   }
 
   return {
     container,
     resize,
     update,
-    flicker(amount) {
-      if (!reduced) hexFlick = Math.max(hexFlick, clamp(amount, 0, 1));
-    },
     setReducedMotion(on) {
       reduced = on;
-      if (on) hexFlick = 0;
     },
     destroy() {
       artUrl = null;

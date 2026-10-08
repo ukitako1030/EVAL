@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createFlashBudget, logFlashes } from '../../src/fx/flashBudget';
+import { AMBIENT_RESERVE, FLASH_LOG_SECONDS, REDUCED_MOTION_FLASH, createFlashBudget, logFlashes, scaleGrants } from '../../src/fx/flashBudget';
 
 describe('flash budget', () => {
   it('grants at most 3 flashes per rolling second and caps intensity', () => {
@@ -51,7 +51,62 @@ describe('flash budget', () => {
   });
 });
 
+describe('ambient flashes (reserve)', () => {
+  it('an ambient request leaves `reserve` slots free for event flashes', () => {
+    const b = createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 });
+    expect(b.request(1, 0, AMBIENT_RESERVE)).toBe(0.35);
+    expect(b.request(1, 0.1, AMBIENT_RESERVE)).toBe(0.35);
+    expect(b.request(1, 0.2, AMBIENT_RESERVE)).toBe(0); // would leave no slot for news
+    expect(b.request(1, 0.3)).toBe(0.35); // the news shockwave still gets its flash
+    expect(b.request(1, 0.4)).toBe(0); // and the overall limit is unchanged
+  });
+  it('the limit still holds for any mix of ambient and event requests', () => {
+    const b = createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 });
+    const granted: number[] = [];
+    for (let k = 0; k <= 400; k++) {
+      const now = k * 0.03;
+      if (b.request(1, now, k % 3 ? AMBIENT_RESERVE : 0) > 0) granted.push(now);
+    }
+    for (const g of granted) expect(granted.filter((x) => x >= g && x <= g + 1 + 1e-9).length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('scaleGrants (reduced motion → less light)', () => {
+  it('scales every granted intensity by the factor and leaves denials and slot accounting alone', () => {
+    let reduced = false;
+    const b = scaleGrants(createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 }), () => (reduced ? REDUCED_MOTION_FLASH : 1));
+    expect(REDUCED_MOTION_FLASH).toBe(0.3);
+    expect(b.request(1, 0)).toBe(0.35);
+    reduced = true;
+    expect(b.request(1, 0.1)).toBeCloseTo(0.105, 10);
+    expect(b.request(0.1, 0.2)).toBeCloseTo(0.03, 10);
+    expect(b.request(1, 0.3)).toBe(0); // the 4th is still denied
+  });
+  it('passes the ambient reserve through', () => {
+    const b = scaleGrants(createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 }), () => 1);
+    expect(b.request(1, 0, 2)).toBe(0.35);
+    expect(b.request(1, 0.1, 2)).toBe(0);
+    expect(b.request(1, 0.2)).toBe(0.35);
+  });
+});
+
 describe('flash log (?debugFlash)', () => {
+  it('keeps at most the last 600 seconds of per-second stats', () => {
+    let clock = 0;
+    const { budget, stats } = logFlashes(createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 }), { clock: () => clock, log: () => undefined });
+    for (let s = 0; s < 700; s++) {
+      clock = s + 0.5;
+      budget.request(1, clock);
+    }
+    expect(stats.perSecond.length).toBe(FLASH_LOG_SECONDS);
+    expect(FLASH_LOG_SECONDS).toBe(600);
+    expect(stats.perSecond[stats.perSecond.length - 1][0]).toBe(698);
+  });
+  it('passes the ambient reserve through to the budget', () => {
+    const { budget } = logFlashes(createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 }), { clock: () => 0, log: () => undefined });
+    expect(budget.request(1, 0, 2)).toBe(0.35);
+    expect(budget.request(1, 0.1, 2)).toBe(0);
+  });
   it('passes requests through, logs grants per second and tracks the busiest 1 s window', () => {
     let clock = 0;
     const lines: string[] = [];

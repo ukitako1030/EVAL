@@ -117,7 +117,7 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
   const packets = new Container({ label: 'packets' });
   const behind = new Container({ label: 'behind' });
   const planetLayer = new Container({ label: 'planets' });
-  const sparks = createSparks(tex.streak);
+  const sparks = createSparks(tex.streak, flashes);
   const front = new Container({ label: 'front' });
   const reticle = createDynMesh({ label: 'reticle', blendMode: 'add' });
   root.addChild(decor, streamG.mesh, packets, behind, planetLayer, sparks.container, front, reticle.mesh);
@@ -394,7 +394,7 @@ export function createGalaxy(renderer: Renderer, opts: GalaxyOptions): Galaxy {
         pf.hover = hovered === p.id && st.front !== p.id;
         pf.visible = visible;
         p.update(dt, pf);
-        if (visible) sparks.emit(p, dt, px, reduced);
+        if (visible) sparks.emit(p, dt, px, reduced, time);
       }
       sparks.update(dt, px);
       updateStreams(px, scale, time, reduced);
