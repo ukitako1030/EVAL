@@ -1,0 +1,31 @@
+start: 2022-11
+strength:
+  minUnits: 2
+  snapshotMaxAgeDays: 92
+  releaseActiveMonths: 3
+  kinds:
+    elo: { scale: 400 }
+    percent: { clampLo: 0.5, clampHi: 99.5 }
+    minutes: { kappa: 1.0 }
+    eci: { tau: 8 }
+  estimate: { floor: 60, step: 6 }
+  weights:
+    general: { arena-text: 0.5, epoch-eci: 0.5 }
+    code: { arena-coding: 0.25, swebench: 0.25, terminalbench: 0.2, arena-webdev: 0.15, aider: 0.15, livebench-coding: 0.1 }
+    agent: { metr: 0.35, osworld: 0.25, tau2: 0.2, vending: 0.1, apex: 0.1 }
+    image: { arena-image: 0.7, designarena-image: 0.3 }
+    video: { arena-video: 0.6, designarena-video: 0.25, vbench: 0.15 }
+    speech: { tts-arena: 0.5, designarena-tts: 0.5 }
+    music: { music-arena: 0.7, designarena-music: 0.3 }
+scale:
+  smoothingMonths: 3
+  announcementStaleMonths: 6
+  metricFactors: { MAU: 1, WAU: 1.4, DAU: 2.5 }
+  floorFactor: 0.5
+  components:
+    users: { weight: 0.45, signals: [announcements] }
+    consumer: { weight: 0.25, signals: [crux, tranco, statcounter, cloudflare] }
+    business: { weight: 0.20, signals: [ramp, openrouter] }
+    attention: { weight: 0.10, signals: [wikipedia, itunes] }
+  base: [consumer, attention]
+events: { newModelMinDelta: 3, surgeStrength: 5, surgeScale: 5, leadHysteresis: 1, maxPerFrontMonth: 3 }
