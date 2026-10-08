@@ -1,5 +1,7 @@
 import { createRenderer, type Renderer } from './render/app';
 import { createGalaxy, type Galaxy } from './render/galaxy';
+import { createFleets } from './render/fleets';
+import { createHighlight } from './render/highlight';
 import { FONT_DISP, FONT_JP, FONT_UI } from './render/labels';
 import { isPortrait } from './render/layout';
 import type { QualityLevel } from './fx/quality';
@@ -48,8 +50,20 @@ async function boot(mount: HTMLElement) {
       galaxy.update(dt, framesAt(world, s.t, s.sortBy));
     });
 
+    // ---- Task 12: fleets + org highlight (Task 15 folds this into the full frame loop) ----
+    const fleets = createFleets(galaxy, renderer, { world, store });
+    const highlight = createHighlight(galaxy, { world, store, flashes, fleets });
+    renderer.onFrame((dt) => {
+      highlight.update(dt);
+      fleets.update(dt, store.get().t);
+    });
+    // debug: ?hover=<org> pins the org highlight (screenshots)
+    const hover = params.get('hover');
+    if (hover && world.orgs[hover]) store.set({ hoverOrg: hover });
+    // ---- end Task 12 ----
+
     // dev only: handles for poking the app from the console / harness (--eval)
-    if (import.meta.env.DEV) Object.assign(window, { __renderer: renderer, __galaxy: galaxy, __store: store, __world: world });
+    if (import.meta.env.DEV) Object.assign(window, { __renderer: renderer, __galaxy: galaxy, __store: store, __world: world, __fleets: fleets, __highlight: highlight });
   } catch (err: unknown) {
     console.error('AI WAR failed to start', err);
   }

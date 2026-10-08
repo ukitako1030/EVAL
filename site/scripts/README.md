@@ -50,7 +50,9 @@ Notes:
 - The first line of each size block prints the WebGL renderer (`gpu: …`). Headless Chrome uses
   the real GPU when one is available; fps measured on a software renderer (SwiftShader) is not
   representative.
-- Dev-only debug hooks in `main.ts`: `?quality=0..3` pins the render quality level (works in
-  preview too); `window.__renderer`, `__galaxy`, `__store` and `__world` expose the renderer,
-  the galaxy overview, the app store and the loaded data (dev server only), e.g.
-  `--eval "__store.set({ front: 'image' })"` zooms into a planet.
+- Dev-only debug hooks in `main.ts`: `?quality=0..3` pins the render quality level and
+  `?hover=<org>` pins the org highlight, e.g. `?hover=google` (both work in preview too);
+  `window.__renderer`, `__galaxy`, `__store`, `__world`, `__fleets` and `__highlight` expose the
+  renderer, the galaxy overview, the app store, the loaded data, the fleets and the org highlight
+  (dev server only), e.g. `--eval "__store.set({ front: 'image' })"` zooms into a planet and
+  `--eval "__fleets.count"` prints how many ships are flying.
