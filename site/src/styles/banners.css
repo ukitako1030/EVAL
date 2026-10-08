@@ -43,31 +43,21 @@
   animation: bannerOut 0.45s ease-in forwards;
 }
 
+/* one left-to-right wipe while the banner slides in and settles (no slices toggling on and off) */
 @keyframes bannerIn {
   0% {
     opacity: 0;
-    transform: translateX(-70px) skewX(-20deg);
+    transform: translateX(-56px) skewX(-16deg);
     clip-path: inset(0 100% 0 0);
   }
-  30% {
+  45% {
     opacity: 1;
-    transform: translateX(10px) skewX(5deg);
-    clip-path: inset(0 0 0 0);
-  }
-  40% {
-    transform: translateX(-5px);
-    clip-path: inset(18% 0 46% 0);
-  }
-  48% {
-    transform: translateX(4px);
-    clip-path: inset(58% 0 6% 0);
-  }
-  56% {
-    transform: none;
+    transform: translateX(6px) skewX(3deg);
     clip-path: inset(0 0 0 0);
   }
   100% {
     transform: none;
+    clip-path: inset(0 0 0 0);
   }
 }
 

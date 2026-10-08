@@ -2,9 +2,13 @@
 
 > 非公式・非商用のプロジェクトです。各 AI 企業とは関係ありません。
 
-![AI WAR の完成イメージ。中央の大きな惑星が総合戦線、まわりの惑星がコード・画像・動画・音楽などの戦線。右にランキング、下に 2022 年から現在までのタイムライン。](mockups/shots/A-galaxy-overview.png)
+**サイト：<https://ukitako1030.github.io/EVAL/>**
 
-*上の画像は見た目の見本（ダミーデータ）です。本物のデータは、サイトと「データ確認レポート」で見られます。*
+![AI WAR の画面。中央の大きな惑星が総合戦線、まわりの惑星がコード・エージェント・画像・動画・音声・音楽の戦線。右にランキングと陣営展開、下に 2022 年から現在までのタイムライン。](mockups/shots/site-galaxy-latest.jpg)
+
+| 惑星にズームした戦闘 | スマホ |
+| --- | --- |
+| ![総合戦線にズームし、粒子の部隊がぶつかり合う画面](mockups/shots/site-zoom-general.jpg) | ![スマホ縦画面の全体マップ](mockups/shots/site-galaxy-latest-mobile.jpg) |
 
 ## 1. AI WAR とは
 
@@ -165,7 +169,8 @@ npm run build        # 公開用にビルド（site/dist/ ができます）
 - 各データ源の名前・ライセンス・クレジットは、サイトの「データと方法」ページと [`pipeline/raw/LICENSES.md`](pipeline/raw/LICENSES.md)（`npm run fetch` が自動で作る一覧）にあります。`world.json` にも `dataLicense` として同じ方針が書かれています。
 - `pipeline/raw/` に保存しているのは、各データ源から必要な項目（モデル名・日付・点数・件数）だけを取り出したものです。元のファイルのコピーではありません。
 - 企業のロゴは使わず、名前と色で表現しています。
-- このリポジトリには、まだコードの `LICENSE` ファイルがありません。公開する前に、どのライセンスにするか決めてください（Claude に相談できます）。
+- **プログラム（コード）は MIT ライセンス**です（[`LICENSE`](LICENSE)）。
+- MIT の対象は**コードだけ**です。データ（`pipeline/raw/` と `site/public/data/world.json`、`pipeline/curated/` の出典付きの数字）は、上の各データ源のライセンスと条件に従います。MIT で再ライセンスされるものではありません。
 
 ## 8. 免責
 
