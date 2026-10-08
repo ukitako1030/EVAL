@@ -130,6 +130,7 @@ describe('fetchCrux', () => {
 
   function stub(over: Partial<FetchCtx> = {}) {
     const urls: string[] = [];
+    const inits = new Map<string, RequestInit | undefined>();
     const logs: string[] = [];
     const ctx: FetchCtx = {
       env: {},
@@ -137,19 +138,21 @@ describe('fetchCrux', () => {
       backfill: false,
       keys: (s) => (s === 'crux' ? ['chatgpt.com', 'claude.ai', 'absent.example'] : []),
       fetchText: async () => '',
-      fetchBytes: async (url) => {
+      fetchBytes: async (url, init) => {
         urls.push(url);
+        inits.set(url, init);
         const m = /(\d{6})\.csv\.gz$/.exec(url)![1];
         return gz(csvFor(m));
       },
-      fetchJson: async <T>(url: string) => {
+      fetchJson: async <T>(url: string, init?: RequestInit) => {
         urls.push(url);
+        inits.set(url, init);
         return listing as unknown as T;
       },
       log: (m) => logs.push(m),
       ...over,
     };
-    return { ctx, urls, logs };
+    return { ctx, urls, inits, logs };
   }
 
   it('downloads the newest two months without backfill', async () => {
@@ -170,6 +173,45 @@ describe('fetchCrux', () => {
       ['chatgpt.com', '2026-08', 316],
       ['claude.ai', '2026-08', 2236],
     ]);
+  });
+
+  describe('GitHub token for the listing', () => {
+    const LISTING = 'https://api.github.com/repos/zakird/crux-top-lists/contents/data/global';
+
+    it('sends the GITHUB_TOKEN as a bearer token on the listing request when it is set', async () => {
+      const { ctx, inits } = stub({ env: { GITHUB_TOKEN: 'ghp_test_token' } });
+      await fetchCrux(ctx);
+      expect(inits.get(LISTING)?.headers).toEqual({ Authorization: 'Bearer ghp_test_token' });
+    });
+
+    it('sends no Authorization header when it is unset or empty', async () => {
+      for (const env of [{}, { GITHUB_TOKEN: undefined }, { GITHUB_TOKEN: '' }]) {
+        const { ctx, inits } = stub({ env });
+        await fetchCrux(ctx);
+        expect(inits.get(LISTING)).toBeUndefined();
+      }
+    });
+
+    it('keeps the token off the file downloads (raw.githubusercontent.com) and out of the log', async () => {
+      const { ctx, urls, inits, logs } = stub({ env: { GITHUB_TOKEN: 'ghp_test_token' } });
+      await fetchCrux(ctx);
+      const files = urls.filter((u) => u.startsWith('https://raw.githubusercontent.com/'));
+      expect(files.length).toBeGreaterThan(0);
+      for (const u of files) expect(inits.get(u)).toBeUndefined();
+      expect(logs.join(' | ')).not.toContain('ghp_test_token');
+    });
+
+    it('does not put the token in the error when the listing fails', async () => {
+      const { ctx } = stub({
+        env: { GITHUB_TOKEN: 'ghp_test_token' },
+        fetchJson: async (url: string) => {
+          throw new Error(`HTTP 403 for ${url}`);
+        },
+      });
+      const err = await fetchCrux(ctx).catch((e: Error) => e);
+      expect((err as Error).message).toContain('HTTP 403');
+      expect((err as Error).message).not.toContain('ghp_test_token');
+    });
   });
 
   it('downloads every month from 202211 with backfill and skips a month that fails to download', async () => {

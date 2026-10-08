@@ -94,7 +94,10 @@ export function scanCruxCsv(text: string, hosts: string[]): { host: string; buck
 export async function fetchCrux(ctx: FetchCtx): Promise<CruxRaw[]> {
   const hosts = [...new Set(ctx.keys('crux'))];
   if (!hosts.length) throw new Error('no crux hosts configured in units.yaml');
-  const listing = await ctx.fetchJson<unknown>(LISTING_URL);
+  // unauthenticated GitHub API calls are limited to 60 requests/hour per IP, which a shared CI runner can use up; the file
+  // downloads come from raw.githubusercontent.com and need no token (so it is not sent there)
+  const token = ctx.env.GITHUB_TOKEN;
+  const listing = await ctx.fetchJson<unknown>(LISTING_URL, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
   const months = selectCruxMonths(cruxFileMonths(listing), ctx.backfill);
   if (!months.length) throw new Error('crux: no monthly files found in the listing (format change?)');
   const out: CruxRaw[] = [];
