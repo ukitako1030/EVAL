@@ -1,27 +1,13 @@
 import type { Observation } from '../core/types';
+import { isObject, redactEmails, type Json } from './lib/privacy';
 import { isoDate, toNumber } from './lib/values';
 import type { FetchCtx, StrengthModule } from './types';
 
 const BASE = 'https://sierra-tau-bench-public.s3.us-west-2.amazonaws.com/submissions';
 const DOMAINS = ['airline', 'retail', 'telecom', 'banking_knowledge'] as const;
 const FETCH_CONCURRENCY = 6;
-const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 
-type Json = Record<string, unknown>;
-
-function isObject(v: unknown): v is Json {
-  return !!v && typeof v === 'object' && !Array.isArray(v);
-}
-
-/** Replaces any e-mail address left in a string anywhere in the value (defence in depth after dropping `contact_info`). */
-function redactEmails(v: unknown): unknown {
-  if (typeof v === 'string') return v.replace(EMAIL, '<redacted>');
-  if (Array.isArray(v)) return v.map(redactEmails);
-  if (isObject(v)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, redactEmails(x)]));
-  return v;
-}
-
-/** Removes the submitters' personal data from one submission object. */
+/** Removes the submitters' personal data from one submission object: drops `contact_info` and scrubs any stray e-mail address (defence in depth). */
 export function stripPersonalData(submission: Json): Json {
   const { contact_info: _dropped, ...rest } = submission;
   return redactEmails(rest) as Json;

@@ -1,4 +1,5 @@
 import type { Observation } from '../core/types';
+import { isObject, type Json } from './lib/privacy';
 import { isoDate, toNumber } from './lib/values';
 import type { FetchCtx, StrengthModule } from './types';
 
@@ -13,12 +14,6 @@ export interface MusicArenaFile {
   date: string;
   board: Board;
   text: string;
-}
-
-type Json = Record<string, unknown>;
-
-function isObject(v: unknown): v is Json {
-  return !!v && typeof v === 'object' && !Array.isArray(v);
 }
 
 const SAFE_FILE = /^[A-Za-z0-9_.-]+\.tsv$/;

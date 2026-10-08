@@ -1,5 +1,6 @@
 import type { Observation } from '../core/types';
 import { todayISO } from '../core/months';
+import { isObject } from './lib/privacy';
 import { toNumber } from './lib/values';
 import type { FetchCtx, StrengthModule } from './types';
 
@@ -14,12 +15,6 @@ export type DesignArenaCategory = (typeof DESIGN_ARENA_CATEGORIES)[number];
 
 const API_BASE = 'https://www.designarena.ai/api/v1/leaderboard/models';
 const ENV_KEY = 'DESIGNARENA_API_KEY';
-
-type Json = Record<string, unknown>;
-
-function isObject(v: unknown): v is Json {
-  return !!v && typeof v === 'object' && !Array.isArray(v);
-}
 
 /**
  * Pure parser for a `LeaderboardResponse` (object or JSON text): `data[].displayName` / `data[].elo`, stamped with the fetch day

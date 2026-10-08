@@ -1,18 +1,14 @@
 import type { Observation } from '../core/types';
+import { isObject, redactEmails, type Json } from './lib/privacy';
 import { isoDate, toNumber } from './lib/values';
 import type { FetchCtx, StrengthModule } from './types';
 
 const CONFIG_URL = 'https://vchitect-vbench-leaderboard.hf.space/config';
 const MAIN_TABLE_ID = 20; // "VBench 1.0" text-to-video table at the time of writing; only a hint, see findMainTable
 
-type Json = Record<string, unknown>;
 interface Table {
   headers: string[];
   data: unknown[][];
-}
-
-function isObject(v: unknown): v is Json {
-  return !!v && typeof v === 'object' && !Array.isArray(v);
 }
 
 /** `[Veo 3](https://…)` → `Veo 3`; `[name]` → `name`; plain text is returned trimmed. */
@@ -92,15 +88,6 @@ export function parseVbench(raw: unknown): Observation[] {
     out.push({ series: 'vbench', kind: 'percent', model: name, date, dateKind: 'release', value });
   }
   return out;
-}
-
-const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
-
-function redactEmails(v: unknown): unknown {
-  if (typeof v === 'string') return v.replace(EMAIL, '<redacted>');
-  if (Array.isArray(v)) return v.map(redactEmails);
-  if (isObject(v)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, redactEmails(x)]));
-  return v;
 }
 
 /**

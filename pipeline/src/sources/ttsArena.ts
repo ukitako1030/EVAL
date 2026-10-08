@@ -1,15 +1,10 @@
 import type { Observation } from '../core/types';
 import { todayISO } from '../core/months';
+import { isObject } from './lib/privacy';
 import { toNumber } from './lib/values';
 import type { FetchCtx, StrengthModule } from './types';
 
 const URL = 'https://tts-agi-tts-arena-v2.hf.space/api/leaderboard';
-
-type Json = Record<string, unknown>;
-
-function isObject(v: unknown): v is Json {
-  return !!v && typeof v === 'object' && !Array.isArray(v);
-}
 
 const trimmed = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
