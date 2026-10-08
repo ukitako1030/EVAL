@@ -10,7 +10,8 @@
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "shoot": "node scripts/shoot.mjs"
   },
   "dependencies": {
     "pixi-filters": "^6.1.5",
