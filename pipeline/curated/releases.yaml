@@ -9,12 +9,49 @@
 # Models whose month could not be sourced are left out.
 models:
   # ═════════════════════════════ image ═════════════════════════════
+  # ── OpenAI ──
+  # DRAFT-MEDIA
+  - { match: '(?<![a-z0-9])dall[-·. ]?e[-_ ]?3', release: 2023-10, display: DALL·E 3 }
+  - { match: '(?<![a-z0-9])gpt[-_ ]image[-_ ]1[-_ ]mini', release: 2025-10, display: GPT Image 1 mini }
+  - { match: '(?<![a-z0-9])gpt[-_ ]image[-_ ]1(?![.\d])', release: 2025-04, display: GPT Image 1 }
+  # ── Google ──
+  - { match: '(?<![a-z0-9])gemini[-_ ]3[-_ ]pro[-_ ]image|nano[-_ ]?banana[-_ ]?pro', release: 2025-11, display: Nano Banana Pro }
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.5[-_ ]flash[-_ ]image|nano[-_ ]?banana(?![-_ ]?(?:pro|\d))', release: 2025-08, display: Nano Banana }
+  - { match: '(?<![a-z0-9])gemini[-_ ]2\.0[-_ ]flash.*image', release: 2025-05, display: Gemini 2.0 Flash Image }
+  - { match: '(?<![a-z0-9])imagen[-_ ](?:ultra[-_ ])?4', release: 2025-05, display: Imagen 4 }
+  # ── BFL ──
+  - { match: '(?<![a-z0-9])flux[-_ .]?2(?![\d])(?!.*video)', release: 2025-11, display: FLUX.2 }
+  - { match: '(?<![a-z0-9])flux[-_ .]?1[-_ ]kontext', release: 2025-05, display: FLUX.1 Kontext }
+  - { match: '(?<![a-z0-9])flux[-_ .]?1\.1[-_ ]pro', release: 2024-10, display: 'FLUX1.1 [pro]' }
+  - { match: '(?<![a-z0-9])flux[-_ .]?1[-_ .](?:dev|schnell|pro)', release: 2024-08, display: FLUX.1 }
+  # ── others ──
+  - { match: '(?<![a-z0-9])recraft[-_ ]v3', release: 2024-10, display: Recraft V3 }
+  - { match: '(?<![a-z0-9-])ideogram[-_ ]v2', release: 2024-08, display: Ideogram 2.0 }
+  - { match: '(?<![a-z0-9-])ideogram[-_ ]v3', release: 2025-03, display: Ideogram 3.0 }
+  - { match: '(?<![a-z0-9])seedream[-_ ]3', release: 2025-04, display: Seedream 3.0 }
+  - { match: '(?<![a-z0-9])seedream[-_ ]4(?![.\d])', release: 2025-09, display: Seedream 4.0 }
+  - { match: '(?<![a-z0-9])stable-diffusion-v35', release: 2024-10, display: Stable Diffusion 3.5 }
+  - { match: '(?<![a-z0-9])photon(?![a-z])', release: 2024-11, display: Luma Photon }
   # ═════════════════════════════ video ═════════════════════════════
   - { match: '(?<![a-z0-9])veo[-_ ]3\.1', release: 2025-10, display: Veo 3.1 }
   - { match: '(?<![a-z0-9])veo[-_ ]3(?![.\d])', release: 2025-05, display: Veo 3 }
   - { match: '(?<![a-z0-9])veo[-_ ]2(?![.\d])', release: 2024-12, display: Veo 2 }
   - { match: '(?<![a-z0-9-])sora[-_ ]2(?![.\d])', release: 2025-09, display: Sora 2 }
   - { match: '(?<![a-z0-9-])sora(?![-_ ]?\d)(?![a-z])', release: 2024-12, display: Sora }
+  - { match: '(?<![a-z0-9])hailuo[-_ ]02', release: 2025-06, display: Hailuo 02 }
+  - { match: '(?<![a-z0-9])(?:dreamina-)?seedance[-_ ]v?1(?:\.0)?(?![.\d])', release: 2025-06, display: Seedance 1.0 }
+  - { match: '(?<![a-z0-9])kling[-_ ]v?2\.1', release: 2025-05, display: Kling 2.1 }
+  - { match: '(?<![a-z0-9])wan[-_ ]?v?2\.2', release: 2025-07, display: Wan 2.2 }
+  - { match: '(?<![a-z0-9])wan[-_ ]?v?2\.1', release: 2025-02, display: Wan 2.1 }
+  - { match: '(?<![a-z0-9])mochi[-_ ]?v?1', release: 2024-10, display: Mochi 1 }
+  - { match: '(?<![a-z0-9])pika[-_ ]v?2\.2', release: 2025-02, display: Pika 2.2 }
+  - { match: '(?<![a-z0-9])ray[-_ ]?2(?![.\d])', release: 2025-01, display: Ray2 }
+  # ═════════════════════════════ music ═════════════════════════════
+  - { match: '(?<![a-z0-9])eleven(?:labs)?[-_ ]?music[-_ ]v?1', release: 2025-08, display: Eleven Music }
+  - { match: '(?<![a-z0-9])acestep(?![-.\d])|ace-step(?![-_ ]1\.5)', release: 2025-05, display: ACE-Step }
+  - { match: '(?<![a-z0-9])sao(?![-a-z0-9])|stable audio open(?! small)', release: 2024-06, display: Stable Audio Open }
+  - { match: '(?<![a-z0-9])musicgen', release: 2023-06, display: MusicGen }
+  - { match: '(?<![a-z0-9])magenta[-_ ]?(?:rt|realtime)(?![-_ ]?2)', release: 2025-06, display: Magenta RealTime }
 
   # ═════════════════════════════ LLMs ═════════════════════════════
   # ── OpenAI ──
@@ -52,7 +89,8 @@ models:
   # https://openai.com/index/hello-gpt-4o/
   - { match: '(?<![a-z0-9])gpt[-_ ]?4o(?!.*(?:tts|transcribe|realtime|audio|search|image))', release: 2024-05, display: GPT-4o }
   # https://openai.com/index/introducing-openai-o1-preview/
-  - { match: '(?<![a-z0-9-])o1-(?:preview|mini)', release: 2024-09, display: o1-preview }
+  - { match: '(?<![a-z0-9-])o1-preview', release: 2024-09, display: o1-preview }
+  - { match: '(?<![a-z0-9-])o1-mini', release: 2024-09, display: o1-mini }
   # https://openai.com/index/openai-o1-and-new-tools-for-developers/
   - { match: '(?<![a-z0-9-])o1(?![a-z0-9.])', release: 2024-12, display: o1 }
   # https://openai.com/index/openai-o3-mini/
@@ -209,6 +247,8 @@ models:
   - { match: '(?<![a-z0-9])qwen-?3[-_ ]coder', release: 2025-07, display: Qwen3-Coder }
   # https://www.alibabacloud.com/blog/602560 (preview 2025-09-05, official 09-24)
   - { match: '(?<![a-z0-9])qwen-?3[-_ ]max', release: 2025-09, display: Qwen3-Max }
+  # Qwen3-235B-A22B-Instruct-2507 / -Thinking-2507 (2025-07-21 / 07-25): https://huggingface.co/Qwen/Qwen3-235B-A22B-Thinking-2507
+  - { match: '(?<![a-z0-9])qwen-?3[-_ ].*(?:2507|jul 2025)', release: 2025-07, display: Qwen3-2507 }
   # https://qwenlm.github.io/blog/qwen3/ (2025-04-29)
   - { match: '(?<![a-z0-9])qwen-?3(?![.\d])(?![-_ ](?:coder|max|next|vl|omni)|.*2507)', release: 2025-04, display: Qwen3 }
   # https://www.alibabacloud.com/blog/qwen3-5-towards-native-multimodal-agents_602894 (2026-02-16)
