@@ -1,0 +1,1831 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI WAR — 粒子大戦 / SWARM WAR</title>
+<!-- Mockup C「粒子大戦 / SWARM WAR」: Canvas 2D boids swarms. Requires data.js in the same folder. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cyan: #5fe8ff;
+  --mag: #ff4fd8;
+  --ink: #d6efff;
+  --dim: #6f8fae;
+  --panel: rgba(4, 10, 22, .62);
+  --line: rgba(95, 232, 255, .26);
+  --tl-h: 62px;
+  --lw: 250px;
+  --row-h: 44px;
+  --f-head: 'Orbitron', 'Rajdhani', 'Noto Sans JP', sans-serif;
+  --f-jp: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, sans-serif;
+  --f-ui: 'Rajdhani', 'Noto Sans JP', 'Yu Gothic', sans-serif;
+  --f-mono: 'Share Tech Mono', ui-monospace, Consolas, 'Noto Sans JP', monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #02040a; color: var(--ink); font-family: var(--f-jp); -webkit-font-smoothing: antialiased; }
+button { font-family: inherit; }
+
+/* ---------- stage (canvases + screen fx) ---------- */
+#stage { position: fixed; inset: 0; overflow: hidden; z-index: 0; }
+#stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.fxl { position: absolute; inset: 0; pointer-events: none; }
+.vignette { background: radial-gradient(ellipse 75% 70% at 45% 48%, transparent 55%, rgba(0,0,0,.72) 100%); }
+.scan { background: repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px); opacity: .55; }
+#grain { left: -50%; top: -50%; width: 200%; height: 200%; inset: auto; opacity: .045; animation: grain .8s steps(5) infinite; }
+@keyframes grain { 0%{transform:translate(0,0)} 20%{transform:translate(-3%,2%)} 40%{transform:translate(2%,-3%)} 60%{transform:translate(-2%,-1%)} 80%{transform:translate(3%,3%)} 100%{transform:translate(0,0)} }
+#flash { opacity: 0; background: radial-gradient(circle at var(--fx, 50%) var(--fy, 50%), rgba(255,255,255,.32), rgba(120,220,255,.08) 30%, transparent 60%); }
+#flash.on { animation: flash .55s ease-out; }
+@keyframes flash { 0% { opacity: 1; } 100% { opacity: 0; } }
+#fx.ca { animation: ca .5s ease-out; }
+@keyframes ca {
+  0%   { filter: drop-shadow(5px 0 0 rgba(255,30,90,.8)) drop-shadow(-5px 0 0 rgba(30,230,255,.8)) brightness(1.6); transform: translateX(2px); }
+  35%  { filter: drop-shadow(2px 0 0 rgba(255,30,90,.5)) drop-shadow(-2px 0 0 rgba(30,230,255,.5)) brightness(1.2); transform: translateX(-1px); }
+  100% { filter: drop-shadow(0 0 0 rgba(255,30,90,0)) drop-shadow(0 0 0 rgba(30,230,255,0)) brightness(1); transform: none; }
+}
+
+/* ---------- HUD base ---------- */
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+#hud > * { pointer-events: auto; }
+.panel {
+  position: absolute;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  box-shadow: inset 0 0 26px rgba(95,232,255,.05), 0 0 22px rgba(0,0,0,.45);
+}
+.panel::before, .panel::after { content: ''; position: absolute; width: 11px; height: 11px; border: 2px solid var(--cyan); pointer-events: none; filter: drop-shadow(0 0 4px var(--cyan)); }
+.panel::before { left: -2px; top: -2px; border-right: none; border-bottom: none; }
+.panel::after { right: -2px; bottom: -2px; border-left: none; border-top: none; }
+.en { font: 600 9px var(--f-head); letter-spacing: .18em; color: var(--dim); }
+
+/* ---------- title ---------- */
+#title { position: absolute; left: 18px; top: 10px; pointer-events: none; }
+.logo { display: flex; align-items: baseline; gap: 10px; }
+.logo b {
+  font: 900 30px var(--f-head); letter-spacing: .16em;
+  background: linear-gradient(90deg, #a8fbff, #5fe8ff 45%, #ff4fd8);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 9px rgba(95,232,255,.6));
+}
+.logo span { font: 700 9px var(--f-head); letter-spacing: .32em; color: var(--mag); text-shadow: 0 0 8px rgba(255,79,216,.8); }
+.subtitle { font: 700 12px var(--f-jp); letter-spacing: .42em; color: #9fdcff; margin-top: 1px; }
+.subtitle i { font-style: normal; color: var(--dim); letter-spacing: .2em; }
+.clock { display: flex; align-items: flex-end; gap: 12px; margin-top: 2px; }
+#month { font: 700 40px var(--f-head); letter-spacing: .05em; color: #fff; text-shadow: 0 0 12px rgba(95,232,255,.95), 0 0 34px rgba(95,232,255,.45); line-height: 1.1; }
+#month.tick { animation: mtick .35s steps(3); }
+@keyframes mtick {
+  0% { text-shadow: 4px 0 #ff2a6d, -4px 0 #1de9ff; transform: translateX(2px); }
+  50% { text-shadow: -3px 0 #ff2a6d, 3px 0 #1de9ff; transform: translateX(-2px); }
+  100% { transform: none; }
+}
+.clock-meta { font: 10px var(--f-mono); color: var(--dim); line-height: 1.35; padding-bottom: 6px; letter-spacing: .08em; }
+.clock-meta b { color: #bfefff; font-weight: normal; }
+.live { color: #ff3b5c; animation: blink 1.2s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+#dummy {
+  display: inline-flex; align-items: stretch; gap: 9px; margin-top: 6px; padding-right: 11px;
+  border: 1px solid #ffd23f; color: #ffd23f; font: 700 12px/22px var(--f-jp); letter-spacing: .06em;
+  background: rgba(40,30,0,.62); box-shadow: 0 0 14px rgba(255,210,63,.35), inset 0 0 10px rgba(255,210,63,.12);
+  text-shadow: 0 0 6px rgba(255,210,63,.6);
+}
+#dummy .hz { width: 20px; background: repeating-linear-gradient(45deg, #ffd23f 0 4px, #1a1400 4px 8px); }
+
+/* ---------- ranking ---------- */
+#rank { left: 16px; top: 158px; width: var(--lw); padding: 10px 12px 9px; }
+.rk-head { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+#rk-title { font: 900 14px var(--f-jp); letter-spacing: .08em; color: #f0fbff; text-shadow: 0 0 8px rgba(95,232,255,.5); }
+#rk-toggle { background: none; border: 1px solid var(--line); color: var(--cyan); width: 22px; height: 22px; cursor: pointer; font-size: 11px; transition: transform .3s; }
+#rank.collapsed #rk-toggle { transform: rotate(-90deg); }
+#rank.collapsed .rk-body { display: none; }
+.rk-cols { display: flex; justify-content: space-between; font: 9px var(--f-jp); color: var(--dim); margin: 6px 0 4px; letter-spacing: .1em; }
+#rk-list { position: relative; transition: height .4s; }
+.row {
+  position: absolute; left: 0; right: 0; top: 0; height: var(--row-h);
+  display: grid; grid-template-columns: 17px 4px 1fr 38px; grid-template-rows: 17px 1fr; column-gap: 7px;
+  transition: transform .65s cubic-bezier(.2,.85,.25,1), opacity .5s;
+  will-change: transform;
+}
+.row .rk-n { grid-row: 1 / 3; grid-column: 1; align-self: center; font: 700 13px var(--f-head); color: rgb(var(--rgb)); text-align: right; text-shadow: 0 0 8px rgba(var(--rgb), .8); }
+.row .chip { grid-row: 1 / 3; grid-column: 2; margin: 5px 0 7px; background: rgb(var(--rgb)); box-shadow: 0 0 8px rgba(var(--rgb), .9); }
+.row .nm { grid-row: 1; grid-column: 3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: end; line-height: 15px; }
+.row .nm b { font: 700 14px var(--f-ui); color: #f2fbff; letter-spacing: .02em; }
+.row .nm small { font: 500 10px var(--f-ui); color: rgba(var(--rgb), .85); margin-left: 6px; letter-spacing: .05em; }
+.row .chg { grid-row: 1; grid-column: 4; align-self: end; text-align: right; font: 11px var(--f-mono); color: var(--dim); line-height: 15px; }
+.row .chg.up { color: #3dff9a; text-shadow: 0 0 6px rgba(61,255,154,.7); }
+.row .chg.down { color: #ff4d6d; text-shadow: 0 0 6px rgba(255,77,109,.7); }
+.row .chg.new { color: #ffd23f; font-size: 9px; }
+.row .bars { grid-row: 2; grid-column: 3 / 5; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding-bottom: 6px; }
+.bl { display: grid; grid-template-columns: 24px 1fr 30px; align-items: center; column-gap: 5px; height: 8px; }
+.bl span { font: 9px var(--f-jp); color: var(--dim); line-height: 8px; }
+.bl em { font: 10px var(--f-mono); font-style: normal; color: #cfeeff; text-align: right; line-height: 8px; }
+.bar { position: relative; height: 4px; background: rgba(255,255,255,.06); overflow: hidden; }
+.bar i { position: absolute; inset: 0; transform-origin: left center; transform: scaleX(0); background: linear-gradient(90deg, rgba(var(--rgb), .35), rgba(var(--rgb), 1)); box-shadow: 0 0 6px rgba(var(--rgb), .9); }
+.bar.sc i { background: repeating-linear-gradient(90deg, rgba(var(--rgb), .9) 0 3px, rgba(var(--rgb), .25) 3px 5px); box-shadow: none; }
+.row.top .nm b { color: #fff; text-shadow: 0 0 8px rgba(var(--rgb), .9); }
+#rk-foot { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+#orgdep { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; }
+.od { display: inline-flex; align-items: center; gap: 4px; font: 600 11px var(--f-ui); color: #cfe6f7; }
+.od i { width: 7px; height: 7px; background: var(--c); box-shadow: 0 0 6px var(--c); transform: rotate(45deg); }
+.od b { font: 10px var(--f-mono); color: var(--c); font-weight: normal; }
+
+/* ---------- legend ---------- */
+#legend { left: 16px; bottom: calc(var(--tl-h) + 22px); width: var(--lw); padding: 8px 12px 9px; pointer-events: none; }
+.lg-h { font: 700 11px var(--f-jp); color: #bfefff; letter-spacing: .2em; margin-bottom: 4px; }
+.lg { display: flex; align-items: center; gap: 8px; font: 11px/1.5 var(--f-jp); color: #c4dcef; }
+.ic { flex: none; width: 22px; height: 12px; position: relative; }
+.ic-swarm { background: radial-gradient(circle, #5fe8ff 0 1px, transparent 1.5px) 0 0 / 5px 4px; border-radius: 50%; filter: drop-shadow(0 0 3px #5fe8ff); }
+.ic-streak { background: linear-gradient(90deg, transparent, rgba(255,138,76,.4) 40%, #fff); height: 2px; margin: 5px 0; box-shadow: 0 0 6px #ff8a4c; }
+.ic-spark::before { content: '✦'; position: absolute; left: 4px; top: -4px; font-size: 14px; color: #fff; text-shadow: 0 0 6px #ff4fd8, 0 0 10px #5fe8ff; }
+
+/* ---------- toasts ---------- */
+#toasts { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; transform: translateX(-50%); }
+.toast {
+  position: relative; max-width: 100%; padding: 7px 18px 8px 16px;
+  background: linear-gradient(90deg, rgba(var(--rgb), .34), rgba(4,10,22,.88) 38%, rgba(4,10,22,.78));
+  border: 1px solid rgba(var(--rgb), .8);
+  box-shadow: 0 0 26px rgba(var(--rgb), .4), inset 0 0 18px rgba(var(--rgb), .16);
+  animation: tin .75s linear both;
+  overflow: hidden;
+}
+.toast::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: rgb(var(--rgb)); box-shadow: 0 0 12px rgb(var(--rgb)); }
+.toast::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; left: -40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.28), transparent); animation: sweep 1.1s .2s ease-out both; }
+.toast.out { animation: tout .45s ease-in both; }
+.t-top { font: 700 9px var(--f-head); letter-spacing: .22em; color: rgba(var(--rgb), 1); display: flex; gap: 10px; align-items: center; }
+.t-top .t-org { color: #d8ecff; opacity: .75; }
+.t-line { font: 700 17px var(--f-jp); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .03em; text-shadow: 0 0 10px rgba(var(--rgb), .9); animation: rgbs .6s steps(4) both; }
+.t-line .t-m { font: 700 15px var(--f-head); color: rgb(var(--rgb)); margin: 0 6px 0 2px; }
+.t-line .t-sec { color: #bfefff; }
+.t-line .t-d { color: rgba(255,255,255,.55); margin: 0 6px; }
+@keyframes tin {
+  0%   { opacity: 0; transform: translateX(-70px) skewX(-25deg); clip-path: inset(0 100% 0 0); filter: brightness(3); }
+  12%  { opacity: 1; transform: translateX(12px) skewX(12deg); clip-path: inset(0 35% 0 0); }
+  22%  { transform: translateX(-8px); clip-path: inset(35% 0 30% 0); filter: brightness(2.2); }
+  32%  { transform: translateX(5px); clip-path: inset(0 0 0 0); }
+  42%  { transform: translateX(-3px); clip-path: inset(62% 0 8% 0); filter: brightness(1.6); }
+  52%  { transform: none; clip-path: inset(0 0 0 0); filter: brightness(1.25); }
+  100% { opacity: 1; transform: none; clip-path: inset(0 0 0 0); filter: brightness(1); }
+}
+@keyframes tout {
+  0% { opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+  40% { opacity: 1; transform: translateX(6px); clip-path: inset(40% 0 40% 0); }
+  100% { opacity: 0; transform: translateX(60px) scaleY(.2); clip-path: inset(50% 0 50% 0); }
+}
+@keyframes sweep { to { left: 110%; } }
+@keyframes rgbs {
+  0% { text-shadow: 3px 0 #ff2a6d, -3px 0 #1de9ff; }
+  50% { text-shadow: -2px 0 #ff2a6d, 2px 0 #1de9ff; }
+  100% { text-shadow: 0 0 10px rgba(var(--rgb), .9); }
+}
+
+/* ---------- timeline ---------- */
+#timeline { left: 12px; right: 12px; bottom: 10px; height: var(--tl-h); display: flex; align-items: center; gap: 10px; padding: 0 14px; }
+.btn {
+  flex: none; height: 32px; min-width: 42px; padding: 0 11px; cursor: pointer;
+  font: 700 12px var(--f-head); letter-spacing: .06em; color: #bff4ff;
+  background: rgba(95,232,255,.06); border: 1px solid rgba(95,232,255,.45);
+  transition: background .2s, box-shadow .2s, color .2s;
+}
+.btn:hover { background: rgba(95,232,255,.18); box-shadow: 0 0 12px rgba(95,232,255,.45); }
+#play { width: 46px; font-size: 14px; }
+#links { font: 700 12px var(--f-jp); letter-spacing: .08em; }
+#links.on { color: #001018; background: var(--cyan); box-shadow: 0 0 14px rgba(95,232,255,.6); }
+#track { position: relative; flex: 1; height: 100%; margin: 0 12px; cursor: pointer; touch-action: none; }
+#rail { position: absolute; left: 0; right: 0; top: 31px; height: 3px; background: rgba(95,232,255,.14); }
+#fill { position: absolute; left: 0; top: 31px; height: 3px; width: 0; background: linear-gradient(90deg, #1de9ff, #8a7dff 60%, #ff4fd8); box-shadow: 0 0 10px rgba(29,233,255,.8); }
+#ticks { position: absolute; inset: 0; }
+#ticks .mt { position: absolute; top: 36px; width: 1px; height: 4px; background: rgba(95,232,255,.28); }
+#ticks .mt.yt { height: 10px; top: 34px; background: rgba(95,232,255,.75); }
+#ticks .yl { position: absolute; top: 44px; transform: translateX(4px); font: 11px var(--f-mono); color: #8fb6d6; letter-spacing: .1em; }
+#ticks .ev {
+  position: absolute; top: calc(19px - var(--k) * 7px); width: 7px; height: 7px; margin-left: -3.5px;
+  background: var(--c); transform: rotate(45deg); opacity: .35; box-shadow: 0 0 4px var(--c);
+  transition: opacity .3s, box-shadow .3s;
+}
+#ticks .ev.past { opacity: 1; box-shadow: 0 0 8px var(--c); }
+#handle { position: absolute; top: 12px; width: 2px; height: 38px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px #5fe8ff, 0 0 14px #5fe8ff; pointer-events: none; }
+#handle::after { content: ''; position: absolute; left: -5px; top: 14px; width: 8px; height: 8px; border: 1px solid #5fe8ff; background: rgba(5,15,25,.95); transform: rotate(45deg); box-shadow: 0 0 8px #5fe8ff; }
+#hlabel { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); font: 700 11px var(--f-head); color: #001018; background: var(--cyan); padding: 2px 7px; box-shadow: 0 0 12px rgba(95,232,255,.8); white-space: nowrap; letter-spacing: .06em; }
+
+@media (max-height: 760px) {
+  :root { --row-h: 40px; }
+  #month { font-size: 34px; }
+  .logo b { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="bg"></canvas>
+  <canvas id="fx"></canvas>
+  <canvas id="ov"></canvas>
+  <div class="fxl vignette"></div>
+  <div class="fxl scan"></div>
+  <div class="fxl" id="grain"></div>
+  <div class="fxl" id="flash"></div>
+</div>
+
+<div id="hud">
+  <header id="title">
+    <div class="logo"><b>AI WAR</b><span>SWARM WAR</span></div>
+    <div class="subtitle">電脳戦況モニター <i>// 粒子大戦</i></div>
+    <div class="clock">
+      <span id="month">2023.01</span>
+      <span class="clock-meta"><span class="live">●</span> LIVE SIM<br>MONTH <b id="mcount">01/46</b></span>
+    </div>
+    <div id="dummy"><span class="hz"></span><span>ダミーデータ（見た目確認用）</span></div>
+  </header>
+
+  <section id="rank" class="panel">
+    <div class="rk-head">
+      <div>
+        <div id="rk-title">総合戦線 戦況ランキング</div>
+        <div id="rk-en" class="en">GENERAL FRONT // STANDINGS</div>
+      </div>
+      <button id="rk-toggle" title="折りたたみ">▾</button>
+    </div>
+    <div class="rk-body">
+      <div class="rk-cols"><span>順位・部隊・陣営</span><span>前月比</span></div>
+      <div id="rk-list"></div>
+      <div id="rk-foot">
+        <div class="en">陣営展開数 // ORG DEPLOYMENT</div>
+        <div id="orgdep"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="legend" class="panel">
+    <div class="lg-h">凡例 <span class="en">LEGEND</span></div>
+    <div class="lg"><i class="ic ic-swarm"></i>群れの大きさ＝規模（利用者・展開範囲）</div>
+    <div class="lg"><i class="ic ic-streak"></i>速さ・輝き・攻勢＝強さ（ベンチマーク＋レビュー）</div>
+    <div class="lg"><i class="ic ic-spark"></i>火花＝交戦（拮抗するほど激しい）／色＝陣営</div>
+  </section>
+
+  <div id="toasts"></div>
+
+  <footer id="timeline" class="panel">
+    <button id="play" class="btn" title="再生／一時停止（Space）">❚❚</button>
+    <button id="speed" class="btn" title="再生速度">1x</button>
+    <div id="track">
+      <div id="rail"></div>
+      <div id="fill"></div>
+      <div id="ticks"></div>
+      <div id="handle"><span id="hlabel">2023.01</span></div>
+    </div>
+    <button id="links" class="btn on" title="同じ企業の部隊を戦線間で結ぶ（L）">陣営リンク表示</button>
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function () {
+'use strict';
+const D = window.AIWAR;
+if (!D) {
+  document.body.insertAdjacentHTML('beforeend', '<div style="position:fixed;inset:0;display:grid;place-items:center;color:#f66;font:16px sans-serif;z-index:9">data.js を読み込めませんでした</div>');
+  return;
+}
+
+/* =========================================================
+ * 0. UTILITIES
+ * ========================================================= */
+const TAU = Math.PI * 2;
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+const hexToRgb = (h) => { const n = parseInt(h.replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const mixW = (c, t) => { t = clamp(t, 0, 1); return [Math.round(c[0] + (255 - c[0]) * t), Math.round(c[1] + (255 - c[1]) * t), Math.round(c[2] + (255 - c[2]) * t)]; };
+const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + clamp(a, 0, 1).toFixed(3) + ')';
+const esc = (s) => String(s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+const CY = [95, 232, 255];
+const CYW = [170, 245, 255];
+
+/* =========================================================
+ * 1. DATA ACCESS
+ * ========================================================= */
+const MONTHS = D.months;
+const LAST = MONTHS.length - 1;
+const ymLabel = (fi) => MONTHS[clamp(Math.floor(fi + 1e-6), 0, LAST)].replace('-', '.');
+const ORG_IDS = Object.keys(D.orgs);
+const ORG_IX = {};
+ORG_IDS.forEach((o, i) => { ORG_IX[o] = i; });
+const PAL = ORG_IDS.map((o) => hexToRgb(D.orgs[o].color));
+PAL.push([255, 255, 255]);
+const WHITE = PAL.length - 1;
+const SECTOR_IX = {};
+D.sectors.forEach((s, i) => { SECTOR_IX[s.id] = i; });
+const EVENTS = D.events.slice().sort((a, b) => a.i - b.i);
+const EVENTS_BY_MONTH = {};
+EVENTS.forEach((e) => { (EVENTS_BY_MONTH[e.i] = EVENTS_BY_MONTH[e.i] || []).push(e); });
+
+const MONTH_SEC = 0.7;          // 1x 再生で 1ヶ月 = 0.7 秒
+const BUDGET_MAIN = 2500;        // 主戦場の粒子上限
+const BUDGET_SMALL = 600;        // 小アリーナの粒子上限
+const HIT_RATE = 2.4;            // 接触ペアあたりの交戦確率 (/s)
+
+// ---- time state ----
+let T = 0;                // fractional month index
+let prevT = -0.001;
+let playing = true;
+let speed = 1;
+let dragging = false;
+let startDelay = 0.9;
+let showLinks = true;
+let quality = 1;
+let shakeT = 0;
+
+// ---- arenas / factions ----
+const FACTIONS = [];
+const arenas = D.sectors.map((sec, ai) => {
+  const A = {
+    ai, sec, slot: ai, cx: 0, cy: 0, R: 100, tw: null,
+    budget: ai === 0 ? BUDGET_MAIN : BUDGET_SMALL,
+    G: 10, rn: 0.2, rhit: 0.06, gbase: 0, lw: 1, pHit: 0, coef: new Float32Array(64),
+    factions: [], byId: {}, snap: [], anyPresent: false,
+    hitsNow: 0, hitRate: 0, rimFlash: 0, hover: 0, alive: 0,
+    rot: Math.random() * TAU,
+  };
+  Object.keys(D.units[sec.id]).forEach((uid, k) => {
+    const u = D.units[sec.id][uid];
+    const F = {
+      A, k, gid: FACTIONS.length, id: uid, name: u.name, org: u.org,
+      orgName: D.orgs[u.org].name, oi: ORG_IX[u.org], color: u.color, rgb: hexToRgb(u.color),
+      present: false, was: false, s: 0, c: 0, share: 0, power: 0, rank: 0,
+      sN: 0, aggr: 0, vmax: 0.1, trail: 0.05, bright: 0.5, raidRate: 0, t1: -1, t2: -1,
+      a0: 0, a1: 0, hx: 0, hy: 0, sigma: 0.2, swirl: k % 2 ? 1 : -1,
+      sx: 0, sy: 0, n: 0, n0: 0, count: 0, ccx: 0, ccy: 0, ccInit: false, removeLeft: 0, target: 0,
+      lxn: 0, lyn: 0, lInit: false, side: 1, flip: false, flash: 0,
+      style: ['', '', '', ''], txt: '#fff', row: null,
+    };
+    A.factions.push(F);
+    A.byId[uid] = F;
+    FACTIONS.push(F);
+  });
+  return A;
+});
+const mainArena = () => arenas.find((a) => a.slot === 0);
+
+/* =========================================================
+ * 2. ARENA LAYOUT
+ * ========================================================= */
+const cvBg = $('#bg'), cvFx = $('#fx'), cvOv = $('#ov');
+const gBg = cvBg.getContext('2d');
+const gFx = cvFx.getContext('2d');
+const gOv = cvOv.getContext('2d');
+const HAS_CONIC = typeof gBg.createConicGradient === 'function';
+const bgStatic = document.createElement('canvas');
+const gStatic = bgStatic.getContext('2d');
+let W = 0, H = 0, DPR = 1, LEFT = 260;
+const SLOTS = [];
+const TL_H = 62;
+
+function computeSlots() {
+  LEFT = clamp(W * 0.2, 250, 340);
+  const split = W * 0.62;
+  const top = 64, bottom = H - TL_H - 16;
+  const x0 = LEFT - 24;
+  const mw = Math.max(240, split - x0), mh = Math.max(240, bottom - top);
+  const Rm = Math.max(90, Math.min(mw, mh) / 2 / 1.17);
+  SLOTS[0] = { cx: x0 + mw / 2, cy: top + mh / 2 + 4, R: Rm };
+  // 右側 2x2 グリッド（各セル上部にタイトル）
+  const sx0 = split + 6, sx1 = W - 10, sy0 = 6, sy1 = bottom + 4;
+  const cw = Math.max(120, (sx1 - sx0) / 2), ch = Math.max(140, (sy1 - sy0) / 2);
+  const Rs = Math.max(36, Math.min((cw / 2 - 8) / 1.2, (ch - 46) / 2.42));
+  for (let k = 0; k < 4; k++) {
+    const col = k % 2, row = (k / 2) | 0;
+    const cx = sx0 + cw * (col + 0.5);
+    const cy = sy0 + ch * row + 42 + Rs * 1.2 + Math.max(0, (ch - 46 - Rs * 2.42) / 2);
+    SLOTS[1 + k] = { cx, cy, R: Rs };
+  }
+}
+
+function tweenTo(A, slot) {
+  A.tw = { fx: A.cx, fy: A.cy, fR: A.R, t: 0, dur: 1.15, slot };
+}
+
+function updateArenaTransform(A, dt) {
+  const s = SLOTS[A.slot];
+  if (A.tw) {
+    A.tw.t += dt;
+    const k = easeInOut(clamp(A.tw.t / A.tw.dur, 0, 1));
+    const to = SLOTS[A.tw.slot];
+    A.cx = lerp(A.tw.fx, to.cx, k);
+    A.cy = lerp(A.tw.fy, to.cy, k) - Math.sin(k * Math.PI) * 30;  // 軽い弧を描いて移動
+    A.R = lerp(A.tw.fR, to.R, k);
+    if (A.tw.t >= A.tw.dur) A.tw = null;
+  } else {
+    A.cx = s.cx; A.cy = s.cy; A.R = s.R;
+  }
+}
+
+/* ---- faction state from data (per frame) ---- */
+function updateFactions(A, dt, time) {
+  const snap = D.snapshot(A.sec.id, T);
+  A.snap = snap;
+  A.anyPresent = snap.length > 0;
+  for (const F of A.factions) { F.was = F.present; F.present = false; }
+  let minS = 1e9, maxS = -1e9;
+  snap.forEach((u, r) => {
+    const F = A.byId[u.id];
+    F.present = true; F.s = u.s; F.c = u.c; F.share = u.share; F.power = u.power; F.rank = r;
+    if (u.s < minS) minS = u.s;
+    if (u.s > maxS) maxS = u.s;
+  });
+
+  // 縄張り：規模シェアに比例した扇形。ホーム＝扇形の重心
+  const RT = 0.9;
+  let ang = -Math.PI / 2 + A.ai * 0.9 + time * 0.012 * (A.ai % 2 ? 1 : -1);
+  for (const F of A.factions) {
+    F.flash = Math.max(0, F.flash - dt * 0.6);
+    if (!F.present) continue;
+    const w = F.share * TAU;
+    F.a0 = ang; F.a1 = ang + w;
+    const half = Math.max(w / 2, 1e-4), mid = ang + w / 2;
+    const dist = 2 * RT * Math.sin(half) / (3 * half);
+    F.hx = Math.cos(mid) * dist;
+    F.hy = Math.sin(mid) * dist;
+    F.sigma = Math.max(0.08, RT * Math.sqrt(F.share) * 1.12);  // 隣接勢力と前線で重なる程度に広げる
+    ang += w;
+
+    // 強さ → 速さ・輝き・残光・攻勢
+    const absN = clamp((F.s - 50) / 47, 0, 1);
+    const relN = snap.length > 1 ? (F.s - minS) / (maxS - minS + 4) : 0.5;
+    const fl = F.flash;
+    F.sN = absN;
+    F.aggr = 0.12 + 0.88 * Math.pow(0.45 * absN + 0.55 * relN, 1.3);
+    F.vmax = (0.06 + 0.21 * Math.pow(absN, 1.2)) * (1 + fl * 0.7);
+    F.trail = (0.02 + 0.1 * absN * absN) * (1 + fl);
+    F.bright = Math.min(1, (0.36 + 0.64 * Math.pow(absN, 1.4)) * (1 + fl * 0.6));
+    F.raidRate = snap.length > 1 ? 0.075 * F.aggr * F.aggr * (1 + fl * 2) : 0;
+    const col = mixW(F.rgb, 0.06 + 0.26 * absN * absN + fl * 0.25);
+    F.style[0] = rgba(col, 0.26 * F.bright);
+    F.style[1] = rgba(col, 0.55 * F.bright);
+    F.style[2] = rgba(col, 0.9 * F.bright);
+    F.style[3] = rgba(mixW(F.rgb, 0.45 + fl * 0.3), Math.min(1, 1.1 * F.bright));
+    F.txt = rgba(mixW(F.rgb, 0.22), 1);
+    if (!F.was) arrival(A, F);
+  }
+
+  // 交戦係数（陣営ペア）：相手が強いほど押し返され、自軍の攻勢が高いほど前進する
+  const cf = A.coef;
+  for (const F of A.factions) {
+    if (!F.present) continue;
+    for (const E of A.factions) {
+      if (E === F || !E.present) continue;
+      cf[F.k * 8 + E.k] = (E.sN / (F.sN + E.sN + 0.05)) * 1.5 - F.aggr * 0.95;
+    }
+  }
+
+  // 前フレームの粒子集計 → 重心（平滑化）
+  const kS = 1 - Math.exp(-dt * 5);
+  for (const F of A.factions) {
+    F.n0 = F.n;
+    if (F.n > 0) {
+      const tx = F.sx / F.n, ty = F.sy / F.n;
+      if (!F.ccInit) { F.ccx = tx; F.ccy = ty; F.ccInit = true; }
+      else { F.ccx += (tx - F.ccx) * kS; F.ccy += (ty - F.ccy) * kS; }
+    } else if (!F.present) {
+      F.ccInit = false;
+    }
+    if (!F.ccInit && F.present) { F.ccx = F.hx; F.ccy = F.hy; }
+    if (!F.present) F.lInit = false;
+  }
+
+  // 突撃目標：弱く・近く・大きい敵を優先
+  for (const F of A.factions) {
+    F.t1 = F.t2 = -1;
+    if (!F.present) continue;
+    let b1 = -1, b2 = -1, s1 = 0, s2 = 0;
+    for (const E of A.factions) {
+      if (E === F || !E.present || E.n0 < 3) continue;
+      const dx = E.ccx - F.ccx, dy = E.ccy - F.ccy;
+      const sc = Math.exp((F.s - E.s) / 7) * (0.25 + E.share) / (0.25 + Math.sqrt(dx * dx + dy * dy));
+      if (sc > s1) { s2 = s1; b2 = b1; s1 = sc; b1 = E.k; }
+      else if (sc > s2) { s2 = sc; b2 = E.k; }
+    }
+    F.t1 = b1;
+    F.t2 = b2 < 0 ? b1 : b2;
+  }
+}
+
+function updateArenas(dt, time) {
+  for (const A of arenas) {
+    updateArenaTransform(A, dt);
+    const rnD = 1.5 * Math.sqrt(Math.PI / Math.max(60, A.budget));
+    A.G = Math.max(6, Math.floor(2 / rnD));
+    A.rn = 2 / A.G;
+    A.rhit = A.rn * 0.36;
+    A.lw = clamp(A.R / 250, 0.75, 1.75);
+    A.rimFlash = Math.max(0, A.rimFlash - dt * 1.2);
+    A.hitRate += (A.hitsNow / Math.max(dt, 1e-3) - A.hitRate) * (1 - Math.exp(-dt * 1.5));
+    A.hover += ((hovered === A && A.slot !== 0 ? 1 : 0) - A.hover) * (1 - Math.exp(-dt * 10));
+    updateFactions(A, dt, time);
+  }
+}
+
+/* =========================================================
+ * 3. PARTICLE SYSTEM  (typed arrays + per-arena spatial hash)
+ *    座標はアリーナ正規化座標（半径1の円）で保持
+ *    state: 0=空き 1=生存 2=退場フェード 3=撃破→再出撃待ち
+ * ========================================================= */
+const MAXP = 7000;
+const pX = new Float32Array(MAXP), pY = new Float32Array(MAXP);
+const pVX = new Float32Array(MAXP), pVY = new Float32Array(MAXP);
+const pAl = new Float32Array(MAXP), pLife = new Float32Array(MAXP);
+const pChg = new Float32Array(MAXP), pSeed = new Float32Array(MAXP);
+const pA = new Uint8Array(MAXP), pF = new Uint8Array(MAXP);
+const pSt = new Uint8Array(MAXP), pTg = new Uint8Array(MAXP);
+const pCell = new Int32Array(MAXP), gSorted = new Int32Array(MAXP);
+let gStart = new Int32Array(4096), gCursor = new Int32Array(4096);
+const freeStack = new Int32Array(MAXP);
+let freeTop = 0;
+for (let i = MAXP - 1; i >= 0; i--) freeStack[freeTop++] = i;
+const alloc = () => (freeTop > 0 ? freeStack[--freeTop] : -1);
+function release(i) { pSt[i] = 0; freeStack[freeTop++] = i; }
+
+function spawnAt(i, F) {
+  const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * F.sigma * 0.6;
+  let x = F.hx + Math.cos(a) * r, y = F.hy + Math.sin(a) * r;
+  const rr = Math.sqrt(x * x + y * y);
+  if (rr > 0.9) { x *= 0.9 / rr; y *= 0.9 / rr; }
+  pX[i] = x; pY[i] = y;
+  pVX[i] = (Math.random() - 0.5) * 0.06; pVY[i] = (Math.random() - 0.5) * 0.06;
+  pAl[i] = 0; pSt[i] = 1; pChg[i] = 0; pSeed[i] = Math.random();
+}
+
+function buildGrid() {
+  let total = 0;
+  for (const A of arenas) { A.gbase = total; total += A.G * A.G; }
+  if (gStart.length < total + 1) { gStart = new Int32Array(total + 1); gCursor = new Int32Array(total + 1); }
+  gCursor.fill(0, 0, total + 1);
+  for (let i = 0; i < MAXP; i++) {
+    if (pSt[i] !== 1) { pCell[i] = -1; continue; }
+    const A = arenas[pA[i]], G = A.G;
+    let gx = ((pX[i] + 1) * 0.5 * G) | 0, gy = ((pY[i] + 1) * 0.5 * G) | 0;
+    if (gx < 0) gx = 0; else if (gx >= G) gx = G - 1;
+    if (gy < 0) gy = 0; else if (gy >= G) gy = G - 1;
+    const c = A.gbase + gy * G + gx;
+    pCell[i] = c;
+    gCursor[c]++;
+  }
+  gStart[0] = 0;
+  for (let c = 0; c < total; c++) gStart[c + 1] = gStart[c] + gCursor[c];
+  for (let c = 0; c < total; c++) gCursor[c] = gStart[c];
+  for (let i = 0; i < MAXP; i++) { const c = pCell[i]; if (c >= 0) gSorted[gCursor[c]++] = i; }
+}
+
+/* 交戦：強さの比で撃破側を決める。i が撃破されたら true */
+function clash(i, j, A) {
+  const Fi = A.factions[pF[i]], Fj = A.factions[pF[j]];
+  const r = Math.pow(Fj.s / Math.max(1, Fi.s), 8);
+  const loser = Math.random() < r / (1 + r) ? i : j;
+  const winner = loser === i ? j : i;
+  const FL = loser === i ? Fi : Fj, FW = loser === i ? Fj : Fi;
+  const mx = (pX[i] + pX[j]) * 0.5, my = (pY[i] + pY[j]) * 0.5;
+  const sx = A.cx + mx * A.R, sy = A.cy + my * A.R;
+  const sc = clamp(A.R / 380, 0.32, 1.1);
+  const close = 1 - clamp(Math.abs(Fi.s - Fj.s) / 12, 0, 1);  // 拮抗度
+  const n = 2 + ((Math.random() * (2 + close * 5)) | 0);
+  for (let k = 0; k < n; k++) {
+    const a = Math.random() * TAU, v = (40 + Math.random() * 150) * sc;
+    addSpark(sx, sy, Math.cos(a) * v, Math.sin(a) * v, 0.22 + Math.random() * 0.35, k === 0 ? WHITE : (k & 1 ? FL.oi : FW.oi));
+  }
+  addFlash(sx, sy, (5 + close * 9) * sc + 2, 0.16 + close * 0.08, WHITE);
+  pSt[loser] = 3; pLife[loser] = 0.25 + Math.random() * 0.9; pAl[loser] = 0; pChg[loser] = 0;
+  const dx = pX[winner] - pX[loser], dy = pY[winner] - pY[loser];
+  const d = Math.sqrt(dx * dx + dy * dy) + 1e-6;
+  pVX[winner] += dx / d * FW.vmax * 0.9;
+  pVY[winner] += dy / d * FW.vmax * 0.9;
+  A.hitsNow++;
+  return loser === i;
+}
+
+function stepParticles(dt, time) {
+  for (const F of FACTIONS) { F.sx = 0; F.sy = 0; F.n = 0; F.count = 0; }
+  for (const A of arenas) { A.hitsNow = 0; A.pHit = 1 - Math.exp(-HIT_RATE * dt); }
+  buildGrid();
+  const steer = 1 - Math.exp(-3.4 * dt);
+  const fadeDrag = Math.exp(-2 * dt);
+
+  for (let i = 0; i < MAXP; i++) {
+    const st = pSt[i];
+    if (st === 0) continue;
+    const A = arenas[pA[i]];
+    const F = A.factions[pF[i]];
+
+    if (st === 3) {                       // 撃破 → 本陣で再出撃
+      F.count++;
+      pLife[i] -= dt;
+      if (pLife[i] <= 0) { if (F.present) spawnAt(i, F); else release(i); }
+      continue;
+    }
+    if (st === 2) {                       // 退場フェード
+      const al = pAl[i] - dt * 1.7;
+      if (al <= 0) { release(i); continue; }
+      pAl[i] = al;
+      pVX[i] *= fadeDrag; pVY[i] *= fadeDrag;
+      pX[i] += pVX[i] * dt; pY[i] += pVY[i] * dt;
+      continue;
+    }
+
+    // ---- alive ----
+    F.count++;
+    let x = pX[i], y = pY[i];
+    F.sx += x; F.sy += y; F.n++;
+    if (pAl[i] < 1) pAl[i] = Math.min(1, pAl[i] + dt * 1.5);
+    const vmax = F.vmax;
+    let dvx = 0, dvy = 0, lim = 1.15;
+
+    let hx = F.hx - x, hy = F.hy - y;
+    const hd = Math.sqrt(hx * hx + hy * hy) + 1e-6;
+    hx /= hd; hy /= hd;
+    const rel = hd / F.sigma;
+
+    // 突撃（レイダー）
+    let chg = pChg[i];
+    if (chg > 0) {
+      chg -= dt;
+      const E = A.factions[pTg[i]];
+      if (chg <= 0 || !E.present || E.n0 < 2) pChg[i] = 0;
+      else {
+        const tx = E.ccx - x, ty = E.ccy - y, td = Math.sqrt(tx * tx + ty * ty) + 1e-6;
+        if (td < 0.05) pChg[i] = 0;
+        else { pChg[i] = chg; dvx += tx / td * vmax * 1.7; dvy += ty / td * vmax * 1.7; lim = 1.8; }
+      }
+    }
+    if (pChg[i] <= 0) {
+      // 本陣への結束 + 渦
+      const pull = rel < 1 ? 0.14 * rel : 0.14 + (rel - 1) * 1.6;
+      const pm = (pull > 2.4 ? 2.4 : pull) * vmax;
+      dvx += hx * pm; dvy += hy * pm;
+      const sw = vmax * 0.8 * (rel < 1 ? rel : 1 / rel) * F.swirl;
+      dvx -= hy * sw; dvy += hx * sw;
+      if (F.raidRate > 0 && F.t1 >= 0 && pAl[i] > 0.9 && Math.random() < F.raidRate * dt) {
+        pChg[i] = 0.9 + Math.random() * 1.5;
+        pTg[i] = Math.random() < 0.7 ? F.t1 : F.t2;
+      }
+    }
+
+    // ノイズ場（有機的な揺らぎ）
+    const sd = pSeed[i];
+    const ang = Math.sin(x * 4.7 + time * 0.31 + sd * 9) * 2.6 + Math.cos(y * 4.1 - time * 0.27 + sd * 5) * 2.6;
+    const nz = vmax * 0.38;
+    dvx += Math.cos(ang) * nz; dvy += Math.sin(ang) * nz;
+
+    // 近傍（boids + 交戦）
+    const G = A.G, base = A.gbase, cl = pCell[i] - base;
+    const gx = cl % G, gy = (cl / G) | 0;
+    const rn = A.rn, rn2 = rn * rn, rs = rn * 0.42, rs2 = rs * rs, rh2 = A.rhit * A.rhit, pHit = A.pHit;
+    const fi = pF[i], myAl = pAl[i], coef = A.coef, cbase = fi * 8, irn = 1 / rn;
+    let sepx = 0, sepy = 0, alx = 0, aly = 0, aln = 0, enx = 0, eny = 0, killed = false;
+    const yA = gy > 0 ? gy - 1 : 0, yB = gy < G - 1 ? gy + 1 : G - 1;
+    const xA = gx > 0 ? gx - 1 : 0, xB = gx < G - 1 ? gx + 1 : G - 1;
+    for (let yy = yA; yy <= yB && !killed; yy++) {
+      const rowBase = base + yy * G;
+      for (let xx = xA; xx <= xB; xx++) {
+        const c = rowBase + xx, e = gStart[c + 1];
+        for (let k = gStart[c]; k < e; k++) {
+          const j = gSorted[k];
+          if (j === i || pSt[j] !== 1) continue;
+          const ddx = x - pX[j], ddy = y - pY[j], d2 = ddx * ddx + ddy * ddy;
+          if (d2 > rn2 || d2 < 1e-12) continue;
+          if (pF[j] === fi) {
+            alx += pVX[j]; aly += pVY[j]; aln++;
+            if (d2 < rs2) { const d = Math.sqrt(d2), w = (rs - d) / (rs * d); sepx += ddx * w; sepy += ddy * w; }
+          } else {
+            // 強い側が押し込み、弱い側は押し返される（係数は陣営ペアごとに事前計算）
+            const net = coef[cbase + pF[j]] * (1 / Math.sqrt(d2) - irn);
+            enx += ddx * net; eny += ddy * net;
+            if (d2 < rh2 && myAl > 0.6 && pAl[j] > 0.6 && Math.random() < pHit) {
+              if (clash(i, j, A)) { killed = true; break; }
+            }
+          }
+        }
+        if (killed) break;
+      }
+    }
+    if (killed) continue;
+
+    if (aln > 0) { dvx += alx / aln * 0.35; dvy += aly / aln * 0.35; }
+    dvx += sepx * vmax * 0.9 + enx * vmax * 0.7;
+    dvy += sepy * vmax * 0.9 + eny * vmax * 0.7;
+
+    // アリーナ外壁
+    const r2 = x * x + y * y;
+    if (r2 > 0.81) {
+      const r = Math.sqrt(r2), k = (r - 0.9) * 25 * vmax;
+      dvx -= x / r * k; dvy -= y / r * k;
+    }
+
+    const dm = Math.sqrt(dvx * dvx + dvy * dvy), mx = vmax * lim;
+    if (dm > mx) { dvx *= mx / dm; dvy *= mx / dm; }
+    let vx = pVX[i] + (dvx - pVX[i]) * steer;
+    let vy = pVY[i] + (dvy - pVY[i]) * steer;
+    x += vx * dt; y += vy * dt;
+    const rr = x * x + y * y;
+    if (rr > 0.970225) {
+      const r = Math.sqrt(rr), nx = x / r, ny = y / r;
+      x = nx * 0.985; y = ny * 0.985;
+      const vr = vx * nx + vy * ny;
+      if (vr > 0) { vx -= vr * nx * 1.6; vy -= vr * ny * 1.6; }
+    }
+    pX[i] = x; pY[i] = y; pVX[i] = vx; pVY[i] = vy;
+  }
+}
+
+/* 規模シェアに合わせて粒子を増減（増：本陣でフェードイン／減：フェードアウト＋火花） */
+function enforceBudgets() {
+  let need = false;
+  for (const A of arenas) {
+    const budget = Math.round((A.slot === 0 ? BUDGET_MAIN : BUDGET_SMALL) * quality);
+    A.budget = budget;
+    let alive = 0;
+    for (const F of A.factions) {
+      const target = F.present ? Math.round(budget * F.share) : 0;
+      F.target = target;
+      alive += F.n;
+      F.removeLeft = 0;
+      const diff = target - F.count;
+      if (diff > 0) {
+        const n = Math.min(diff, Math.max(4, Math.ceil(diff * 0.08)));
+        for (let k = 0; k < n; k++) {
+          const i = alloc();
+          if (i < 0) break;
+          pA[i] = A.ai; pF[i] = F.k;
+          spawnAt(i, F);
+        }
+      } else if (diff < 0) {
+        F.removeLeft = Math.min(-diff, Math.max(4, Math.ceil(-diff * 0.1)));
+        need = true;
+      }
+    }
+    A.alive = alive;
+  }
+  if (!need) return;
+  const start = (Math.random() * MAXP) | 0;
+  for (let q = 0; q < MAXP; q++) {
+    const i = (start + q) % MAXP, st = pSt[i];
+    if (st !== 1 && st !== 3) continue;
+    const A = arenas[pA[i]], F = A.factions[pF[i]];
+    if (F.removeLeft <= 0) continue;
+    F.removeLeft--;
+    if (st === 3) { release(i); continue; }
+    pSt[i] = 2;
+    if (Math.random() < 0.06) {
+      const sx = A.cx + pX[i] * A.R, sy = A.cy + pY[i] * A.R, a = Math.random() * TAU, v = 30 + Math.random() * 60;
+      addSpark(sx, sy, Math.cos(a) * v, Math.sin(a) * v, 0.35, F.oi);
+    }
+  }
+}
+
+/* ---- sparks & flashes (screen space ring buffers) ---- */
+const MAXS = 3200;
+const sX = new Float32Array(MAXS), sY = new Float32Array(MAXS), sVX = new Float32Array(MAXS), sVY = new Float32Array(MAXS);
+const sL = new Float32Array(MAXS), sML = new Float32Array(MAXS), sC = new Uint8Array(MAXS);
+const sLive = new Int32Array(MAXS);
+let sHead = 0, sLiveN = 0;
+function addSpark(x, y, vx, vy, life, c) {
+  const k = sHead; sHead = (sHead + 1) % MAXS;
+  sX[k] = x; sY[k] = y; sVX[k] = vx; sVY[k] = vy; sL[k] = life; sML[k] = life; sC[k] = c;
+}
+const MAXF = 600;
+const fX = new Float32Array(MAXF), fY = new Float32Array(MAXF), fL = new Float32Array(MAXF), fML = new Float32Array(MAXF), fS = new Float32Array(MAXF), fC = new Uint8Array(MAXF);
+let fHead = 0;
+function addFlash(x, y, size, life, c) {
+  const k = fHead; fHead = (fHead + 1) % MAXF;
+  fX[k] = x; fY[k] = y; fS[k] = size; fL[k] = life; fML[k] = life; fC[k] = c;
+}
+function stepSparks(dt) {
+  const drag = Math.exp(-2.8 * dt);
+  sLiveN = 0;
+  for (let k = 0; k < MAXS; k++) {
+    if (sL[k] <= 0) continue;
+    sL[k] -= dt;
+    if (sL[k] <= 0) continue;
+    sX[k] += sVX[k] * dt; sY[k] += sVY[k] * dt;
+    sVX[k] *= drag; sVY[k] *= drag;
+    sLive[sLiveN++] = k;
+  }
+  for (let k = 0; k < MAXF; k++) if (fL[k] > 0) fL[k] -= dt;
+}
+
+/* ---- dramatic effects (overlay, arena-normalized) ---- */
+const effects = [];
+
+function shock(A, F, power) {
+  const nx = F.n0 > 2 ? F.ccx : F.hx, ny = F.n0 > 2 ? F.ccy : F.hy;
+  effects.push({ type: 'shock', A, nx, ny, rgb: F.rgb, t: 0, dur: 1.6, power });
+  // 衝撃波で周囲の粒子を吹き飛ばす（敵は強く、自軍は弱く）
+  const rad = 0.75 * power, ai = A.ai, fk = F.k;
+  for (let i = 0; i < MAXP; i++) {
+    if (pSt[i] !== 1 || pA[i] !== ai) continue;
+    const dx = pX[i] - nx, dy = pY[i] - ny, d = Math.sqrt(dx * dx + dy * dy) + 1e-4;
+    if (d > rad) continue;
+    const k = (1 - d / rad) * (pF[i] === fk ? 0.22 : 0.62) * power;
+    pVX[i] += dx / d * k; pVY[i] += dy / d * k;
+  }
+  const sx = A.cx + nx * A.R, sy = A.cy + ny * A.R, sc = clamp(A.R / 380, 0.35, 1.1);
+  const n = Math.round(60 * power * (0.5 + sc * 0.5));
+  for (let k = 0; k < n; k++) {
+    const a = Math.random() * TAU, v = (140 + Math.random() * 280) * sc * power;
+    addSpark(sx, sy, Math.cos(a) * v, Math.sin(a) * v, 0.4 + Math.random() * 0.55, k % 3 === 0 ? WHITE : F.oi);
+  }
+  addFlash(sx, sy, 46 * sc * power + 10, 0.55, F.oi);
+}
+
+function arrival(A, F) {
+  effects.push({ type: 'warp', A, nx: F.hx, ny: F.hy, rgb: F.rgb, t: 0, dur: 1.5 });
+  F.flash = Math.max(F.flash, 1.2);
+  const sx = A.cx + F.hx * A.R, sy = A.cy + F.hy * A.R, sc = clamp(A.R / 380, 0.35, 1.1);
+  for (let k = 0; k < 44; k++) {
+    const a = (k / 44) * TAU, v = (180 + Math.random() * 160) * sc;
+    addSpark(sx, sy, Math.cos(a) * v, Math.sin(a) * v, 0.5 + Math.random() * 0.4, k & 1 ? WHITE : F.oi);
+  }
+  addFlash(sx, sy, 60 * sc + 12, 0.7, F.oi);
+}
+
+/* =========================================================
+ * 4. RENDERER
+ * ========================================================= */
+// グロースプライト（陣営色ごと）
+const SPR = PAL.map((c) => {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 64;
+  const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(0.1, rgba(mixW(c, 0.55), 0.95));
+  gr.addColorStop(0.32, rgba(c, 0.35));
+  gr.addColorStop(1, rgba(c, 0));
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 64, 64);
+  return cv;
+});
+const SPK_Y = PAL.map((c) => rgba(mixW(c, 0.7), 0.95));
+const SPK_O = PAL.map((c) => rgba(c, 0.6));
+
+// フィルムグレイン
+(function makeGrain() {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 128;
+  const g = cv.getContext('2d');
+  const img = g.createImageData(128, 128);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = (Math.random() * 255) | 0;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+    img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  $('#grain').style.backgroundImage = 'url(' + cv.toDataURL() + ')';
+})();
+
+/* ---- background layer ---- */
+let stars = [];
+function initStars() {
+  const n = Math.round((W * H) / 6500);
+  stars = [];
+  for (let k = 0; k < n; k++) {
+    stars.push({ x: Math.random() * W, y: Math.random() * H, z: 0.15 + Math.random() * 0.85, ph: Math.random() * TAU, f: 0.4 + Math.random() * 2 });
+  }
+}
+
+function buildStatic() {
+  bgStatic.width = Math.max(1, Math.round(W * DPR));
+  bgStatic.height = Math.max(1, Math.round(H * DPR));
+  const g = gStatic;
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  g.fillStyle = '#02040a';
+  g.fillRect(0, 0, W, H);
+  const M = Math.max(W, H);
+  const blobs = [
+    [0.32, 0.5, 0.55, [18, 52, 130], 0.42],
+    [0.82, 0.28, 0.42, [80, 26, 140], 0.26],
+    [0.78, 0.86, 0.38, [0, 96, 120], 0.2],
+    [0.06, 0.92, 0.3, [110, 18, 80], 0.18],
+    [0.5, 0.0, 0.35, [0, 60, 110], 0.18],
+  ];
+  for (const [x, y, r, c, a] of blobs) {
+    const gr = g.createRadialGradient(x * W, y * H, 0, x * W, y * H, r * M);
+    gr.addColorStop(0, rgba(c, a));
+    gr.addColorStop(1, rgba(c, 0));
+    g.fillStyle = gr;
+    g.fillRect(0, 0, W, H);
+  }
+  g.fillStyle = 'rgba(120,200,255,0.07)';
+  for (let y = 12; y < H; y += 24) for (let x = 12; x < W; x += 24) g.fillRect(x, y, 1, 1);
+}
+
+function drawGrid(time) {
+  const g = gBg, step = 64;
+  g.lineWidth = 1;
+  g.strokeStyle = 'rgba(95,232,255,0.035)';
+  g.beginPath();
+  for (let x = (W % step) / 2; x < W; x += step) { g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, H); }
+  for (let y = (H % step) / 2; y < H; y += step) { g.moveTo(0, y + 0.5); g.lineTo(W, y + 0.5); }
+  g.stroke();
+  // ゆっくり流れるスキャン帯
+  const by = ((time * 38) % (H + 300)) - 150;
+  const gr = g.createLinearGradient(0, by - 120, 0, by + 120);
+  gr.addColorStop(0, 'rgba(95,232,255,0)');
+  gr.addColorStop(0.5, 'rgba(95,232,255,0.045)');
+  gr.addColorStop(1, 'rgba(95,232,255,0)');
+  g.fillStyle = gr;
+  g.fillRect(0, by - 120, W, 240);
+  // 交点のパルス
+  g.fillStyle = 'rgba(140,240,255,0.18)';
+  for (let x = (W % step) / 2; x < W; x += step) {
+    for (let y = (H % step) / 2; y < H; y += step) {
+      const p = Math.sin(x * 0.013 + y * 0.021 + time * 0.9);
+      if (p > 0.93) g.fillRect(x - 1, y - 1, 3, 3);
+    }
+  }
+}
+
+function drawStars(dt, time) {
+  const g = gBg;
+  for (const s of stars) {
+    s.x -= (2 + 9 * s.z) * dt;
+    s.y -= 1.5 * s.z * dt;
+    if (s.x < -2) s.x += W + 4;
+    if (s.y < -2) s.y += H + 4;
+    const a = (0.12 + 0.5 * s.z) * (0.55 + 0.45 * Math.sin(time * s.f + s.ph));
+    g.fillStyle = 'rgba(175,220,255,' + a.toFixed(3) + ')';
+    const sz = s.z > 0.82 ? 2 : 1;
+    g.fillRect(s.x, s.y, sz, sz);
+  }
+}
+
+function drawFloor(A, time) {
+  const g = gBg, cx = A.cx, cy = A.cy, R = A.R;
+  const gr = g.createRadialGradient(cx, cy - R * 0.25, R * 0.05, cx, cy, R * 1.02);
+  gr.addColorStop(0, 'rgba(16,34,62,0.8)');
+  gr.addColorStop(0.72, 'rgba(4,10,24,0.86)');
+  gr.addColorStop(1, 'rgba(14,48,84,0.8)');
+  g.fillStyle = gr;
+  g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill();
+  // 縄張り（扇形）
+  for (const F of A.factions) {
+    if (!F.present) continue;
+    g.fillStyle = rgba(F.rgb, 0.055);
+    g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, R, F.a0, F.a1); g.closePath(); g.fill();
+  }
+  // 極座標グリッド
+  g.strokeStyle = 'rgba(95,232,255,0.07)';
+  g.lineWidth = 1;
+  g.beginPath();
+  for (const f of [0.25, 0.5, 0.75]) { g.moveTo(cx + R * f, cy); g.arc(cx, cy, R * f, 0, TAU); }
+  for (let k = 0; k < 12; k++) {
+    const a = (k / 12) * TAU;
+    g.moveTo(cx + Math.cos(a) * R * 0.08, cy + Math.sin(a) * R * 0.08);
+    g.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R);
+  }
+  g.stroke();
+  // レーダースイープ
+  const sa = A.rot + time * (A.slot === 0 ? 0.45 : 0.65);
+  if (HAS_CONIC) {
+    const cg = g.createConicGradient(sa, cx, cy);
+    cg.addColorStop(0, 'rgba(95,232,255,0)');
+    cg.addColorStop(0.84, 'rgba(95,232,255,0)');
+    cg.addColorStop(0.995, 'rgba(95,232,255,0.11)');
+    cg.addColorStop(1, 'rgba(95,232,255,0)');
+    g.fillStyle = cg;
+    g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill();
+  }
+  g.strokeStyle = 'rgba(140,240,255,0.22)';
+  g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(sa) * R, cy + Math.sin(sa) * R); g.stroke();
+  // 群れのコアグロー（星雲）
+  g.globalCompositeOperation = 'lighter';
+  for (const F of A.factions) {
+    if (!F.present || F.n0 < 1) continue;
+    const x = cx + F.ccx * R, y = cy + F.ccy * R, r = Math.max(8, F.sigma * R * 1.25);
+    const gg = g.createRadialGradient(x, y, 0, x, y, r);
+    gg.addColorStop(0, rgba(F.rgb, 0.1 + 0.14 * F.sN + F.flash * 0.12));
+    gg.addColorStop(0.5, rgba(F.rgb, 0.04 + 0.05 * F.sN));
+    gg.addColorStop(1, rgba(F.rgb, 0));
+    g.fillStyle = gg;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  g.globalCompositeOperation = 'source-over';
+}
+
+function renderBg(dt, time) {
+  const g = gBg;
+  g.globalCompositeOperation = 'source-over';
+  g.drawImage(bgStatic, 0, 0, W, H);
+  drawGrid(time);
+  drawStars(dt, time);
+  for (const A of arenas) drawFloor(A, time);
+}
+
+/* ---- particle layer (trails via destination-out fade + additive glow) ---- */
+const NB = FACTIONS.length * 4;
+const bCount = new Int32Array(NB + 1), bStart = new Int32Array(NB + 1);
+const bOrder = new Int32Array(MAXP), pB = new Int32Array(MAXP);
+
+function renderFx(dt) {
+  const g = gFx;
+  g.globalCompositeOperation = 'destination-out';
+  g.fillStyle = 'rgba(0,0,0,' + (1 - Math.pow(0.8, dt * 60)).toFixed(3) + ')';
+  g.fillRect(0, 0, W, H);
+  g.globalCompositeOperation = 'lighter';
+  g.lineCap = 'round';
+
+  // バケット（陣営 × 透明度段階 / 突撃）でまとめて描画
+  bCount.fill(0);
+  for (let i = 0; i < MAXP; i++) {
+    const st = pSt[i];
+    if (st !== 1 && st !== 2) { pB[i] = -1; continue; }
+    const a = pAl[i];
+    const F = arenas[pA[i]].factions[pF[i]];
+    let b = a < 0.35 ? 0 : a < 0.7 ? 1 : 2;
+    if (st === 1 && pChg[i] > 0 && a > 0.5) b = 3;
+    const id = F.gid * 4 + b;
+    pB[i] = id;
+    bCount[id]++;
+  }
+  bStart[0] = 0;
+  for (let b = 0; b < NB; b++) bStart[b + 1] = bStart[b] + bCount[b];
+  for (let b = 0; b < NB; b++) bCount[b] = bStart[b];
+  for (let i = 0; i < MAXP; i++) { const b = pB[i]; if (b >= 0) bOrder[bCount[b]++] = i; }
+
+  for (let id = 0; id < NB; id++) {
+    const s = bStart[id], e = bStart[id + 1];
+    if (s === e) continue;
+    const F = FACTIONS[id >> 2], b = id & 3, A = F.A;
+    const cx = A.cx, cy = A.cy, R = A.R, tk = F.trail * R * (b === 3 ? 2.4 : 1);
+    g.strokeStyle = F.style[b];
+    g.lineWidth = A.lw * (b === 3 ? 1.4 : 1);
+    g.beginPath();
+    for (let k = s; k < e; k++) {
+      const i = bOrder[k];
+      const x = cx + pX[i] * R, y = cy + pY[i] * R;
+      g.moveTo(x - pVX[i] * tk - 0.05, y - pVY[i] * tk);
+      g.lineTo(x, y);
+    }
+    g.stroke();
+  }
+
+  // エリート粒子と突撃兵にグロー
+  for (let i = 0; i < MAXP; i++) {
+    const b = pB[i];
+    if (b < 0) continue;
+    const raid = (b & 3) === 3;
+    if (!raid && pSeed[i] > 0.09) continue;
+    const F = FACTIONS[b >> 2], A = F.A;
+    const x = A.cx + pX[i] * A.R, y = A.cy + pY[i] * A.R;
+    const s = A.lw * (raid ? 5.5 : 3.5 + 5 * F.sN);
+    g.globalAlpha = pAl[i] * F.bright * (raid ? 0.7 : 0.42);
+    g.drawImage(SPR[F.oi], x - s, y - s, s * 2, s * 2);
+  }
+  g.globalAlpha = 1;
+
+  // 火花
+  g.lineWidth = 1.1;
+  for (let c = 0; c < PAL.length; c++) {
+    for (let young = 0; young < 2; young++) {
+      let any = false;
+      for (let q = 0; q < sLiveN; q++) {
+        const k = sLive[q];
+        if (sC[k] !== c) continue;
+        if ((sL[k] > sML[k] * 0.55 ? 1 : 0) !== young) continue;
+        if (!any) { g.beginPath(); any = true; }
+        g.moveTo(sX[k] - sVX[k] * 0.035, sY[k] - sVY[k] * 0.035);
+        g.lineTo(sX[k], sY[k]);
+      }
+      if (any) { g.strokeStyle = young ? SPK_Y[c] : SPK_O[c]; g.stroke(); }
+    }
+  }
+  // 閃光
+  for (let k = 0; k < MAXF; k++) {
+    if (fL[k] <= 0) continue;
+    const p = fL[k] / fML[k], s = fS[k] * (0.6 + 0.4 * p);
+    g.globalAlpha = p * p;
+    g.drawImage(SPR[fC[k]], fX[k] - s, fY[k] - s, s * 2, s * 2);
+  }
+  g.globalAlpha = 1;
+  g.globalCompositeOperation = 'source-over';
+}
+
+/* ---- overlay layer ---- */
+function ring(g, cx, cy, r, lw, style) {
+  g.lineWidth = lw; g.strokeStyle = style;
+  g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.stroke();
+}
+
+function drawLinks(time) {
+  const g = gOv, byOrg = {};
+  for (const F of FACTIONS) {
+    if (!F.present || F.n0 < 3) continue;
+    (byOrg[F.org] = byOrg[F.org] || []).push(F);
+  }
+  g.globalCompositeOperation = 'lighter';
+  g.setLineDash([3, 7]);
+  g.lineDashOffset = -time * 26;
+  for (const org in byOrg) {
+    const L = byOrg[org];
+    if (L.length < 2) continue;
+    const hub = L.find((F) => F.A.slot === 0) || L[0];
+    const c = PAL[ORG_IX[org]], oi = ORG_IX[org];
+    const x0 = hub.A.cx + hub.ccx * hub.A.R, y0 = hub.A.cy + hub.ccy * hub.A.R;
+    for (const F of L) {
+      if (F === hub) continue;
+      const x1 = F.A.cx + F.ccx * F.A.R, y1 = F.A.cy + F.ccy * F.A.R;
+      const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, dx = x1 - x0, dy = y1 - y0;
+      const bend = 0.16 * (oi % 2 ? 1 : -1);
+      const qx = mx - dy * bend, qy = my + dx * bend;
+      g.lineWidth = 1;
+      g.strokeStyle = rgba(c, 0.3);
+      g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(qx, qy, x1, y1); g.stroke();
+      // 補給線を流れるパルス
+      for (let p = 0; p < 2; p++) {
+        const u = (time * 0.22 + F.gid * 0.137 + p * 0.5) % 1, v = 1 - u;
+        const px = v * v * x0 + 2 * v * u * qx + u * u * x1, py = v * v * y0 + 2 * v * u * qy + u * u * y1;
+        g.globalAlpha = 0.85;
+        g.drawImage(SPR[oi], px - 7, py - 7, 14, 14);
+        g.globalAlpha = 1;
+      }
+      g.strokeStyle = rgba(c, 0.6);
+      g.setLineDash([]);
+      g.beginPath(); g.arc(x1, y1, 6, 0, TAU); g.stroke();
+      g.setLineDash([3, 7]);
+    }
+    g.setLineDash([]);
+    g.strokeStyle = rgba(c, 0.7);
+    g.beginPath(); g.arc(x0, y0, 7, 0, TAU); g.stroke();
+    g.setLineDash([3, 7]);
+  }
+  g.setLineDash([]);
+  g.globalCompositeOperation = 'source-over';
+}
+
+function drawArenaFrame(A, time) {
+  const g = gOv, cx = A.cx, cy = A.cy, R = A.R, main = A.slot === 0;
+  const hv = A.hover, fl = A.rimFlash;
+  g.globalCompositeOperation = 'lighter';
+  // ネオンのリム（重ね描きでグロー）
+  ring(g, cx, cy, R, 9, rgba(CY, 0.045 + fl * 0.12 + hv * 0.05));
+  ring(g, cx, cy, R, 3.5, rgba(CY, 0.13 + fl * 0.25 + hv * 0.12));
+  ring(g, cx, cy, R, 1.2, rgba(CYW, 0.62 + fl * 0.38 + hv * 0.3));
+  // 縄張りリング（規模シェア＝ドーナツ）
+  g.lineWidth = main ? 4 : 3;
+  for (const F of A.factions) {
+    if (!F.present) continue;
+    const gap = Math.min(0.025, (F.a1 - F.a0) * 0.2);
+    g.strokeStyle = rgba(F.rgb, 0.9);
+    g.beginPath(); g.arc(cx, cy, R * 1.04, F.a0 + gap, F.a1 - gap); g.stroke();
+  }
+  // 目盛り
+  g.strokeStyle = rgba(CY, 0.38);
+  g.lineWidth = 1;
+  g.beginPath();
+  const n = main ? 120 : 72, longEvery = n / 12;
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * TAU, r0 = R * 1.075, r1 = r0 + (k % longEvery === 0 ? R * 0.04 : R * 0.016);
+    const ca = Math.cos(a), sa = Math.sin(a);
+    g.moveTo(cx + ca * r0, cy + sa * r0);
+    g.lineTo(cx + ca * r1, cy + sa * r1);
+  }
+  g.stroke();
+  // 回転する外周HUDリング
+  g.save();
+  g.translate(cx, cy);
+  g.rotate(A.rot + time * 0.08);
+  g.setLineDash([R * 0.012, R * 0.03]);
+  ring(g, 0, 0, R * 1.135, 1, rgba(CY, 0.25 + hv * 0.2));
+  g.setLineDash([]);
+  g.rotate(-time * 0.24);
+  g.strokeStyle = rgba(CY, 0.6 + hv * 0.3);
+  g.fillStyle = rgba(CY, 0.8);
+  g.lineWidth = main ? 2 : 1.5;
+  for (let q = 0; q < 3; q++) {
+    const a0 = (q / 3) * TAU, a1 = a0 + 0.38;
+    g.beginPath(); g.arc(0, 0, R * 1.165, a0, a1); g.stroke();
+    const tx = Math.cos(a1) * R * 1.165, ty = Math.sin(a1) * R * 1.165;
+    g.beginPath(); g.arc(tx, ty, main ? 2.4 : 1.8, 0, TAU); g.fill();
+  }
+  g.restore();
+  // ドームのガラス反射
+  g.strokeStyle = 'rgba(190,240,255,0.07)';
+  g.lineWidth = R * 0.045;
+  g.beginPath(); g.arc(cx, cy, R * 0.94, Math.PI * 1.08, Math.PI * 1.42); g.stroke();
+  g.globalCompositeOperation = 'source-over';
+
+  // 方位ラベル（主戦場のみ）
+  if (main) {
+    g.font = '9px "Share Tech Mono", monospace';
+    g.fillStyle = rgba(CY, 0.45);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    const lab = ['090', '180', '270', '000'];
+    for (let k = 0; k < 4; k++) {
+      const a = (k / 4) * TAU;
+      g.fillText(lab[k], cx + Math.cos(a) * R * 1.225, cy + Math.sin(a) * R * 1.225);
+    }
+    g.textBaseline = 'alphabetic';
+  }
+  // 未開戦
+  if (!A.anyPresent) {
+    g.textAlign = 'center';
+    g.font = '700 ' + (main ? 18 : 12) + 'px "Noto Sans JP", sans-serif';
+    g.fillStyle = 'rgba(160,210,240,' + (0.35 + 0.15 * Math.sin(time * 3)).toFixed(3) + ')';
+    g.fillText('— 未開戦 —', cx, cy);
+    g.font = '600 ' + (main ? 10 : 8) + 'px Orbitron, sans-serif';
+    g.fillStyle = 'rgba(120,170,210,0.4)';
+    g.fillText('AWAITING DEPLOYMENT', cx, cy + (main ? 20 : 15));
+  }
+}
+
+function drawEffects(dt) {
+  const g = gOv;
+  g.globalCompositeOperation = 'lighter';
+  for (let k = effects.length - 1; k >= 0; k--) {
+    const e = effects[k];
+    e.t += dt;
+    if (e.t < 0) continue;
+    const p = e.t / e.dur;
+    if (p >= 1) { effects.splice(k, 1); continue; }
+    const A = e.A, x = A.cx + e.nx * A.R, y = A.cy + e.ny * A.R;
+    if (e.type === 'shock') {
+      for (let r = 0; r < 3; r++) {
+        const d = r * 0.12, pp = clamp((p - d) / (1 - d), 0, 1);
+        if (pp <= 0) continue;
+        const rad = easeOut(pp) * A.R * (0.8 - r * 0.15) * e.power;
+        g.lineWidth = (1 - pp) * (r === 0 ? 6 : 2) + 0.6;
+        g.strokeStyle = r === 1 ? rgba([255, 255, 255], (1 - pp) * 0.7) : rgba(e.rgb, (1 - pp) * 0.9);
+        g.beginPath(); g.arc(x, y, rad, 0, TAU); g.stroke();
+      }
+      // 放射状のグリント
+      g.strokeStyle = rgba(mixW(e.rgb, 0.5), (1 - p) * 0.6);
+      g.lineWidth = 1;
+      g.beginPath();
+      const rr = easeOut(p) * A.R * 0.7 * e.power;
+      for (let q = 0; q < 16; q++) {
+        const a = (q / 16) * TAU + e.nx * 7;
+        g.moveTo(x + Math.cos(a) * rr * 0.75, y + Math.sin(a) * rr * 0.75);
+        g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+      }
+      g.stroke();
+    } else if (e.type === 'warp') {
+      const q = 1 - p;
+      // 収束リング
+      const rad = (1 - easeOut(Math.min(1, p * 1.6))) * A.R * 0.5;
+      g.lineWidth = 2;
+      g.strokeStyle = rgba(e.rgb, q * 0.9);
+      g.beginPath(); g.arc(x, y, rad + 2, 0, TAU); g.stroke();
+      // 縦のワープビーム
+      const bl = A.R * 0.9 * Math.sqrt(q);
+      const lg = g.createLinearGradient(x, y - bl, x, y + bl);
+      lg.addColorStop(0, rgba(e.rgb, 0));
+      lg.addColorStop(0.5, rgba([255, 255, 255], q));
+      lg.addColorStop(1, rgba(e.rgb, 0));
+      g.strokeStyle = lg;
+      g.lineWidth = 1 + 3 * q;
+      g.beginPath(); g.moveTo(x, y - bl); g.lineTo(x, y + bl); g.stroke();
+      // 横のレンズフレア
+      const hl = A.R * 0.6 * q;
+      const lh = g.createLinearGradient(x - hl, y, x + hl, y);
+      lh.addColorStop(0, rgba(e.rgb, 0));
+      lh.addColorStop(0.5, rgba(mixW(e.rgb, 0.6), q * 0.8));
+      lh.addColorStop(1, rgba(e.rgb, 0));
+      g.strokeStyle = lh;
+      g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(x - hl, y); g.lineTo(x + hl, y); g.stroke();
+      g.globalAlpha = q;
+      const s = A.R * 0.12 * (0.5 + q);
+      g.drawImage(SPR[WHITE], x - s, y - s, s * 2, s * 2);
+      g.globalAlpha = 1;
+    } else if (e.type === 'ring') {
+      g.lineWidth = 3 * (1 - p) + 0.5;
+      g.strokeStyle = rgba(CYW, (1 - p) * 0.8);
+      g.beginPath(); g.arc(A.cx, A.cy, A.R * (1 + easeOut(p) * 0.22), 0, TAU); g.stroke();
+    }
+  }
+  g.globalCompositeOperation = 'source-over';
+}
+
+function drawSwarmLabels(A, dt) {
+  const g = gOv, main = A.slot === 0, R = A.R;
+  const items = [];
+  for (const F of A.factions) {
+    if (!F.present || F.n0 < 3) continue;
+    let dx = F.ccx, dy = F.ccy, len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 0.12) { dx = 0.55; dy = -0.83; len = 1; }
+    dx /= len; dy /= len;
+    if (!F.lInit || F.side * dx < -0.25) F.side = dx >= 0 ? 1 : -1;
+    const off = Math.min(0.3, F.sigma * 0.5 + 0.08);
+    let ax = F.ccx + dx * off, ay = F.ccy + dy * off;
+    const al = Math.sqrt(ax * ax + ay * ay), lim = main ? 0.86 : 0.8;
+    if (al > lim) { ax *= lim / al; ay *= lim / al; }
+    items.push({ F, ax, ay, ds: F.flip ? -F.side : F.side });
+  }
+  // ラベル同士の重なりを緩和（描画方向が同じもの同士）
+  const hh = (main ? 36 : 15) / R, wx = (main ? 170 : 120) / R;
+  items.sort((a, b) => a.ay - b.ay);
+  for (let it = 0; it < 6; it++) {
+    for (let a = 0; a < items.length; a++) {
+      for (let b = a + 1; b < items.length; b++) {
+        const p = items[a], q = items[b];
+        if (p.ds !== q.ds || Math.abs(p.ax - q.ax) > wx) continue;
+        const d = q.ay - p.ay;
+        if (Math.abs(d) < hh) {
+          const push = (hh - Math.abs(d)) / 2, s = d >= 0 ? 1 : -1;
+          p.ay -= push * s; q.ay += push * s;
+        }
+      }
+    }
+  }
+  const k = 1 - Math.exp(-dt * 4);
+  const fsN = main ? 15 : 11.5, fsV = main ? 10.5 : 8.5, leg = main ? 22 : 13;
+  const nameFont = '700 ' + fsN + 'px Rajdhani, "Noto Sans JP", sans-serif';
+  const numFont = fsV + 'px "Share Tech Mono", "Noto Sans JP", monospace';
+  g.lineJoin = 'round';
+  for (const it of items) {
+    const F = it.F;
+    if (!F.lInit) { F.lxn = it.ax; F.lyn = it.ay; F.lInit = true; }
+    else { F.lxn += (it.ax - F.lxn) * k; F.lyn += (it.ay - F.lyn) * k; }
+    const x0 = A.cx + F.ccx * R, y0 = A.cy + F.ccy * R;
+    const lx = A.cx + F.lxn * R, ly = A.cy + F.lyn * R, side = F.side;
+    const mr = main ? 3.5 : 2.5;
+    // 重心マーカー + 引き出し線
+    g.strokeStyle = rgba(mixW(F.rgb, 0.3), 0.85);
+    g.lineWidth = 1;
+    g.beginPath(); g.arc(x0, y0, mr, 0, TAU); g.stroke();
+    const vx = lx - x0, vy = ly - y0, vl = Math.sqrt(vx * vx + vy * vy) + 1e-6;
+    g.beginPath();
+    g.moveTo(x0 + vx / vl * mr, y0 + vy / vl * mr);
+    g.lineTo(lx, ly);
+    g.lineTo(lx + side * leg, ly);
+    g.stroke();
+    g.fillStyle = F.txt;
+    g.fillRect(lx + side * leg - 1.5, ly - 1.5, 3, 3);
+    // テキスト（主戦場は2行、小アリーナは1行。アリーナ外へはみ出す場合は内側へ折り返す）
+    const name = '#' + (F.rank + 1) + ' ' + F.name;
+    const nums = main ? '強さ ' + F.s.toFixed(1) + '  規模 ' + F.c.toFixed(1) : '強' + F.s.toFixed(0) + ' 規' + F.c.toFixed(0);
+    g.font = nameFont;
+    const wN = g.measureText(name).width;
+    g.font = numFont;
+    const wV = g.measureText(nums).width;
+    const blockW = main ? Math.max(wN, wV) : wN + 5 + wV;
+    const tw = blockW + leg + 5;
+    const over = side > 0 ? lx + tw - (A.cx + R * 1.02) : (A.cx - R * 1.02) - (lx - tw);
+    if (!F.flip && over > 0) F.flip = true;
+    else if (F.flip && over < -16) F.flip = false;
+    const ds = F.flip ? -side : side;
+    const tx = F.flip ? lx + ds * 6 : lx + side * (leg + 5);
+    const x0t = ds > 0 ? tx : tx - blockW;           // ブロック左端
+    const yb = ly + fsN * 0.33;
+    g.textAlign = 'left';
+    g.lineWidth = 3;
+    g.strokeStyle = 'rgba(0,4,10,0.72)';
+    g.font = nameFont;
+    g.strokeText(name, x0t, yb);
+    g.fillStyle = F.txt;
+    g.fillText(name, x0t, yb);
+    g.font = numFont;
+    const nx = main ? x0t : x0t + wN + 5, ny = main ? yb + fsV + 2 : yb;
+    g.strokeText(nums, nx, ny);
+    g.fillStyle = 'rgba(205,230,248,0.85)';
+    g.fillText(nums, nx, ny);
+  }
+}
+
+function drawArenaTitle(A) {
+  const g = gOv, main = A.slot === 0, cx = A.cx, cy = A.cy, R = A.R;
+  const alive = A.alive.toLocaleString('en-US'), rate = Math.round(A.hitRate);
+  g.textBaseline = 'alphabetic';
+  if (main) {
+    const y = cy - R * 1.2 - 2;
+    g.font = '900 22px "Noto Sans JP", sans-serif';
+    g.textAlign = 'center';
+    g.shadowColor = 'rgba(95,232,255,0.9)';
+    g.shadowBlur = 14;
+    g.fillStyle = '#ecfaff';
+    g.fillText(A.sec.name, cx, y);
+    g.shadowBlur = 0;
+    const w = g.measureText(A.sec.name).width / 2 + 14;
+    g.font = '700 10px Orbitron, sans-serif';
+    g.fillStyle = rgba(CY, 0.85);
+    g.textAlign = 'right';
+    g.fillText(A.sec.en + ' ◂', cx - w, y - 4);
+    g.textAlign = 'left';
+    g.font = '11px "Share Tech Mono", "Noto Sans JP", monospace';
+    g.fillText('▸ 兵力 ' + alive + ' ／ 交戦 ' + rate + '/s', cx + w, y - 4);
+  } else {
+    const y = cy - R * 1.2 - 20;
+    g.textAlign = 'center';
+    g.font = '900 15px "Noto Sans JP", sans-serif';
+    g.shadowColor = 'rgba(95,232,255,0.8)';
+    g.shadowBlur = 8 + A.hover * 8;
+    g.fillStyle = A.hover > 0.5 ? '#ffffff' : '#d8f3ff';
+    g.fillText(A.sec.name, cx, y);
+    g.shadowBlur = 0;
+    g.font = '600 8.5px Orbitron, "Noto Sans JP", sans-serif';
+    g.fillStyle = rgba(CY, 0.75);
+    g.fillText(A.sec.en + '  ·  兵力 ' + alive + '  ·  交戦 ' + rate + '/s', cx, y + 13);
+    if (A.hover > 0.03) {
+      g.globalAlpha = A.hover;
+      const t = '⤢ クリックで主戦場へ展開';
+      g.font = '700 11px "Noto Sans JP", sans-serif';
+      const tw = g.measureText(t).width + 18, py = cy + R * 0.7;
+      g.fillStyle = 'rgba(2,10,20,0.82)';
+      g.fillRect(cx - tw / 2, py - 11, tw, 20);
+      g.strokeStyle = rgba(CY, 0.8);
+      g.lineWidth = 1;
+      g.strokeRect(cx - tw / 2 + 0.5, py - 10.5, tw - 1, 19);
+      g.fillStyle = '#bff6ff';
+      g.fillText(t, cx, py + 4);
+      g.globalAlpha = 1;
+    }
+  }
+}
+
+function renderOverlay(dt, time) {
+  const g = gOv;
+  g.clearRect(0, 0, W, H);
+  if (showLinks) drawLinks(time);
+  for (const A of arenas) drawArenaFrame(A, time);
+  drawEffects(dt);
+  for (const A of arenas) drawSwarmLabels(A, dt);
+  for (const A of arenas) drawArenaTitle(A);
+}
+
+/* =========================================================
+ * 5. HUD  (ranking / org deployment / clock / event toasts)
+ * ========================================================= */
+const rkList = $('#rk-list'), monthEl = $('#month'), mcountEl = $('#mcount');
+const toastBox = $('#toasts'), flashEl = $('#flash'), stage = $('#stage');
+let rkArena = null;
+let ROW_H = 44;
+
+function buildRanking() {
+  const A = mainArena();
+  rkArena = A;
+  $('#rk-title').textContent = A.sec.name + ' 戦況ランキング';
+  $('#rk-en').textContent = A.sec.en + ' // STANDINGS';
+  rkList.innerHTML = '';
+  for (const F of FACTIONS) F.row = null;
+  for (const F of A.factions) {
+    const el = document.createElement('div');
+    el.className = 'row';
+    el.style.setProperty('--rgb', F.rgb.join(','));
+    el.innerHTML =
+      '<div class="rk-n">-</div><div class="chip"></div>' +
+      '<div class="nm"><b>' + esc(F.name) + '</b><small>' + esc(F.orgName) + '</small></div>' +
+      '<div class="chg">—</div>' +
+      '<div class="bars">' +
+        '<div class="bl"><span>強さ</span><div class="bar"><i></i></div><em>0.0</em></div>' +
+        '<div class="bl"><span>規模</span><div class="bar sc"><i></i></div><em>0.0</em></div>' +
+      '</div>';
+    el.style.transform = 'translateY(' + A.factions.length * ROW_H + 'px)';
+    el.style.opacity = '0';
+    rkList.appendChild(el);
+    const bars = el.querySelectorAll('.bar i'), ems = el.querySelectorAll('em');
+    F.row = { el, n: el.querySelector('.rk-n'), chg: el.querySelector('.chg'), sb: bars[0], cb: bars[1], sv: ems[0], cv: ems[1], cache: {} };
+  }
+  rkList.style.height = A.factions.length * ROW_H + 'px';
+}
+
+function put(row, key, val, fn) {
+  if (row.cache[key] !== val) { row.cache[key] = val; fn(val); }
+}
+
+function updateRanking() {
+  const A = rkArena;
+  if (!A) return;
+  const prev = D.snapshot(A.sec.id, Math.max(0, T - 1));
+  const pr = {};
+  prev.forEach((u, r) => { pr[u.id] = r; });
+  let np = 0;
+  for (const F of A.factions) if (F.present) np++;
+  for (const F of A.factions) {
+    const R = F.row;
+    if (!R) continue;
+    if (!F.present) {
+      put(R, 'op', '0', (v) => { R.el.style.opacity = v; });
+      put(R, 'ty', np, (v) => { R.el.style.transform = 'translateY(' + v * ROW_H + 'px)'; });
+      continue;
+    }
+    const r = F.rank;
+    put(R, 'op', '1', (v) => { R.el.style.opacity = v; });
+    put(R, 'ty', r, (v) => { R.el.style.transform = 'translateY(' + v * ROW_H + 'px)'; });
+    put(R, 'n', r + 1, (v) => { R.n.textContent = v; });
+    put(R, 'top', r === 0, (v) => { R.el.classList.toggle('top', v); });
+    put(R, 'sb', (F.s / 100).toFixed(3), (v) => { R.sb.style.transform = 'scaleX(' + v + ')'; });
+    put(R, 'cb', (F.c / 100).toFixed(3), (v) => { R.cb.style.transform = 'scaleX(' + v + ')'; });
+    put(R, 'sv', F.s.toFixed(1), (v) => { R.sv.textContent = v; });
+    put(R, 'cv', F.c.toFixed(1), (v) => { R.cv.textContent = v; });
+    let txt = '－', cls = 'chg';
+    if (pr[F.id] === undefined) { txt = 'NEW'; cls = 'chg new'; }
+    else if (pr[F.id] > r) { txt = '▲' + (pr[F.id] - r); cls = 'chg up'; }
+    else if (pr[F.id] < r) { txt = '▼' + (r - pr[F.id]); cls = 'chg down'; }
+    put(R, 'chg', txt + cls, () => { R.chg.textContent = txt; R.chg.className = cls; });
+  }
+}
+
+let orgdepCache = '';
+function updateOrgDeploy() {
+  const cnt = {};
+  for (const F of FACTIONS) if (F.present) cnt[F.org] = (cnt[F.org] || 0) + 1;
+  const list = Object.entries(cnt).sort((a, b) => b[1] - a[1] || ORG_IX[a[0]] - ORG_IX[b[0]]).slice(0, 6);
+  const html = list.map(([o, n]) => '<span class="od" style="--c:' + D.orgs[o].color + '"><i></i>' + esc(D.orgs[o].name) + '<b>×' + n + '</b></span>').join('');
+  if (html !== orgdepCache) { orgdepCache = html; $('#orgdep').innerHTML = html || '<span class="od">—</span>'; }
+}
+
+let lastMi = -1, evEls = [];
+function updateClock() {
+  const mi = clamp(Math.floor(T + 1e-6), 0, LAST);
+  if (mi !== lastMi) {
+    lastMi = mi;
+    monthEl.textContent = ymLabel(mi);
+    monthEl.classList.remove('tick');
+    void monthEl.offsetWidth;
+    monthEl.classList.add('tick');
+    mcountEl.textContent = String(mi + 1).padStart(2, '0') + '/' + (LAST + 1);
+    $('#hlabel').textContent = ymLabel(mi);
+    for (const el of evEls) el.classList.toggle('past', +el.dataset.i <= mi);
+  }
+  const p = ((T / LAST) * 100).toFixed(3) + '%';
+  $('#handle').style.left = p;
+  $('#fill').style.width = p;
+}
+
+function caFlash(x, y) {
+  cvFx.classList.remove('ca');
+  void cvFx.offsetWidth;
+  cvFx.classList.add('ca');
+  flashEl.style.setProperty('--fx', x + 'px');
+  flashEl.style.setProperty('--fy', y + 'px');
+  flashEl.classList.remove('on');
+  void flashEl.offsetWidth;
+  flashEl.classList.add('on');
+}
+
+function pushToast(e, A, F) {
+  const live = [...toastBox.children].filter((c) => !c.classList.contains('out'));
+  if (live.length >= 2) {
+    const old = live[0];
+    old.classList.add('out');
+    setTimeout(() => old.remove(), 450);
+  }
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.style.setProperty('--rgb', F.rgb.join(','));
+  el.innerHTML =
+    '<div class="t-top"><span>戦況速報 // BREAKING</span><span class="t-org">' + esc(F.orgName) + ' 陣営</span></div>' +
+    '<div class="t-line">⚡<span class="t-m">' + esc(e.month.replace('-', '.')) + '</span>' +
+    '<span class="t-sec">' + esc(A.sec.name) + '</span><span class="t-d">—</span>' + esc(e.text) + '</div>';
+  toastBox.appendChild(el);
+  setTimeout(() => el.classList.add('out'), 3000);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function layoutHud() {
+  const s = SLOTS[0];
+  toastBox.style.left = s.cx + 'px';
+  toastBox.style.top = (s.cy - s.R * 0.9) + 'px';
+  toastBox.style.width = Math.min(640, s.R * 2.1) + 'px';
+  document.documentElement.style.setProperty('--lw', (LEFT - 30) + 'px');
+  ROW_H = H < 760 ? 40 : 44;
+  document.documentElement.style.setProperty('--row-h', ROW_H + 'px');
+  if (rkArena) {
+    rkList.style.height = rkArena.factions.length * ROW_H + 'px';
+    for (const F of rkArena.factions) if (F.row) F.row.cache.ty = -1;
+  }
+}
+
+/* ---- events ---- */
+const evQueue = [];
+let evTimer = 0;
+
+function fireEvent(e) {
+  const A = arenas[SECTOR_IX[e.sector]];
+  if (!A) return;
+  const F = A.byId[e.unit];
+  if (!F) return;
+  pushToast(e, A, F);
+  shock(A, F, 1);
+  F.flash = 1.6;
+  A.rimFlash = 1;
+  const nx = F.n0 > 2 ? F.ccx : F.hx, ny = F.n0 > 2 ? F.ccy : F.hy;
+  caFlash(A.cx + nx * A.R, A.cy + ny * A.R);
+  if (A.slot === 0) shakeT = 0.35;
+}
+
+function autoShock(m) {
+  // 強さが急伸した部隊に小さな衝撃波（イベントがある月は除外）
+  const evs = EVENTS_BY_MONTH[m] || [];
+  for (const A of arenas) {
+    for (const F of A.factions) {
+      const ser = D.series[A.sec.id][F.id], a = ser[m - 1], b = ser[m];
+      if (!a || !b || b.s - a.s < 3.5) continue;
+      if (evs.some((e) => e.sector === A.sec.id && e.unit === F.id)) continue;
+      shock(A, F, 0.55);
+      F.flash = Math.max(F.flash, 0.8);
+    }
+  }
+}
+
+function checkEvents() {
+  if (T > prevT) {
+    for (const e of EVENTS) if (e.i > prevT && e.i <= T) evQueue.push(e);
+    if (evQueue.length > 6) evQueue.splice(0, evQueue.length - 6);
+    const m0 = Math.floor(prevT + 1e-6), m1 = Math.floor(T + 1e-6);
+    for (let m = Math.max(1, m0 + 1); m <= m1; m++) autoShock(m);
+  }
+  prevT = T;
+}
+
+function pumpEvents(dt) {
+  evTimer -= dt;
+  if (evTimer <= 0 && evQueue.length) {
+    fireEvent(evQueue.shift());
+    evTimer = evQueue.length > 2 ? 0.3 : 0.6;
+  }
+}
+
+/* =========================================================
+ * 6. TIMELINE & INPUT
+ * ========================================================= */
+const track = $('#track'), playBtn = $('#play'), speedBtn = $('#speed'), linksBtn = $('#links');
+let hovered = null;
+
+function buildTimeline() {
+  let html = '';
+  for (let i = 0; i <= LAST; i++) {
+    const p = ((i / LAST) * 100).toFixed(3), m = MONTHS[i], isY = m.endsWith('-01');
+    html += '<div class="mt' + (isY ? ' yt' : '') + '" style="left:' + p + '%"></div>';
+    if (isY) html += '<div class="yl" style="left:' + p + '%">' + m.slice(0, 4) + '</div>';
+  }
+  const cnt = {};
+  for (const e of EVENTS) {
+    const k = (cnt[e.i] = (cnt[e.i] || 0) + 1) - 1;
+    const u = D.units[e.sector][e.unit];
+    const sec = D.sectors[SECTOR_IX[e.sector]];
+    html += '<div class="ev" data-i="' + e.i + '" style="left:' + ((e.i / LAST) * 100).toFixed(3) + '%;--c:' + u.color + ';--k:' + k + '" title="' +
+      esc(e.month.replace('-', '.') + ' ' + sec.name + ' — ' + e.text) + '"></div>';
+  }
+  $('#ticks').innerHTML = html;
+  evEls = [...document.querySelectorAll('#ticks .ev')];
+}
+
+function syncPlayBtn() { playBtn.textContent = playing ? '❚❚' : '▶'; }
+
+function scrubTo(clientX) {
+  const r = track.getBoundingClientRect();
+  T = clamp((clientX - r.left) / r.width, 0, 1) * LAST;
+  prevT = T;
+  evQueue.length = 0;
+}
+
+track.addEventListener('pointerdown', (e) => {
+  dragging = true;
+  try { track.setPointerCapture(e.pointerId); } catch (err) { /* synthetic pointer */ }
+  scrubTo(e.clientX);
+});
+track.addEventListener('pointermove', (e) => { if (dragging) scrubTo(e.clientX); });
+const endDrag = () => { dragging = false; };
+track.addEventListener('pointerup', endDrag);
+track.addEventListener('pointercancel', endDrag);
+
+for (const b of [playBtn, speedBtn, linksBtn, $('#rk-toggle')]) b.addEventListener('mousedown', (e) => e.preventDefault());
+playBtn.addEventListener('click', () => {
+  if (!playing && T >= LAST - 1e-4) { T = 0; prevT = -0.001; }
+  playing = !playing;
+  startDelay = 0;
+  syncPlayBtn();
+});
+speedBtn.addEventListener('click', () => {
+  speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
+  speedBtn.textContent = speed + 'x';
+});
+linksBtn.addEventListener('click', () => {
+  showLinks = !showLinks;
+  linksBtn.classList.toggle('on', showLinks);
+});
+$('#rk-toggle').addEventListener('click', () => $('#rank').classList.toggle('collapsed'));
+
+function hitArena(x, y) {
+  for (const A of arenas) {
+    const dx = x - A.cx, dy = y - A.cy;
+    if (dx * dx + dy * dy < (A.R * 1.12) * (A.R * 1.12)) return A;
+  }
+  return null;
+}
+cvOv.addEventListener('pointermove', (e) => {
+  hovered = hitArena(e.clientX, e.clientY);
+  cvOv.style.cursor = hovered && hovered.slot !== 0 ? 'pointer' : 'default';
+});
+cvOv.addEventListener('pointerleave', () => { hovered = null; });
+cvOv.addEventListener('click', (e) => {
+  const A = hitArena(e.clientX, e.clientY);
+  if (A && A.slot !== 0 && !arenas.some((a) => a.tw)) swapToMain(A);
+});
+
+function swapToMain(A) {
+  const M = mainArena();
+  if (M === A) return;
+  const s = A.slot;
+  tweenTo(A, 0);
+  tweenTo(M, s);
+  A.slot = 0;
+  M.slot = s;
+  A.rimFlash = 1;
+  effects.push({ type: 'ring', A, nx: 0, ny: 0, t: -1.0, dur: 1.0 });
+  buildRanking();
+  caFlash(SLOTS[0].cx, SLOTS[0].cy);
+}
+
+addEventListener('keydown', (e) => {
+  if (e.code === 'Space') { e.preventDefault(); playBtn.click(); }
+  else if (e.code === 'ArrowRight') { T = Math.min(LAST, Math.floor(T + 1e-6) + 1); prevT = T; }
+  else if (e.code === 'ArrowLeft') { T = Math.max(0, Math.ceil(T - 1e-6) - 1); prevT = T; }
+  else if (e.key === 'l' || e.key === 'L') linksBtn.click();
+});
+
+/* =========================================================
+ * 7. RESIZE & MAIN LOOP
+ * ========================================================= */
+function resize() {
+  W = Math.max(320, innerWidth);
+  H = Math.max(320, innerHeight);
+  DPR = Math.min(1.5, devicePixelRatio || 1);
+  for (const c of [cvBg, cvFx, cvOv]) {
+    c.width = Math.round(W * DPR);
+    c.height = Math.round(H * DPR);
+  }
+  for (const g of [gBg, gFx, gOv]) g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  computeSlots();
+  for (const A of arenas) { A.tw = null; updateArenaTransform(A, 0); }
+  buildStatic();
+  initStars();
+  layoutHud();
+}
+let resizeTimer = 0;
+addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 80); });
+
+function advanceTime(dt) {
+  if (!playing || dragging) return;
+  if (startDelay > 0) { startDelay -= dt; return; }
+  T += (dt * speed) / MONTH_SEC;
+  if (T >= LAST) { T = LAST; playing = false; syncPlayBtn(); }
+}
+
+let last = performance.now(), time = 0, frame = 0, perfAcc = 0, perfN = 0, workAcc = 0;
+function loop(now) {
+  const w0 = performance.now();
+  let dt = (now - last) / 1000;
+  last = now;
+  if (!(dt > 0)) dt = 1 / 60;
+  if (dt > 0.05) dt = 0.05;
+  time += dt;
+  frame++;
+  // 簡易アダプティブ品質：1フレームの処理時間が重い環境では粒子数を自動で絞る
+  perfAcc += dt; perfN++;
+  if (perfAcc > 2) {
+    const work = workAcc / perfN;
+    if (work > 11 && quality > 0.5) quality = Math.max(0.5, quality - 0.1);
+    else if (work < 7 && quality < 1) quality = Math.min(1, quality + 0.05);
+    perfAcc = 0; perfN = 0; workAcc = 0;
+  }
+
+  advanceTime(dt);
+  checkEvents();
+  pumpEvents(dt);
+  updateArenas(dt, time);
+  stepParticles(dt, time);
+  enforceBudgets();
+  stepSparks(dt);
+
+  if (shakeT > 0) {
+    shakeT -= dt;
+    const m = Math.max(0, shakeT) * 12;
+    stage.style.transform = shakeT > 0 ? 'translate(' + ((Math.random() - 0.5) * m).toFixed(1) + 'px,' + ((Math.random() - 0.5) * m).toFixed(1) + 'px)' : '';
+  }
+
+  renderBg(dt, time);
+  renderFx(dt);
+  renderOverlay(dt, time);
+
+  updateClock();
+  updateRanking();
+  if (frame % 15 === 0) updateOrgDeploy();
+  workAcc += performance.now() - w0;
+  requestAnimationFrame(loop);
+}
+
+// ---- boot ----
+resize();
+buildTimeline();
+buildRanking();
+syncPlayBtn();
+updateOrgDeploy();
+requestAnimationFrame((t) => { last = t; loop(t); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,2107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI WAR — HEX CONQUEST｜電脳戦況モニター</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cy:#00e5ff; --txt:#d6f4ff; --dim:#6d8ca6; --warn:#ffd23f;
+  --f-disp:'Orbitron','Rajdhani','Noto Sans JP',system-ui,sans-serif;
+  --f-ui:'Rajdhani','Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic UI','Meiryo',system-ui,sans-serif;
+  --f-jp:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic UI','Meiryo',system-ui,sans-serif;
+  --f-mono:'Share Tech Mono','Consolas','Menlo',monospace;
+  --pw:344px; --tlh:64px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02050d;color:var(--txt);
+  font-family:var(--f-ui);-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
+button{font-family:inherit}
+#map{position:fixed;left:0;top:0;width:100vw;height:100vh;display:block;will-change:transform}
+#map.hover{cursor:pointer}
+
+/* ---------- screen FX overlays ---------- */
+#fx-vig{position:fixed;inset:0;pointer-events:none;z-index:2;
+  background:radial-gradient(ellipse 78% 72% at 42% 46%,rgba(0,0,0,0) 52%,rgba(0,3,10,.5) 82%,rgba(0,0,4,.88) 100%)}
+#fx-scan{position:fixed;inset:0;pointer-events:none;z-index:3;opacity:.55;
+  background:repeating-linear-gradient(180deg,rgba(0,0,0,0) 0,rgba(0,0,0,0) 2px,rgba(0,0,0,.28) 3px)}
+#fx-scan::after{content:'';position:absolute;left:0;right:0;top:-200px;height:200px;
+  background:linear-gradient(180deg,rgba(120,240,255,0),rgba(120,240,255,.05),rgba(120,240,255,0));
+  animation:roll 8s linear infinite}
+@keyframes roll{to{transform:translateY(calc(100vh + 200px))}}
+body.glitch #fx-scan{opacity:.9}
+body.glitch .t-logo{transform:translateX(2px) skewX(-8deg)}
+
+/* ---------- HUD frame with corner brackets ---------- */
+.frame{position:absolute;z-index:5;background:linear-gradient(180deg,rgba(6,16,36,.88),rgba(3,8,20,.84));
+  border:1px solid rgba(0,229,255,.16);box-shadow:0 0 0 1px rgba(0,0,0,.45),inset 0 0 28px rgba(0,229,255,.05)}
+.frame::before{content:'';position:absolute;inset:-1px;pointer-events:none;--c:rgba(80,240,255,.95);
+  background:
+   linear-gradient(var(--c),var(--c)) left top/12px 2px no-repeat,
+   linear-gradient(var(--c),var(--c)) left top/2px 12px no-repeat,
+   linear-gradient(var(--c),var(--c)) right top/12px 2px no-repeat,
+   linear-gradient(var(--c),var(--c)) right top/2px 12px no-repeat,
+   linear-gradient(var(--c),var(--c)) left bottom/12px 2px no-repeat,
+   linear-gradient(var(--c),var(--c)) left bottom/2px 12px no-repeat,
+   linear-gradient(var(--c),var(--c)) right bottom/12px 2px no-repeat,
+   linear-gradient(var(--c),var(--c)) right bottom/2px 12px no-repeat;
+  filter:drop-shadow(0 0 3px rgba(0,229,255,.9))}
+
+/* ---------- title ---------- */
+#title{left:16px;top:14px;padding:12px 18px 12px 16px;pointer-events:none}
+.t-row{display:flex;align-items:center;gap:14px}
+.t-logo{margin:0;font:900 34px/1 var(--f-disp);letter-spacing:.08em;color:#effdff;
+  text-shadow:0 0 6px rgba(0,229,255,.95),0 0 22px rgba(0,229,255,.55),2px 0 0 rgba(255,0,90,.55),-2px 0 0 rgba(0,255,255,.45);
+  transition:transform .05s}
+.t-badge{padding:3px;background:repeating-linear-gradient(-45deg,#ffd23f 0 6px,#1a1400 6px 12px);
+  box-shadow:0 0 14px rgba(255,210,63,.55)}
+.t-badge span{display:block;background:#ffd23f;color:#120d00;font:900 12px/1.2 var(--f-jp);padding:4px 9px;letter-spacing:.03em;white-space:nowrap}
+.t-sub{margin-top:6px;font:700 14px var(--f-jp);letter-spacing:.18em;color:#9fe9ff}
+.t-sub span{font:600 10px var(--f-disp);letter-spacing:.22em;color:#3fb6d6;margin-left:6px}
+.t-date{display:flex;align-items:flex-end;gap:12px;margin-top:8px}
+.t-date b{font:700 46px/0.95 var(--f-disp);letter-spacing:.03em;color:#fff;
+  text-shadow:0 0 10px rgba(0,229,255,.85),0 0 30px rgba(0,229,255,.35);font-variant-numeric:tabular-nums}
+.t-date b.tick{animation:tick .35s ease-out}
+@keyframes tick{0%{color:#aef8ff;text-shadow:0 0 18px #00e5ff,0 0 40px #00e5ff}100%{}}
+.t-live{display:flex;align-items:center;gap:6px;font:700 10px var(--f-disp);letter-spacing:.2em;color:#ff4d6d;padding-bottom:6px}
+.t-live i{width:8px;height:8px;border-radius:50%;background:#ff3b5c;box-shadow:0 0 8px #ff3b5c;animation:blink 1.2s steps(2) infinite}
+.t-live.paused{color:#7790a6}.t-live.paused i{background:#7790a6;box-shadow:none;animation:none}
+@keyframes blink{50%{opacity:.15}}
+.t-stats{margin-top:8px;font:600 12px var(--f-jp);color:#86b9cf;letter-spacing:.04em;white-space:nowrap}
+.t-stats b{font:400 14px var(--f-mono);color:#e8fbff;margin:0 2px}
+
+/* ---------- front tabs ---------- */
+#tabs{position:absolute;z-index:6;top:16px;right:calc(var(--pw) + 34px);display:flex;gap:3px;padding:4px;
+  background:rgba(3,9,22,.8);border:1px solid rgba(0,229,255,.16)}
+#tabs button{font:700 13px var(--f-jp);color:#8fd3ea;background:rgba(0,229,255,.05);border:0;padding:7px 14px;cursor:pointer;
+  clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%);transition:background .2s,color .2s;white-space:nowrap}
+#tabs button:hover{background:rgba(0,229,255,.16);color:#fff}
+#tabs button.on{background:linear-gradient(180deg,rgba(0,229,255,.45),rgba(0,140,255,.3));color:#fff;text-shadow:0 0 8px #00e5ff}
+#tabs button.home{font-weight:900}
+
+/* ---------- event banners ---------- */
+#banners{position:absolute;z-index:7;top:72px;left:440px;width:560px;pointer-events:none}
+.banner{position:absolute;left:0;right:0;top:0;display:flex;align-items:stretch;overflow:hidden;
+  background:linear-gradient(90deg,rgba(4,10,24,.96),rgba(4,10,24,.86));border:1px solid var(--fc);
+  box-shadow:0 0 26px -4px var(--fc),inset 0 0 34px -14px var(--fc);
+  animation:bnIn .62s cubic-bezier(.2,.9,.25,1) both}
+.banner.out{animation:bnOut .42s ease-in both}
+.bn-flash{position:absolute;inset:0;background:#fff;pointer-events:none;animation:bnFlash .55s ease-out both}
+.bn-side{width:56px;flex:none;display:grid;place-items:center;background:var(--fc);color:#05070d;font:900 26px var(--f-disp);
+  clip-path:polygon(0 0,100% 0,82% 100%,0 100%)}
+.bn-body{padding:8px 16px 10px 8px;flex:1;min-width:0}
+.bn-kick{display:flex;gap:10px;align-items:center;font:700 10px var(--f-disp);letter-spacing:.22em;color:var(--fc)}
+.bn-kick em{font:700 11px var(--f-jp);letter-spacing:.06em;font-style:normal;color:#cfe9f5;margin-left:auto}
+.bn-text{margin-top:3px;font:900 19px/1.35 var(--f-jp);color:#fff;text-shadow:0 0 10px var(--fc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  animation:txtGlitch .7s steps(1) both}
+.bn-text .d{font:700 18px var(--f-disp);color:var(--fc);margin-right:8px}
+.bn-text .s{color:#bfeeff;margin-right:2px}
+.bn-prog{position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--fc);box-shadow:0 0 8px var(--fc);transform-origin:left;
+  animation:prog var(--dur) linear both}
+.bn-q{position:absolute;right:8px;bottom:5px;font:700 10px var(--f-mono);color:var(--fc);opacity:.85}
+@keyframes bnIn{0%{opacity:0;transform:translateX(-50px) skewX(-20deg);clip-path:inset(0 100% 0 0)}
+  35%{opacity:1;transform:translateX(8px) skewX(5deg);clip-path:inset(0 0 0 0)}
+  48%{transform:translateX(-4px) skewX(0);clip-path:inset(35% 0 30% 0)}
+  56%{clip-path:inset(0 0 0 0);transform:translateX(3px)}
+  64%{clip-path:inset(0 0 60% 0)} 70%{clip-path:inset(0 0 0 0);transform:none}100%{transform:none}}
+@keyframes bnOut{to{opacity:0;transform:translateY(-16px) scaleY(.5);filter:blur(3px)}}
+@keyframes bnFlash{0%{opacity:.85}100%{opacity:0}}
+@keyframes prog{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@keyframes txtGlitch{0%{text-shadow:3px 0 #ff0050,-3px 0 #00f0ff;transform:translateX(2px)}
+  20%{text-shadow:-2px 0 #ff0050,2px 0 #00f0ff;transform:translateX(-2px)}
+  40%{text-shadow:0 0 10px var(--fc);transform:none}
+  55%{text-shadow:2px 0 #ff0050,-2px 0 #00f0ff}
+  65%,100%{text-shadow:0 0 10px var(--fc);transform:none}}
+
+/* ---------- side panel ---------- */
+#panel{right:16px;top:14px;bottom:calc(var(--tlh) + 26px);width:var(--pw);padding:14px 14px 10px;display:flex;flex-direction:column;overflow:hidden}
+.p-kick{display:flex;justify-content:space-between;font:700 10px var(--f-disp);letter-spacing:.2em;color:#3fb6d6}
+.p-kick span:last-child{font-family:var(--f-mono);letter-spacing:.05em;color:#7fdcff}
+.p-title{display:flex;align-items:baseline;gap:10px;margin:4px 0 8px}
+.p-title b{font:900 22px var(--f-jp);color:#fff;text-shadow:0 0 12px rgba(0,229,255,.6)}
+.p-title small{font:700 10px var(--f-disp);letter-spacing:.2em;color:#58c8e8}
+.p-sharelbl{display:flex;justify-content:space-between;font:500 10px var(--f-jp);color:var(--dim);margin-bottom:3px}
+#p-share{display:flex;height:8px;background:rgba(255,255,255,.05);overflow:hidden;margin-bottom:10px;border:1px solid rgba(0,229,255,.12)}
+#p-share i{display:block;height:100%;transition:width .35s linear;box-shadow:inset 0 0 6px rgba(255,255,255,.35)}
+.p-cols{display:grid;grid-template-columns:24px 1fr auto;gap:8px;font:500 10px var(--f-jp);color:var(--dim);padding:0 6px 4px;border-bottom:1px solid rgba(0,229,255,.15)}
+#rank-list{position:relative;flex:none}
+.row{position:absolute;left:0;right:0;top:0;height:var(--rowh,54px);display:grid;grid-template-columns:24px 4px 1fr;gap:8px;align-items:center;
+  padding:4px 6px;opacity:0;cursor:default;border-bottom:1px solid rgba(0,229,255,.07);
+  transition:transform .6s cubic-bezier(.3,.9,.25,1),opacity .4s,background .2s}
+.row.vis{opacity:1}
+.row:hover{background:linear-gradient(90deg,rgba(0,229,255,.12),rgba(0,229,255,0))}
+.r-rank{font:700 17px var(--f-disp);color:#d4f4ff;text-align:center}
+.row.top .r-rank{color:#ffe27a;text-shadow:0 0 10px rgba(255,210,63,.8)}
+.r-chip{width:4px;height:40px;background:var(--c);box-shadow:0 0 8px var(--c),0 0 2px var(--c)}
+.r-main{min-width:0}
+.r-top{display:flex;align-items:baseline;gap:6px;white-space:nowrap;overflow:hidden}
+.r-name{font:700 16px/1.1 var(--f-ui);color:#fff}
+.r-org{font:600 11px var(--f-ui);color:var(--dim);letter-spacing:.04em}
+.r-delta{margin-left:auto;font:400 12px var(--f-mono);min-width:30px;text-align:right}
+.r-delta.up{color:#3dff9e;text-shadow:0 0 6px rgba(61,255,158,.7)}.r-delta.down{color:#ff4d6d;text-shadow:0 0 6px rgba(255,77,109,.6)}
+.r-delta.same{color:#47657a}.r-delta.new{color:#ffd23f;font-size:10px}
+.r-bar{display:grid;grid-template-columns:24px 1fr 34px;align-items:center;gap:6px;height:13px}
+.r-bar label{font:500 10px var(--f-jp);color:#7d9db3}
+.r-bar b{font:400 12px var(--f-mono);color:#e0f7ff;text-align:right}
+.bar{height:5px;background:rgba(255,255,255,.06);position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0;transform-origin:left;transform:scaleX(0);transition:transform .25s linear;background:var(--c)}
+.r-bar.s .bar i{box-shadow:0 0 6px var(--c);background:linear-gradient(90deg,var(--c),#fff)}
+.r-bar.c .bar i{opacity:.6;background:repeating-linear-gradient(90deg,var(--c) 0 3px,transparent 3px 4px)}
+.p-sec{display:flex;justify-content:space-between;align-items:baseline;margin:12px 0 4px;padding-bottom:4px;border-bottom:1px solid rgba(0,229,255,.15)}
+.p-sec b{font:700 13px var(--f-jp);color:#cdefff}
+.p-sec small{font:500 10px var(--f-jp);color:var(--dim)}
+#org-list{position:relative;flex:1 1 auto;min-height:0;overflow:hidden}
+.orow{position:absolute;left:0;right:0;top:0;height:25px;display:grid;grid-template-columns:10px 92px 1fr 34px 58px;gap:6px;align-items:center;
+  padding:0 6px;opacity:0;transition:transform .6s cubic-bezier(.3,.9,.25,1),opacity .4s;cursor:default}
+.orow.vis{opacity:1}
+.orow:hover{background:linear-gradient(90deg,rgba(0,229,255,.12),rgba(0,229,255,0))}
+.o-chip{width:8px;height:8px;background:var(--c);transform:rotate(45deg);box-shadow:0 0 6px var(--c)}
+.o-name{font:700 13px var(--f-ui);color:#e8f8ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.o-n{font:400 12px var(--f-mono);color:#bfe6f5;text-align:right}
+.o-fr{display:flex;gap:2px;justify-content:flex-end}
+.o-fr i{width:9px;height:9px;border:1px solid rgba(255,255,255,.14);font:700 7px/8px var(--f-jp);color:transparent}
+.o-fr i.on{background:var(--c);border-color:var(--c);box-shadow:0 0 5px var(--c)}
+.p-hint{margin-top:6px;font:500 10px var(--f-jp);color:#4f7187;text-align:right}
+
+/* ---------- legend ---------- */
+#legend{left:16px;bottom:calc(var(--tlh) + 20px);padding:6px 14px;display:flex;align-items:center;gap:16px;pointer-events:none}
+.lg-t{font:700 9px var(--f-disp);letter-spacing:.25em;color:#3fb6d6}
+.lg-r{display:flex;align-items:center;gap:7px;font:500 11.5px/1.4 var(--f-jp);color:#cfe9f5;white-space:nowrap}
+.lg-i{width:16px;height:14px;flex:none;clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+.lg-i.a{background:linear-gradient(90deg,rgba(76,141,255,.35),rgba(76,141,255,.7))}
+.lg-i.b{background:#ff8a4c;box-shadow:0 0 10px #ff8a4c;filter:drop-shadow(0 0 4px #ff8a4c)}
+.lg-i.c{background:linear-gradient(90deg,#4c8dff 0 33%,#19c37d 33% 66%,#ff8a4c 66%)}
+
+/* ---------- timeline ---------- */
+#timeline{left:16px;right:16px;bottom:12px;height:var(--tlh);display:flex;align-items:center;gap:12px;padding:0 14px}
+.hbtn{width:42px;height:42px;flex:none;border:0;background:linear-gradient(180deg,rgba(0,229,255,.4),rgba(0,120,255,.25));color:#fff;
+  font:700 15px var(--f-disp);cursor:pointer;clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);text-shadow:0 0 8px #00e5ff}
+.hbtn:hover{background:linear-gradient(180deg,rgba(0,229,255,.7),rgba(0,120,255,.45))}
+.seg{display:flex;flex:none;border:1px solid rgba(0,229,255,.25)}
+.seg button{border:0;background:transparent;color:#7fbcd4;font:700 11px var(--f-disp);padding:6px 8px;cursor:pointer}
+.seg button.on{background:rgba(0,229,255,.3);color:#fff;text-shadow:0 0 6px #00e5ff}
+#tl-track{position:relative;flex:1;height:100%;cursor:pointer;touch-action:none}
+.tl-in{position:absolute;left:10px;right:14px;top:0;bottom:0}
+.tl-rail{position:absolute;left:0;right:0;top:33px;height:3px;background:rgba(0,229,255,.14)}
+.tl-fill{position:absolute;left:0;top:33px;height:3px;width:0;background:linear-gradient(90deg,rgba(0,120,255,.4),#00e5ff);box-shadow:0 0 8px #00e5ff}
+.tk{position:absolute;top:38px;width:1px;height:4px;background:rgba(0,229,255,.28)}
+.tk.q{height:7px;background:rgba(0,229,255,.45)}
+.tk.yr{top:36px;height:13px;background:rgba(120,240,255,.85)}
+.yl{position:absolute;top:47px;margin-left:5px;font:700 10px var(--f-disp);letter-spacing:.1em;color:#7fdcff}
+.evg{position:absolute;bottom:34px;display:flex;flex-direction:column-reverse;align-items:center;gap:2px;transform:translateX(-50%);padding:2px 3px}
+.evd{width:7px;height:7px;background:var(--c);transform:rotate(45deg);box-shadow:0 0 6px var(--c);cursor:pointer;transition:transform .15s}
+.evd:hover{transform:rotate(45deg) scale(1.6)}
+.evd.past{opacity:.45;box-shadow:none}
+#tl-thumb{position:absolute;top:8px;height:44px;width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 10px #00e5ff,0 0 3px #fff;pointer-events:none}
+#tl-thumb::after{content:'';position:absolute;left:-5px;top:21px;width:12px;height:12px;background:#00e5ff;
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);box-shadow:0 0 10px #00e5ff}
+#tl-thumb span{position:absolute;left:50%;bottom:calc(100% + 2px);transform:translateX(-50%);font:700 11px var(--f-disp);color:#00141a;
+  background:#00e5ff;padding:2px 6px;white-space:nowrap;box-shadow:0 0 10px rgba(0,229,255,.7)}
+.tl-now{flex:none;text-align:right;line-height:1}
+.tl-now small{display:block;font:700 8px var(--f-disp);letter-spacing:.25em;color:#3fb6d6}
+.tl-now b{font:700 18px var(--f-disp);color:#fff;text-shadow:0 0 8px #00e5ff}
+
+/* ---------- intro ---------- */
+#intro{position:fixed;inset:0;z-index:20;display:grid;place-items:center;pointer-events:none;
+  background:radial-gradient(circle,rgba(2,8,20,.6),rgba(2,5,13,.95));animation:introOut .7s ease-in 1.7s both}
+.in-box{text-align:center}
+.in-k{font:700 11px var(--f-disp);letter-spacing:.4em;color:#3fb6d6}
+.in-t{font:900 52px var(--f-disp);letter-spacing:.14em;color:#eaffff;margin:8px 0;
+  text-shadow:0 0 12px #00e5ff,0 0 40px rgba(0,229,255,.5),3px 0 rgba(255,0,90,.5),-3px 0 rgba(0,255,255,.5);animation:txtGlitch 1.1s steps(1) infinite}
+.in-s{font:700 14px var(--f-jp);letter-spacing:.3em;color:#9fe9ff}
+.in-bar{width:280px;height:3px;margin:14px auto 0;background:rgba(0,229,255,.15);overflow:hidden}
+.in-bar i{display:block;height:100%;background:#00e5ff;box-shadow:0 0 10px #00e5ff;animation:load 1.6s cubic-bezier(.6,.1,.3,1) both}
+@keyframes load{from{width:0}to{width:100%}}
+@keyframes introOut{to{opacity:0;visibility:hidden}}
+
+@media (max-width:1100px){ :root{--pw:290px} #legend{display:none} .t-date b{font-size:36px} }
+@media (max-height:800px){ #panel{--rowh:46px} .r-chip{height:32px} .r-name{font-size:14px} .r-bar{height:11px} .r-bar label{font-size:9px} .r-bar b{font-size:11px} .p-title{margin:2px 0 6px} .p-title b{font-size:19px} }
+@media (max-width:820px){ #tabs{top:auto;bottom:calc(var(--tlh) + 26px);right:calc(var(--pw) + 28px)} .t-stats{display:none} }
+</style>
+</head>
+<body>
+<canvas id="map"></canvas>
+<div id="fx-vig"></div>
+<div id="fx-scan"></div>
+
+<header id="title" class="frame">
+  <div class="t-row">
+    <h1 class="t-logo">AI WAR</h1>
+    <div class="t-badge"><span>ダミーデータ（見た目確認用）</span></div>
+  </div>
+  <div class="t-sub">電脳戦況モニター<span>// HEX CONQUEST</span></div>
+  <div class="t-date"><b id="t-month">2023.01</b><span class="t-live" id="t-live"><i></i>LIVE</span></div>
+  <div class="t-stats" id="t-stats">&nbsp;</div>
+</header>
+
+<nav id="tabs">
+  <button class="home on" data-f="">◆ 全体マップ</button>
+  <button data-f="general">総合</button>
+  <button data-f="code">コード</button>
+  <button data-f="image">画像</button>
+  <button data-f="video">動画</button>
+  <button data-f="music">音楽</button>
+</nav>
+
+<div id="banners"></div>
+
+<aside id="panel" class="frame">
+  <div class="p-kick"><span>FRONT STATUS // 戦況</span><span id="p-hex">0 HEX</span></div>
+  <div class="p-title"><b id="p-name">総合戦線</b><small id="p-en">GENERAL FRONT</small></div>
+  <div class="p-sharelbl"><span>制圧率（領土シェア）</span><span id="p-neutral">未制圧 100%</span></div>
+  <div id="p-share"></div>
+  <div class="p-cols"><span>順位</span><span>部隊 ／ 陣営</span><span>前月比</span></div>
+  <div id="rank-list"></div>
+  <div class="p-sec"><b>陣営別 総領土</b><small>全戦線合計 ／ 展開戦線</small></div>
+  <div id="org-list"></div>
+  <div class="p-hint">行にカーソル → 地図上でその領土を強調表示</div>
+</aside>
+
+<div id="legend" class="frame">
+  <div class="lg-t">LEGEND // 凡例</div>
+  <div class="lg-r"><span class="lg-i a"></span>領土の広さ＝規模（利用者・展開範囲）</div>
+  <div class="lg-r"><span class="lg-i b"></span>輝き・攻勢＝強さ（ベンチマーク＋レビュー）</div>
+  <div class="lg-r"><span class="lg-i c"></span>同じ色＝同じ企業（全戦線で共通）</div>
+</div>
+
+<div id="timeline" class="frame">
+  <button class="hbtn" id="btn-play" title="再生 / 一時停止（Space）">❚❚</button>
+  <div class="seg" id="speed"><button data-s="1" class="on">1x</button><button data-s="2">2x</button><button data-s="4">4x</button></div>
+  <div id="tl-track"><div class="tl-in" id="tl-in">
+    <div class="tl-rail"></div>
+    <div class="tl-fill" id="tl-fill"></div>
+    <div id="tl-ticks"></div>
+    <div id="tl-events"></div>
+    <div id="tl-thumb"><span id="tl-thumb-lbl">2023.01</span></div>
+  </div></div>
+  <div class="tl-now"><small>NOW</small><b id="tl-now">2023.01</b></div>
+</div>
+
+<div id="intro"><div class="in-box">
+  <div class="in-k">TACTICAL NETWORK // ONLINE</div>
+  <div class="in-t">HEX CONQUEST</div>
+  <div class="in-s">戦域データ同期中…</div>
+  <div class="in-bar"><i></i></div>
+</div></div>
+
+<script src="data.js"></script>
+<script>
+(() => {
+'use strict';
+const D = window.AIWAR;
+if (!D) {
+  document.body.insertAdjacentHTML('beforeend', '<div style="position:fixed;inset:0;display:grid;place-items:center;color:#ff4d6d;font:700 18px sans-serif;z-index:99">data.js が読み込めませんでした</div>');
+  return;
+}
+
+// ============================================================
+// 0. UTILITIES
+// ============================================================
+const TAU = Math.PI * 2, SQ3 = Math.sqrt(3);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+const easeIn = (t) => t * t * t;
+const easeOutBack = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+const rand = Math.random;
+const randR = (a, b) => a + (b - a) * rand();
+const sNorm = (s) => clamp((s - 55) / 42, 0, 1);   // 強さ → 0..1（輝きの強さ）
+
+function hash2(ix, iy, seed) {
+  let h = Math.imul(ix | 0, 374761393) ^ Math.imul(iy | 0, 668265263) ^ Math.imul(seed | 0, 1442695041);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+function vnoise(x, y, seed) {
+  const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+  const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+  const a = hash2(ix, iy, seed), b = hash2(ix + 1, iy, seed), c = hash2(ix, iy + 1, seed), d = hash2(ix + 1, iy + 1, seed);
+  return lerp(lerp(a, b, sx), lerp(c, d, sx), sy);
+}
+function fbm(x, y, seed) {
+  let s = 0, amp = 0.5, f = 1, n = 0;
+  for (let o = 0; o < 4; o++) { s += amp * vnoise(x * f, y * f, seed + o * 17); n += amp; amp *= 0.5; f *= 2.03; }
+  return s / n;
+}
+
+const _rgb = new Map();
+function rgbOf(hex) {
+  let v = _rgb.get(hex);
+  if (!v) { const n = parseInt(hex.slice(1), 16); v = [(n >> 16) & 255, (n >> 8) & 255, n & 255]; _rgb.set(hex, v); }
+  return v;
+}
+function rgba(hex, a) {
+  const c = rgbOf(hex);
+  return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + clamp(a, 0, 1).toFixed(3) + ')';
+}
+function tint(hex, k, a) {   // 白へ寄せた色
+  const c = rgbOf(hex);
+  return 'rgba(' + Math.round(c[0] + (255 - c[0]) * k) + ',' + Math.round(c[1] + (255 - c[1]) * k) + ',' +
+    Math.round(c[2] + (255 - c[2]) * k) + ',' + clamp(a === undefined ? 1 : a, 0, 1).toFixed(3) + ')';
+}
+const _spr = new Map();
+function glowSprite(hex) {   // 発光スプライト（色ごとにキャッシュ）
+  let cv = _spr.get(hex);
+  if (cv) return cv;
+  cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, rgba(hex, 1)); gr.addColorStop(0.16, rgba(hex, 0.6));
+  gr.addColorStop(0.42, rgba(hex, 0.16)); gr.addColorStop(1, rgba(hex, 0));
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  _spr.set(hex, cv);
+  return cv;
+}
+function rrect(c, x, y, w, h, r) {
+  c.beginPath(); c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+const esc = (s) => String(s).replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+const CYAN = '#00e5ff', WHITE = '#ffffff';
+
+// ============================================================
+// 1. DATA ACCESS
+// ============================================================
+const MONTHS = D.months, LAST = MONTHS.length - 1;
+const SECTORS = D.sectors;
+const SECTOR = {}; SECTORS.forEach((s) => { SECTOR[s.id] = s; });
+const CAP = { general: 150, code: 130, image: 130, video: 130, music: 120 };   // 規模合計がこれ未満なら未制圧地が残る
+const INI = { 'GPT / Codex': 'GPT', 'GPT Image': 'GPT', 'Nano Banana': 'NB', 'Qwen Coder': 'QC', Midjourney: 'MJ', Runway: 'RW',
+  Hailuo: 'HL', Seedream: 'SD', Seedance: 'SC', DeepSeek: 'DS', Veo: 'VEO', FLUX: 'FLX', Grok: 'GK', 'Eleven Music': 'XI' };
+function initials(name) {
+  if (INI[name]) return INI[name];
+  const w = name.replace(/[^A-Za-z0-9 ]/g, ' ').trim().split(/\s+/);
+  if (w[0].length <= 3 && w.length === 1) return w[0].toUpperCase();
+  return (w.length > 1 ? w[0][0] + w[1][0] : w[0].slice(0, 2)).toUpperCase();
+}
+const SECTOR_UNITS = {};
+for (const s of SECTORS) {
+  SECTOR_UNITS[s.id] = Object.values(D.units[s.id]).map((u, i) => ({
+    id: u.id, name: u.name, org: u.org, color: u.color, idx: i,
+    orgName: (D.orgs[u.org] || {}).name || u.org,
+    first: D.series[s.id][u.id].findIndex((v) => !!v),
+    ini: initials(u.name),
+  }));
+}
+const fmtMonth = (fi) => MONTHS[clamp(Math.floor(fi + 1e-6), 0, LAST)].replace('-', '.');
+
+// ============================================================
+// 2. MAP GENERATION（六角タイルの島を手続き生成・固定シード）
+// ============================================================
+const R = 10, HEX_W = SQ3 * R, TILT = 0.68, CLIFF = 26;
+const TILE_K = 0.87, BORDER_K = 0.93;
+const TILE_COL = '#071024', GROUT_COL = '#0c2a3e';
+const FILL_A = [0.34, 0.22, 0.15, 0.11];   // 境界からの深さ別の塗り不透明度
+const DIRS = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];   // edge k は CORN[k]→CORN[k+1] に対応
+const CORN = [];
+for (let k = 0; k < 6; k++) { const a = (60 * k - 30) * Math.PI / 180; CORN.push([Math.cos(a) * R, Math.sin(a) * R]); }
+const LAYOUT = {
+  general: { cx: 0, cy: 0, rad: 12.3, seed: 7 },
+  code:    { cx: -492, cy: -150, rad: 7.0, seed: 19 },   // 左上はタイトルHUDと重ならないよう低めに配置
+  image:   { cx: 470, cy: -290, rad: 7.0, seed: 31 },
+  video:   { cx: 482, cy: 292, rad: 7.0, seed: 43 },
+  music:   { cx: -452, cy: 196, rad: 6.2, seed: 59 },
+};
+const axialToWorld = (q, r) => [HEX_W * (q + r / 2), 1.5 * R * r];
+function cubeRound(qf, rf) {
+  const sf = -qf - rf;
+  let q = Math.round(qf), r = Math.round(rf); const s = Math.round(sf);
+  const dq = Math.abs(q - qf), dr = Math.abs(r - rf), ds = Math.abs(s - sf);
+  if (dq > dr && dq > ds) q = -r - s; else if (dr > ds) r = -q - s;
+  return [q, r];
+}
+const worldToAxial = (x, y) => cubeRound((SQ3 / 3 * x - y / 3) / R, (2 / 3 * y) / R);
+const hexDist = (dq, dr) => (Math.abs(dq) + Math.abs(dr) + Math.abs(dq + dr)) / 2;
+const akey = (q, r) => (q + 2048) * 4096 + (r + 2048);
+const akQ = (k) => Math.floor(k / 4096) - 2048, akR = (k) => (k % 4096) - 2048;
+const vkey = (x, y) => Math.round(x / (HEX_W / 2)) * 65536 + Math.round(y / (R / 2));
+function hexPath(p, x, y, k) {
+  p.moveTo(x + CORN[0][0] * k, y + CORN[0][1] * k);
+  for (let j = 1; j < 6; j++) p.lineTo(x + CORN[j][0] * k, y + CORN[j][1] * k);
+  p.closePath();
+}
+
+function generateIsland(sid) {
+  const L = LAYOUT[sid];
+  const [cq, cr] = worldToAxial(L.cx, L.cy);
+  const span = Math.ceil(L.rad * 1.5) + 1;
+  const cells = [];
+  let land = new Set();
+  for (let dq = -span; dq <= span; dq++) for (let dr = -span; dr <= span; dr++) {
+    const hd = hexDist(dq, dr);
+    if (hd > span) continue;
+    const q = cq + dq, r = cr + dr, k = akey(q, r);
+    cells.push(k);
+    const [x, y] = axialToWorld(q, r);
+    const dx = x - L.cx, dy = y - L.cy;
+    const d = Math.hypot(dx, dy) / (L.rad * HEX_W);
+    const a = Math.atan2(dy, dx);
+    const wob = 0.13 * Math.sin(3 * a + L.seed) + 0.08 * Math.sin(5 * a + L.seed * 1.9) + 0.05 * Math.sin(2 * a + L.seed * 0.7);
+    const n = fbm(dx * 0.012 + L.seed * 13.1, dy * 0.012 - L.seed * 5.7, L.seed) - 0.5;
+    if (hd < span && d < 1 + wob + n * 0.9) land.add(k);
+  }
+  const nbk = (k) => { const q = akQ(k), r = akR(k); return DIRS.map(([a, b]) => akey(q + a, r + b)); };
+  // 最大連結成分のみ残す
+  const seen = new Set(); let best = [];
+  for (const k of land) {
+    if (seen.has(k)) continue;
+    const comp = [], st = [k]; seen.add(k);
+    while (st.length) { const c = st.pop(); comp.push(c); for (const n of nbk(c)) if (land.has(n) && !seen.has(n)) { seen.add(n); st.push(n); } }
+    if (comp.length > best.length) best = comp;
+  }
+  land = new Set(best);
+  // 内陸の穴を埋める
+  const cellSet = new Set(cells), outside = new Set(), st = [];
+  for (const k of cells) if (hexDist(akQ(k) - cq, akR(k) - cr) === span && !land.has(k)) { outside.add(k); st.push(k); }
+  while (st.length) { const c = st.pop(); for (const n of nbk(c)) if (cellSet.has(n) && !land.has(n) && !outside.has(n)) { outside.add(n); st.push(n); } }
+  for (const k of cells) if (!land.has(k) && !outside.has(k)) land.add(k);
+  // 海岸線のスムージング（孤立タイル除去・入り江を少し埋める）
+  for (let pass = 0; pass < 2; pass++) {
+    const rm = [], add = [];
+    for (const k of cells) {
+      let c = 0; for (const n of nbk(k)) if (land.has(n)) c++;
+      if (land.has(k) && c <= 1) rm.push(k);
+      else if (!land.has(k) && c >= 5 && hexDist(akQ(k) - cq, akR(k) - cr) < span) add.push(k);
+    }
+    rm.forEach((k) => land.delete(k)); add.forEach((k) => land.add(k));
+  }
+  const keys = [...land].sort((a, b) => (akR(a) - akR(b)) || (akQ(a) - akQ(b)));
+  const hexes = keys.map((k) => { const q = akQ(k), r = akR(k); const [x, y] = axialToWorld(q, r); return { q, r, x, y }; });
+  const index = new Map(keys.map((k, i) => [k, i]));
+  const N = hexes.length;
+  const nb = new Int16Array(N * 6).fill(-1);
+  for (let i = 0; i < N; i++) for (let k = 0; k < 6; k++) {
+    const j = index.get(akey(hexes[i].q + DIRS[k][0], hexes[i].r + DIRS[k][1]));
+    if (j !== undefined) nb[i * 6 + k] = j;
+  }
+  // 海岸からの距離
+  const coastDist = new Int16Array(N).fill(99), q = [];
+  for (let i = 0; i < N; i++) for (let k = 0; k < 6; k++) if (nb[i * 6 + k] < 0) { coastDist[i] = 0; q.push(i); break; }
+  for (let qi = 0; qi < q.length; qi++) {
+    const h = q[qi];
+    for (let k = 0; k < 6; k++) { const n = nb[h * 6 + k]; if (n >= 0 && coastDist[n] > coastDist[h] + 1) { coastDist[n] = coastDist[h] + 1; q.push(n); } }
+  }
+  // 地形ノイズ（領土の伸び方を有機的にするための「進みやすさ」0..1）
+  const terr = new Float32Array(N);
+  let tmin = 1, tmax = 0;
+  for (let i = 0; i < N; i++) {
+    terr[i] = fbm(hexes[i].x * 0.028 + L.seed * 3.7, hexes[i].y * 0.028 - L.seed * 2.1, L.seed + 101);
+    tmin = Math.min(tmin, terr[i]); tmax = Math.max(tmax, terr[i]);
+  }
+  for (let i = 0; i < N; i++) terr[i] = (terr[i] - tmin) / Math.max(1e-6, tmax - tmin);
+  // 形状パス（静的）
+  let cx = 0, cy = 0, minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+  const silh = new Path2D(), tiles = new Path2D(), coast = new Path2D(), wall = new Path2D(), coastList = [];
+  for (let i = 0; i < N; i++) {
+    const h = hexes[i];
+    cx += h.x; cy += h.y;
+    minX = Math.min(minX, h.x - HEX_W / 2); maxX = Math.max(maxX, h.x + HEX_W / 2);
+    minY = Math.min(minY, h.y - R); maxY = Math.max(maxY, h.y + R);
+    hexPath(silh, h.x, h.y, 1.02);
+    hexPath(tiles, h.x, h.y, TILE_K);
+    if (coastDist[i] === 0) coastList.push(i);
+    for (let k = 0; k < 6; k++) {
+      if (nb[i * 6 + k] >= 0) continue;
+      const k2 = (k + 1) % 6;
+      coast.moveTo(h.x + CORN[k][0], h.y + CORN[k][1]); coast.lineTo(h.x + CORN[k2][0], h.y + CORN[k2][1]);
+      if (k === 1 || k === 2) {   // 南向きの崖面に縦の回路トレース
+        const px = h.x + CORN[k2][0], py = h.y + CORN[k2][1];
+        wall.moveTo(px, py); wall.lineTo(px, py + CLIFF);
+      }
+    }
+  }
+  return { L, rad: L.rad, hexes, index, N, nb, coastDist, coastList, terr, cx: cx / N, cy: cy / N,
+    bounds: { minX, maxX, minY, maxY }, silh, tiles, coast, wall };
+}
+
+// ============================================================
+// 3. OWNERSHIP SIMULATION（領土の割り当て・境界の奪い合い）
+// ============================================================
+const ISLANDS = [], ISL = {};
+function makeIsland(sec, idx) {
+  const g = generateIsland(sec.id);
+  const units = SECTOR_UNITS[sec.id], U = units.length;
+  const isl = Object.assign(g, {
+    sid: sec.id, sec, idx, units, U,
+    owner: new Int8Array(g.N).fill(-1), count: new Int16Array(U), nCount: g.N,
+    target: new Float32Array(U), nTarget: g.N, cval: new Float32Array(U), str: new Float32Array(U),
+    present: new Uint8Array(U), appearT: new Float32Array(U).fill(-99),
+    heart: new Int16Array(U).fill(-1), hpos: Array.from({ length: U }, () => ({ x: 0, y: 0 })),
+    depth: new Int16Array(g.N), qtmp: new Int32Array(g.N), def: new Float32Array(U + 1),
+    dirty: true, flipAcc: 0, raidT: 0, raidNext: 2.5, skirmAcc: 0,
+    anims: new Map(), P: null, bootA: 0, dimA: 1,
+  });
+  isl.spawn = assignSpawns(isl);
+  return isl;
+}
+
+// 各部隊の「首都（初期降下地点）」を島内に分散配置
+function assignSpawns(isl) {
+  const { hexes, coastDist, N } = isl;
+  let pool = [];
+  for (let h = 0; h < N; h++) if (coastDist[h] >= 2) pool.push(h);
+  if (pool.length < isl.U * 6) { pool = []; for (let h = 0; h < N; h++) if (coastDist[h] >= 1) pool.push(h); }
+  const order = isl.units.map((u, i) => i).sort((a, b) => (isl.units[a].first - isl.units[b].first) || (a - b));
+  const sp = new Int16Array(isl.U).fill(-1), chosen = [];
+  for (const u of order) {
+    let best = -1, bs = -Infinity;
+    for (const h of pool) {
+      if (chosen.includes(h)) continue;
+      const hx = hexes[h];
+      let sc;
+      if (!chosen.length) sc = -Math.hypot(hx.x - isl.cx, hx.y - isl.cy);
+      else {
+        let md = Infinity;
+        for (const c of chosen) md = Math.min(md, Math.hypot(hx.x - hexes[c].x, hx.y - hexes[c].y));
+        sc = md + Math.min(coastDist[h], 4) * 7 + hash2(h, u, 99) * 4;
+      }
+      if (sc > bs) { bs = sc; best = h; }
+    }
+    sp[u] = best; chosen.push(best);
+  }
+  return sp;
+}
+
+// 目標ヘクス数 ∝ 規模 c
+function updateTargets(isl, T) {
+  let sum = 0;
+  for (let u = 0; u < isl.U; u++) {
+    const v = D.at(isl.sid, isl.units[u].id, T);
+    const c = v && v.c > 0.1 ? v.c : 0;
+    isl.cval[u] = c; isl.str[u] = v ? v.s : 0; sum += c;
+  }
+  const denom = Math.max(sum, CAP[isl.sid]);
+  let ts = 0;
+  for (let u = 0; u < isl.U; u++) { isl.target[u] = isl.N * isl.cval[u] / denom; ts += isl.target[u]; }
+  isl.nTarget = isl.N - ts;
+}
+
+// 1ヘクスを奪取（kind: 1=未制圧地への展開, 2=制圧, 3=撤退, 4=降下）
+function capture(isl, h, a, quiet, kind) {
+  const d = isl.owner[h];
+  if (d === a) return;
+  isl.owner[h] = a;
+  if (d >= 0) isl.count[d]--; else isl.nCount--;
+  if (a >= 0) isl.count[a]++; else isl.nCount++;
+  isl.dirty = true;
+  const hx = isl.hexes[h];
+  if (!kind) kind = a < 0 ? 3 : d < 0 ? 1 : 2;
+  let ox = hx.x, oy = hx.y;
+  for (let k = 0; k < 6; k++) {
+    const n = isl.nb[h * 6 + k];
+    if ((n >= 0 && isl.owner[n] === a) || (n < 0 && a < 0)) { ox = hx.x + Math.cos(k * Math.PI / 3) * HEX_W * 0.5; oy = hx.y + Math.sin(k * Math.PI / 3) * HEX_W * 0.5; break; }
+  }
+  isl.anims.set(h, { from: d, to: a, t: 0, dur: quiet ? 0.25 : kind === 2 ? 0.8 : kind === 3 ? 0.9 : kind === 4 ? 1.1 : 0.55, ox, oy, kind });
+  if (!quiet && a >= 0) {
+    const col = isl.units[a].color, sN = sNorm(isl.str[a]);
+    if (kind === 2) {
+      ring(hx.x, hx.y, R * 0.8, R * (2.3 + 1.6 * sN), 0.65, col, 1.8 + sN);
+      flash(hx.x, hx.y, R * 2.4, 0.35, WHITE);
+      if (FX.length < 600) sparks(hx.x, hx.y, 3 + Math.round(4 * sN), col, 70 + 40 * sN);
+    } else if (kind === 1 && FX.length < 500) {
+      ring(hx.x, hx.y, R * 0.6, R * 1.5, 0.45, col, 1);
+    }
+  }
+  if (d >= 0) {   // 奪われたヘクスにいた防衛ユニットは撃破
+    for (let i = UNITS.length - 1; i >= 0; i--) {
+      const un = UNITS[i];
+      if (un.isl === isl && un.u === d && un.hex === h) { if (!quiet) explode(un.x, un.y, isl.units[d].color); UNITS.splice(i, 1); }
+    }
+  }
+}
+
+// 境界ヘクスの中から最も「奪うべき」1枚を選んで反転
+function flipOnce(isl, quiet, raid) {
+  const { owner, nb, N, U } = isl, def = isl.def;
+  def[0] = isl.nTarget - isl.nCount;
+  let mx = def[0], mn = def[0];
+  for (let u = 0; u < U; u++) {
+    def[u + 1] = isl.target[u] - isl.count[u];
+    if (isl.count[u] > 0) { if (def[u + 1] > mx) mx = def[u + 1]; if (def[u + 1] < mn) mn = def[u + 1]; }
+  }
+  const thr = 1.0;
+  if (!raid && mx - mn <= thr) return false;
+  let best = -1, bestA = -2, bestScore = -Infinity;
+  for (let h = 0; h < N; h++) {
+    const d = owner[h], dd = def[d + 1];
+    if (!raid && mx - dd <= thr) continue;
+    if (d >= 0 && h === isl.spawn[d] && isl.count[d] > 1) continue;   // 首都は最後まで守る
+    const b6 = h * 6;
+    let tried = 0;
+    for (let k = 0; k < 6; k++) {
+      const n = nb[b6 + k], a = n < 0 ? -1 : owner[n];
+      if (a === d) continue;
+      const bit = 1 << (a + 1);
+      if (tried & bit) continue;
+      tried |= bit;
+      const p = def[a + 1] - dd;
+      const sA = a >= 0 ? isl.str[a] : 35, sD = d >= 0 ? isl.str[d] : 35;
+      if (raid) { if (a < 0 || d < 0 || sA - sD < 4 || p < -1.5) continue; }
+      else if (p <= thr) continue;
+      let same = 0;
+      for (let j = 0; j < 6; j++) { const m = nb[b6 + j]; if ((m < 0 ? -1 : owner[m]) === a) same++; }
+      let cut = 0;
+      if (d >= 0) {   // 防衛側の領土を分断する手は避ける（ブロブ形状を保つ）
+        let tr = 0;
+        for (let j = 0; j < 6; j++) {
+          const m1 = nb[b6 + j], m2 = nb[b6 + (j + 1) % 6];
+          if ((m1 >= 0 && owner[m1] === d) !== (m2 >= 0 && owner[m2] === d)) tr++;
+        }
+        if (tr > 2) cut = 3;
+      }
+      const terrK = (a < 0 ? isl.terr[h] : 1 - isl.terr[h]) * (d < 0 || a < 0 ? 2.8 : 0.9);
+      const score = Math.min(p, 5) * (0.3 + 1.4 * sA / (sA + sD)) + same * 1.15 + terrK - cut + rand() * 0.9 + (raid ? (sA - sD) * 0.2 : 0);
+      if (score > bestScore) { bestScore = score; best = h; bestA = a; }
+    }
+  }
+  if (best < 0) return false;
+  capture(isl, best, bestA, quiet, 0);
+  return true;
+}
+
+// 新勢力の降下（首都ヘクスにビーム降下）
+function arrive(isl, u, quiet) {
+  const h = isl.spawn[u];
+  if (h < 0) return;
+  capture(isl, h, u, true, 4);
+  const an = isl.anims.get(h); if (an && !quiet) { an.dur = 1.3; an.kind = 4; }
+  isl.heart[u] = h; isl.hpos[u].x = isl.hexes[h].x; isl.hpos[u].y = isl.hexes[h].y;
+  if (!quiet) beam(isl, u, h);
+}
+
+function simulate(isl, dt, quiet) {
+  for (let u = 0; u < isl.U; u++) if (isl.count[u] === 0 && isl.target[u] >= 0.6) arrive(isl, u, quiet);
+  let pos = 0;
+  for (let u = 0; u < isl.U; u++) { const df = isl.target[u] - isl.count[u]; if (df > 0.5) pos += df; else if (df < -0.5) pos -= df * 0.5; }
+  if (quiet) {
+    for (let n = 0; n < 40; n++) if (!flipOnce(isl, true, false)) break;
+    return;
+  }
+  const rate = clamp(4 + pos * 2.6, 0, 130);
+  isl.flipAcc = Math.min(isl.flipAcc + dt * rate, 12);
+  let n = 0;
+  while (isl.flipAcc >= 1 && n < 10) {
+    if (!flipOnce(isl, false, false)) { isl.flipAcc = 0; break; }
+    isl.flipAcc -= 1; n++;
+  }
+  // 強者による境界への襲撃（押し込み→押し返しで前線が動き続ける）
+  isl.raidT += dt;
+  if (isl.raidT > isl.raidNext) { isl.raidT = 0; isl.raidNext = randR(1.4, 3.6); flipOnce(isl, false, true); }
+}
+
+// スクラブ時など大きく時間が跳んだ場合：首都からの領域成長で一括配置
+function snapIsland(isl) {
+  const { N, U, owner, nb } = isl;
+  owner.fill(-1); isl.count.fill(0); isl.nCount = N; isl.anims.clear();
+  const quota = new Int16Array(U);
+  let qs = 0;
+  for (let u = 0; u < U; u++) { quota[u] = isl.target[u] >= 0.6 ? Math.max(1, Math.round(isl.target[u])) : 0; qs += quota[u]; }
+  while (qs > N) { let m = 0; for (let u = 1; u < U; u++) if (quota[u] > quota[m]) m = u; quota[m]--; qs--; }
+  // 首都から「距離＋地形コスト」が小さい順に同時成長（有機的なブロブになる）
+  const front = [], mark = [];
+  const pushNb = (u, h) => {
+    for (let k = 0; k < 6; k++) { const n = nb[h * 6 + k]; if (n >= 0 && owner[n] === -1 && !mark[u][n]) { mark[u][n] = 1; front[u].push(n); } }
+  };
+  for (let u = 0; u < U; u++) {
+    front.push([]); mark.push(new Uint8Array(N));
+    const h = isl.spawn[u];
+    if (quota[u] > 0 && h >= 0 && owner[h] === -1) { owner[h] = u; isl.count[u]++; isl.nCount--; pushNb(u, h); }
+  }
+  for (;;) {
+    let bu = -1, br = 2;
+    for (let u = 0; u < U; u++) {
+      if (isl.count[u] < quota[u] && front[u].length) { const r = isl.count[u] / quota[u]; if (r < br) { br = r; bu = u; } }
+    }
+    if (bu < 0) break;
+    const F = front[bu];
+    let w = 0;
+    for (let i = 0; i < F.length; i++) if (owner[F[i]] === -1) F[w++] = F[i];
+    F.length = w;
+    if (!w) continue;
+    const sp = isl.hexes[isl.spawn[bu]];
+    let bi = 0, bc = Infinity;
+    for (let i = 0; i < w; i++) {
+      const hx = isl.hexes[F[i]];
+      const c = Math.hypot(hx.x - sp.x, hx.y - sp.y) / HEX_W + isl.terr[F[i]] * 2.2;
+      if (c < bc) { bc = c; bi = i; }
+    }
+    const h = F[bi];
+    F[bi] = F[w - 1]; F.pop();
+    owner[h] = bu; isl.count[bu]++; isl.nCount--;
+    pushNb(bu, h);
+  }
+  for (let i = UNITS.length - 1; i >= 0; i--) if (UNITS[i].isl === isl) UNITS.splice(i, 1);
+  isl.dirty = true;
+}
+
+// 所有状態から描画用データ（Path2D・深さ・首都位置・前線リスト）を再構築
+function rebuild(isl) {
+  isl.dirty = false;
+  const { N, U, owner, nb, hexes, depth } = isl, q = isl.qtmp;
+  depth.fill(99);
+  let qh = 0, qt = 0;
+  for (let h = 0; h < N; h++) {
+    const o = owner[h], b6 = h * 6;
+    for (let k = 0; k < 6; k++) { const n = nb[b6 + k]; if (n < 0 || owner[n] !== o) { depth[h] = 0; q[qt++] = h; break; } }
+  }
+  while (qh < qt) {
+    const h = q[qh++], o = owner[h], d1 = depth[h] + 1, b6 = h * 6;
+    for (let k = 0; k < 6; k++) { const n = nb[b6 + k]; if (n >= 0 && owner[n] === o && depth[n] > d1) { depth[n] = d1; q[qt++] = n; } }
+  }
+  const P = { fill: [], dots: [], border: [], owned: [], front: [], all: new Path2D(), cH: [], cNb: [], cK: [], cA: [], cB: [], cN: 0 };
+  const sx = new Float32Array(U), sy = new Float32Array(U), md = new Int16Array(U).fill(-1);
+  for (let u = 0; u < U; u++) { P.fill.push([null, null, null, null]); P.dots.push(null); P.owned.push([]); P.front.push([]); }
+  for (let h = 0; h < N; h++) {
+    const o = owner[h];
+    if (o < 0) continue;
+    const hx = hexes[h], b = depth[h] > 3 ? 3 : depth[h], f = P.fill[o];
+    if (!f[b]) f[b] = new Path2D();
+    hexPath(f[b], hx.x, hx.y, TILE_K);
+    hexPath(P.all, hx.x, hx.y, TILE_K);
+    if (depth[h] >= 1) { if (!P.dots[o]) P.dots[o] = new Path2D(); P.dots[o].rect(hx.x - 0.9, hx.y - 0.9, 1.8, 1.8); }
+    P.owned[o].push(h); sx[o] += hx.x; sy[o] += hx.y;
+    if (depth[h] > md[o]) md[o] = depth[h];
+    let front = false;
+    for (let k = 0; k < 6; k++) {
+      const n = nb[h * 6 + k];
+      if (n < 0) continue;
+      const o2 = owner[n];
+      if (o2 >= 0 && o2 !== o) {
+        front = true;
+        if (o < o2) { P.cH.push(h); P.cNb.push(n); P.cK.push(k); P.cA.push(o); P.cB.push(o2); }
+      }
+    }
+    if (front) P.front[o].push(h);
+  }
+  P.cN = P.cH.length;
+  for (let u = 0; u < U; u++) {
+    const cnt = isl.count[u];
+    if (!cnt) { isl.heart[u] = -1; P.border.push(null); isl.present[u] = 0; continue; }
+    if (!isl.present[u]) { isl.present[u] = 1; isl.appearT[u] = time; }
+    const cx = sx[u] / cnt, cy = sy[u] / cnt;
+    const cur = isl.heart[u];
+    if (!(cur >= 0 && owner[cur] === u && depth[cur] >= md[u] - 1)) {
+      let best = -1, bd = Infinity;
+      for (const h of P.owned[u]) if (depth[h] === md[u]) { const d = (hexes[h].x - cx) ** 2 + (hexes[h].y - cy) ** 2; if (d < bd) { bd = d; best = h; } }
+      if (cur < 0) { isl.hpos[u].x = hexes[best].x; isl.hpos[u].y = hexes[best].y; }
+      isl.heart[u] = best;
+    }
+    P.border.push(buildBorder(isl, u, P.owned[u]));
+  }
+  isl.P = P;
+}
+
+// 領域の外周エッジを連結ポリラインにする（エネルギーが流れる破線用）
+function buildBorder(isl, u, list) {
+  const { nb, owner, hexes } = isl;
+  const eh = [], ek = [], byStart = new Map();
+  for (const h of list) {
+    const hx = hexes[h];
+    for (let k = 0; k < 6; k++) {
+      const n = nb[h * 6 + k];
+      if (n >= 0 && owner[n] === u) continue;
+      const key = vkey(hx.x + CORN[k][0], hx.y + CORN[k][1]), e = eh.length;
+      eh.push(h); ek.push(k);
+      const arr = byStart.get(key);
+      if (arr) arr.push(e); else byStart.set(key, [e]);
+    }
+  }
+  const E = eh.length, used = new Uint8Array(E), p = new Path2D();
+  for (let e0 = 0; e0 < E; e0++) {
+    if (used[e0]) continue;
+    const h0 = hexes[eh[e0]], startKey = vkey(h0.x + CORN[ek[e0]][0], h0.y + CORN[ek[e0]][1]);
+    let e = e0, first = true;
+    while (e >= 0) {
+      used[e] = 1;
+      const hx = hexes[eh[e]], k = ek[e], k2 = (k + 1) % 6;
+      const ax = hx.x + CORN[k][0] * BORDER_K, ay = hx.y + CORN[k][1] * BORDER_K;
+      if (first) { p.moveTo(ax, ay); first = false; } else p.lineTo(ax, ay);
+      p.lineTo(hx.x + CORN[k2][0] * BORDER_K, hx.y + CORN[k2][1] * BORDER_K);
+      const endKey = vkey(hx.x + CORN[k2][0], hx.y + CORN[k2][1]);
+      if (endKey === startKey) { p.closePath(); break; }
+      const c = byStart.get(endKey);
+      e = -1;
+      if (c) for (let j = 0; j < c.length; j++) if (!used[c[j]]) { e = c[j]; break; }
+    }
+  }
+  return p;
+}
+
+function hexAt(isl, x, y) {
+  const [q, r] = worldToAxial(x, y);
+  const i = isl.index.get(akey(q, r));
+  return i === undefined ? -1 : i;
+}
+
+// 拮抗した前線（強さ差が小さい）では小競り合いの火花が絶えない
+function skirmish(isl, dt) {
+  const P = isl.P;
+  if (!P || !P.cN) return;
+  isl.skirmAcc += dt * Math.min(9, P.cN * 0.16);
+  while (isl.skirmAcc >= 1) {
+    isl.skirmAcc -= 1;
+    const e = (rand() * P.cN) | 0, a = P.cA[e], b = P.cB[e];
+    const close = Math.abs(isl.str[a] - isl.str[b]) < 5;
+    if (!close && rand() < 0.65) continue;
+    const A = isl.hexes[P.cH[e]], B = isl.hexes[P.cNb[e]];
+    const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+    tracer(A.x + randR(-3, 3), A.y + randR(-3, 3), mx + randR(-4, 4), my + randR(-4, 4), isl.units[a].color);
+    tracer(B.x + randR(-3, 3), B.y + randR(-3, 3), mx + randR(-4, 4), my + randR(-4, 4), isl.units[b].color);
+    if (close) { sparks(mx, my, 2, WHITE, 45); flash(mx, my, R * 1.3, 0.22, WHITE); }
+  }
+}
+
+// ============================================================
+// 4. EFFECTS — particles / beams / pulses / patrol units
+// ============================================================
+const FX = [], FX_CAP = 900, BEAMS = [], PULSES = [], UNITS = [];
+function fx(o) { if (FX.length < FX_CAP) FX.push(o); }
+function sparks(x, y, n, col, sp) {
+  sp = sp || 70;
+  for (let i = 0; i < n; i++) { const a = rand() * TAU, v = sp * (0.35 + rand()); fx({ k: 0, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0, d: 0.25 + rand() * 0.35, c: col }); }
+}
+function ring(x, y, r0, r1, d, col, w) { fx({ k: 1, x, y, r0, r1, t: 0, d, c: col, w: w || 1.5 }); }
+function flash(x, y, r, d, col) { fx({ k: 2, x, y, r, t: 0, d, c: col }); }
+function tracer(x0, y0, x1, y1, col) { fx({ k: 3, x: x0, y: y0, x1, y1, t: 0, d: Math.max(0.08, Math.hypot(x1 - x0, y1 - y0) / 230), c: col }); }
+function explode(x, y, col) { sparks(x, y, 8, col, 90); flash(x, y, R * 2.2, 0.4, col); ring(x, y, 2, R * 1.6, 0.4, WHITE, 1.2); }
+function beam(isl, u, h) { BEAMS.push({ isl, u, h, t: 0, d: 2.1, hit: false }); }
+function pulse(isl, u) {
+  PULSES.push({ isl, u, t: 0, d: 3.2, rings: 0 });
+}
+
+let shakeAmt = 0, glitchT = 0, glitchK = 0, nextGlitch = 7;
+function shake(a) { shakeAmt = Math.max(shakeAmt, a); }
+function glitch(k, d) { glitchT = Math.max(glitchT, d || 0.2); glitchK = Math.max(glitchK, k || 1); }
+
+function updateFx(dt) {
+  for (let i = FX.length - 1; i >= 0; i--) {
+    const p = FX[i];
+    p.t += dt;
+    if (p.k === 0) { p.x += p.vx * dt; p.y += p.vy * dt; const f = Math.max(0, 1 - 3.5 * dt); p.vx *= f; p.vy *= f; }
+    if (p.t >= p.d) {
+      if (p.k === 3) { sparks(p.x1, p.y1, 2, p.c, 40); flash(p.x1, p.y1, R * 0.9, 0.18, p.c); }
+      FX[i] = FX[FX.length - 1]; FX.pop();
+    }
+  }
+  for (let i = BEAMS.length - 1; i >= 0; i--) {
+    const b = BEAMS[i];
+    b.t += dt;
+    if (!b.hit && b.t >= 0.42) {
+      b.hit = true;
+      const hx = b.isl.hexes[b.h], col = b.isl.units[b.u].color;
+      ring(hx.x, hx.y, R, R * 7, 1.0, col, 3); ring(hx.x, hx.y, R * 0.5, R * 4, 0.7, WHITE, 2);
+      sparks(hx.x, hx.y, 16, col, 120); flash(hx.x, hx.y, R * 6, 0.7, col); flash(hx.x, hx.y, R * 2.6, 0.4, WHITE);
+      shake(3.5);
+    }
+    if (b.t >= b.d) BEAMS.splice(i, 1);
+  }
+  for (let i = PULSES.length - 1; i >= 0; i--) {
+    const p = PULSES[i];
+    p.t += dt;
+    while (p.rings < 3 && p.t >= p.rings * 0.38) {
+      const hp = p.isl.hpos[p.u];
+      ring(hp.x, hp.y, R, R * (9 + p.rings * 2), 1.3, p.isl.units[p.u].color, 3 - p.rings * 0.6);
+      p.rings++;
+    }
+    if (p.t >= p.d) PULSES.splice(i, 1);
+  }
+}
+
+// ---- patrol units ----
+function manageUnits() {
+  const want = new Map();
+  let total = 0;
+  for (const isl of ISLANDS) {
+    if (isl.bootA < 1 || !isl.P) continue;
+    for (let u = 0; u < isl.U; u++) {
+      if (!isl.count[u] || isl.heart[u] < 0) continue;
+      const w = clamp(Math.round(0.5 + isl.count[u] / 26 + sNorm(isl.str[u]) * 2.5), 1, 8);
+      want.set(isl.idx * 16 + u, w); total += w;
+    }
+  }
+  const scale = total > 150 ? 150 / total : 1;
+  const have = new Map();
+  for (const un of UNITS) { const k = un.isl.idx * 16 + un.u; have.set(k, (have.get(k) || 0) + 1); }
+  for (let i = UNITS.length - 1; i >= 0; i--) {
+    const un = UNITS[i], k = un.isl.idx * 16 + un.u;
+    const w = want.has(k) ? Math.max(1, Math.round(want.get(k) * scale)) : 0;
+    if ((have.get(k) || 0) > w) { UNITS.splice(i, 1); have.set(k, have.get(k) - 1); }
+  }
+  for (const [k, w0] of want) {
+    const w = Math.max(1, Math.round(w0 * scale));
+    if ((have.get(k) || 0) < w) spawnUnit(ISLANDS[Math.floor(k / 16)], k % 16);   // 1回に1体ずつ補充
+  }
+}
+function spawnUnit(isl, u) {
+  const hp = isl.hpos[u];
+  const un = { isl, u, x: hp.x + randR(-4, 4), y: hp.y + randR(-4, 4), vx: 0, vy: 0, tx: hp.x, ty: hp.y, ang: rand() * TAU,
+    state: 'patrol', timer: 0, cd: 0, fx: 0, fy: 0, th: -1, hex: -1, age: 0 };
+  UNITS.push(un);
+  flash(un.x, un.y, R * 1.2, 0.35, isl.units[u].color);
+  decide(un);
+}
+function decide(un) {
+  const isl = un.isl, u = un.u, P = isl.P;
+  if (!P) return;
+  const owned = P.owned[u];
+  if (!owned || !owned.length) return;
+  const fr = P.front[u], sN = sNorm(isl.str[u]);
+  const aggr = 0.1 + 0.4 * sN + (isl.target[u] - isl.count[u] > 1 ? 0.2 : 0);
+  if (fr && fr.length && rand() < aggr) {
+    let best = fr[0], bd = Infinity;
+    for (let t = 0; t < 4; t++) {
+      const h = fr[(rand() * fr.length) | 0], hx = isl.hexes[h];
+      const d = Math.hypot(hx.x - un.x, hx.y - un.y);
+      if (d < bd) { bd = d; best = h; }
+    }
+    const hx = isl.hexes[best];
+    un.state = 'dash'; un.th = best; un.tx = hx.x + randR(-3, 3); un.ty = hx.y + randR(-3, 3);
+  } else {
+    let best = owned[(rand() * owned.length) | 0];
+    for (let t = 0; t < 6; t++) {
+      const h = owned[(rand() * owned.length) | 0], hx = isl.hexes[h];
+      if (Math.hypot(hx.x - un.x, hx.y - un.y) < 55) { best = h; break; }
+    }
+    const hx = isl.hexes[best];
+    un.state = 'patrol'; un.tx = hx.x + randR(-4, 4); un.ty = hx.y + randR(-4, 4);
+  }
+}
+function startFire(un) {
+  const isl = un.isl, h = un.th, cand = [];
+  if (h >= 0) for (let k = 0; k < 6; k++) { const n = isl.nb[h * 6 + k]; if (n >= 0) { const o = isl.owner[n]; if (o >= 0 && o !== un.u) cand.push(n); } }
+  if (!cand.length) { decide(un); return; }
+  const t = isl.hexes[cand[(rand() * cand.length) | 0]];
+  un.state = 'fire'; un.timer = randR(0.7, 1.6); un.cd = randR(0, 0.15); un.fx = t.x; un.fy = t.y;
+}
+function updateUnits(dt) {
+  for (let i = UNITS.length - 1; i >= 0; i--) {
+    const un = UNITS[i], isl = un.isl;
+    if (!isl.count[un.u]) { UNITS.splice(i, 1); continue; }
+    un.age += dt;
+    const sN = sNorm(isl.str[un.u]);
+    if (un.state === 'fire') {
+      un.timer -= dt; un.cd -= dt;
+      if (un.cd <= 0) {
+        tracer(un.x, un.y, un.fx + randR(-5, 5), un.fy + randR(-5, 5), isl.units[un.u].color);
+        flash(un.x, un.y, R * 0.7, 0.12, WHITE);
+        un.cd = randR(0.12, 0.3) * (1.3 - 0.6 * sN);
+      }
+      const f = Math.max(0, 1 - dt * 8); un.vx *= f; un.vy *= f;
+      un.x += un.vx * dt; un.y += un.vy * dt;
+      if (un.timer <= 0) decide(un);
+    } else {
+      const dx = un.tx - un.x, dy = un.ty - un.y, d = Math.hypot(dx, dy);
+      const sp = un.state === 'dash' ? 44 + 26 * sN : 9 + 6 * sN;
+      if (d < 1.6) { if (un.state === 'dash') startFire(un); else decide(un); }
+      else {
+        const k = Math.min(1, dt * (un.state === 'dash' ? 6 : 3));
+        un.vx += (dx / d * sp - un.vx) * k; un.vy += (dy / d * sp - un.vy) * k;
+      }
+      un.x += un.vx * dt; un.y += un.vy * dt;
+    }
+    const hvx = un.state === 'fire' ? un.fx - un.x : un.vx, hvy = (un.state === 'fire' ? un.fy - un.y : un.vy) * TILT;
+    if (hvx * hvx + hvy * hvy > 0.01) {
+      let da = Math.atan2(hvy, hvx) - un.ang;
+      da = ((da + Math.PI) % TAU + TAU) % TAU - Math.PI;
+      un.ang += da * Math.min(1, dt * 10);
+    }
+    un.hex = hexAt(isl, un.x, un.y);
+    if (un.state === 'patrol' && (un.hex < 0 || isl.owner[un.hex] !== un.u) && un.age > 1 && rand() < dt * 2) decide(un);
+  }
+}
+
+// ============================================================
+// 5. CAMERA / VIEW
+// ============================================================
+const canvas = document.getElementById('map');
+const ctx = canvas.getContext('2d');
+const staticCv = document.createElement('canvas'), sctx = staticCv.getContext('2d');
+const bgCv = document.createElement('canvas'), bgctx = bgCv.getContext('2d');
+const bl = [0, 1, 2, 3].map(() => { const c = document.createElement('canvas'); return { c, g: c.getContext('2d') }; });
+const HAS_FILTER = 'filter' in ctx, HAS_CONIC = typeof ctx.createConicGradient === 'function';
+const quality = { bloom: true, maxDpr: 2, ema: 16, checkT: 0, lowered: 0 };
+const view = { W: 0, H: 0, dpr: 1, vcx: 0, vcy: 0, mapL: 0, mapR: 0, mapT: 0, mapB: 0 };
+const cam = { x: 0, y: 0, z: 1 };
+let camAnim = null, zOv = 1, focus = null, staticKey = '';
+let PX = 0, PY = 0;
+function proj(x, y) { PX = (x - cam.x) * cam.z + view.vcx; PY = (y - cam.y) * cam.z * TILT + view.vcy; }
+function unproj(sx, sy) { return [(sx - view.vcx) / cam.z + cam.x, (sy - view.vcy) / (cam.z * TILT) + cam.y]; }
+function worldXf(c) {
+  const k = view.dpr * cam.z;
+  c.setTransform(k, 0, 0, k * TILT, view.dpr * (view.vcx - cam.x * cam.z), view.dpr * (view.vcy - cam.y * cam.z * TILT));
+}
+const zScale = () => clamp(Math.sqrt(cam.z / zOv), 0.8, 1.8);
+function fitBox(b, padTop, pad, zMax) {
+  const w = b.maxX - b.minX, h = (b.maxY - b.minY + CLIFF) * TILT;
+  const aw = Math.max(80, view.mapR - view.mapL - pad * 2), ah = Math.max(80, view.mapB - view.mapT - padTop - pad);
+  const z = Math.max(0.15, Math.min(aw / w, ah / h, zMax || 99));
+  const sx = (view.mapL + view.mapR) / 2, sy = view.mapT + padTop + ah / 2;
+  const wx = (b.minX + b.maxX) / 2, wy = (b.minY + b.maxY + CLIFF) / 2;
+  return { x: wx - (sx - view.vcx) / z, y: wy - (sy - view.vcy) / (z * TILT), z };
+}
+function overviewCam() {
+  const b = { minX: 1e9, maxX: -1e9, minY: 1e9, maxY: -1e9 };
+  for (const isl of ISLANDS) {
+    b.minX = Math.min(b.minX, isl.bounds.minX); b.maxX = Math.max(b.maxX, isl.bounds.maxX);
+    b.minY = Math.min(b.minY, isl.bounds.minY); b.maxY = Math.max(b.maxY, isl.bounds.maxY);
+  }
+  return fitBox(b, 46, 18);
+}
+function focusCam(sid) { return fitBox(ISL[sid].bounds, 64, 34, 3.6); }
+function focusOn(sid) {
+  sid = sid || null;
+  if (focus === sid) return;
+  const was = focus;
+  focus = sid;
+  camAnim = { from: { x: cam.x, y: cam.y, z: cam.z }, to: sid ? focusCam(sid) : overviewCam(), t: 0, dur: sid && was ? 1.3 : 1.05, hop: !!(sid && was) };
+  updateTabs();
+  panelDirty = true;
+  glitch(0.6, 0.12);
+}
+function updateCamera(dt) {
+  if (!camAnim) return;
+  camAnim.t += dt;
+  const k = clamp(camAnim.t / camAnim.dur, 0, 1), e = easeInOut(k), f = camAnim.from, to = camAnim.to;
+  cam.x = lerp(f.x, to.x, e); cam.y = lerp(f.y, to.y, e);
+  cam.z = Math.exp(lerp(Math.log(f.z), Math.log(to.z), e)) * (camAnim.hop ? 1 - 0.3 * Math.sin(Math.PI * e) : 1);
+  if (k >= 1) camAnim = null;
+}
+
+function resize() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const dpr = Math.min(window.devicePixelRatio || 1, quality.maxDpr);
+  view.W = W; view.H = H; view.dpr = dpr;
+  for (const c of [canvas, staticCv, bgCv]) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
+  let bw = canvas.width, bh = canvas.height;
+  for (const b of bl) { bw = Math.max(1, bw >> 1); bh = Math.max(1, bh >> 1); b.c.width = bw; b.c.height = bh; }
+  const pw = W < 1100 ? 290 : 344, tlh = 64;
+  view.mapL = 0; view.mapR = W - pw - 32; view.mapT = 150; view.mapB = H - tlh - 32;
+  const lg = document.getElementById('legend').getBoundingClientRect();
+  if (lg.height > 0) view.mapB = Math.min(view.mapB, lg.top - 6);   // 凡例と島が重ならないように
+  if (W < 820) view.mapT = 120;
+  ROW_H = H <= 800 ? 46 : 54;   // CSS の @media (max-height:800px) と一致させる
+  panelDirty = true;
+  view.vcx = W / 2; view.vcy = H / 2;
+  // 速報バナー：タイトルの右側に置けなければタイトルの下へ
+  const bn = document.getElementById('banners'), tr = document.getElementById('title').getBoundingClientRect();
+  const availR = view.mapR - (tr.right + 20) - 12;
+  if (availR >= 420) {
+    const bw = Math.min(600, availR);
+    bn.style.left = (tr.right + 20 + (availR - bw) / 2) + 'px'; bn.style.top = '72px'; bn.style.width = bw + 'px';
+  } else {
+    const bw = Math.min(600, Math.max(260, view.mapR - 32));
+    bn.style.left = '16px'; bn.style.top = (tr.bottom + 10) + 'px'; bn.style.width = bw + 'px';
+  }
+  renderBackground();
+  zOv = overviewCam().z;
+  const c = focus ? focusCam(focus) : overviewCam();
+  cam.x = c.x; cam.y = c.y; cam.z = c.z;
+  if (camAnim) camAnim.to = c;
+  staticKey = '';
+}
+
+// ============================================================
+// 6. RENDERER
+// ============================================================
+const DUST = Array.from({ length: 70 }, () => ({ x: rand(), y: rand(), v: randR(0.004, 0.02), a: randR(0.15, 0.6), s: randR(0.6, 1.8), p: rand() * TAU }));
+const BRIDGES = [];
+function buildBridges() {
+  const G = ISL.general;
+  for (const isl of ISLANDS) {
+    if (isl === G) continue;
+    let best = Infinity, ha = -1, hb = -1;
+    for (const a of G.coastList) for (const b of isl.coastList) {
+      const d = (G.hexes[a].x - isl.hexes[b].x) ** 2 + (G.hexes[a].y - isl.hexes[b].y) ** 2;
+      if (d < best) { best = d; ha = a; hb = b; }
+    }
+    const A = G.hexes[ha], B = isl.hexes[hb];
+    const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2 - 75;
+    const pts = [], path = new Path2D();
+    for (let i = 0; i <= 64; i++) {
+      const t = i / 64, it = 1 - t;
+      pts.push([it * it * A.x + 2 * it * t * mx + t * t * B.x, it * it * A.y + 2 * it * t * my + t * t * B.y]);
+      if (i === 0) path.moveTo(pts[i][0], pts[i][1]); else path.lineTo(pts[i][0], pts[i][1]);
+    }
+    BRIDGES.push({ isl, A, B, pts, path, cols: [] });
+  }
+}
+function bridgePt(br, u) {
+  const f = clamp(u, 0, 1) * 64, i = Math.min(63, Math.floor(f)), t = f - i;
+  const a = br.pts[i], b = br.pts[i + 1];
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+}
+
+function renderBackground() {
+  const c = bgctx, W = bgCv.width, H = bgCv.height;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  const g = c.createRadialGradient(W * 0.42, H * 0.46, 0, W * 0.42, H * 0.46, Math.max(W, H) * 0.75);
+  g.addColorStop(0, '#0a1a3a'); g.addColorStop(0.5, '#050c1f'); g.addColorStop(1, '#010309');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  const blobs = [[0.18, 0.25, '#ff2bd6', 0.05], [0.8, 0.7, '#0066ff', 0.07], [0.5, 0.95, '#00e5ff', 0.04], [0.9, 0.15, '#7a6cff', 0.05]];
+  for (const [x, y, col, a] of blobs) {
+    const r = Math.max(W, H) * 0.45, gg = c.createRadialGradient(W * x, H * y, 0, W * x, H * y, r);
+    gg.addColorStop(0, rgba(col, a)); gg.addColorStop(1, rgba(col, 0));
+    c.fillStyle = gg; c.fillRect(0, 0, W, H);
+  }
+  for (let i = 0; i < 260; i++) {
+    const x = hash2(i, 1, 5) * W, y = hash2(i, 2, 5) * H, s = (hash2(i, 3, 5) * 1.4 + 0.4) * view.dpr;
+    c.fillStyle = 'rgba(170,230,255,' + (hash2(i, 4, 5) * 0.4 + 0.05).toFixed(3) + ')';
+    c.fillRect(x, y, s, s);
+  }
+}
+
+function drawGrid(c) {
+  c.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+  const pz = cam.z * 0.6, S = 64;
+  const sx0 = view.vcx - cam.x * pz, sy0 = view.vcy - cam.y * pz * TILT;
+  const stX = S * pz, stY = S * pz * TILT, W = view.W, H = view.H;
+  const minor = new Path2D(), major = new Path2D();
+  for (let i = Math.floor(-sx0 / stX); i <= Math.ceil((W - sx0) / stX); i++) {
+    const x = Math.round(sx0 + i * stX) + 0.5, p = i % 4 === 0 ? major : minor;
+    p.moveTo(x, 0); p.lineTo(x, H);
+  }
+  for (let j = Math.floor(-sy0 / stY); j <= Math.ceil((H - sy0) / stY); j++) {
+    const y = Math.round(sy0 + j * stY) + 0.5, p = j % 4 === 0 ? major : minor;
+    p.moveTo(0, y); p.lineTo(W, y);
+  }
+  c.lineWidth = 1;
+  c.strokeStyle = 'rgba(0,200,255,0.035)'; c.stroke(minor);
+  c.strokeStyle = 'rgba(0,200,255,0.085)'; c.stroke(major);
+  c.fillStyle = 'rgba(120,230,255,0.35)';
+  for (let i = Math.floor(-sx0 / (stX * 4)); i <= Math.ceil((W - sx0) / (stX * 4)); i++) {
+    for (let j = Math.floor(-sy0 / (stY * 4)); j <= Math.ceil((H - sy0) / (stY * 4)); j++) {
+      const x = sx0 + i * stX * 4, y = sy0 + j * stY * 4;
+      c.fillRect(x - 3, y - 0.5, 6, 1); c.fillRect(x - 0.5, y - 3, 1, 6);
+    }
+  }
+  const fade = c.createLinearGradient(0, 0, 0, H);
+  fade.addColorStop(0, 'rgba(1,3,9,0.7)'); fade.addColorStop(0.35, 'rgba(1,3,9,0)');
+  c.fillStyle = fade; c.fillRect(0, 0, W, H);
+}
+
+function drawIslandStatic(c, isl) {
+  const a = isl.bootA * isl.dimA;
+  if (a <= 0) return;
+  const z = cam.z;
+  c.globalAlpha = a;
+  // 海面への反射光（浮遊感）
+  c.globalCompositeOperation = 'lighter';
+  const rr = isl.rad * HEX_W * 1.45, g = c.createRadialGradient(isl.cx, isl.cy + CLIFF + 12, 0, isl.cx, isl.cy + CLIFF + 12, rr);
+  g.addColorStop(0, 'rgba(0,150,255,0.13)'); g.addColorStop(0.6, 'rgba(0,120,255,0.04)'); g.addColorStop(1, 'rgba(0,120,255,0)');
+  c.fillStyle = g; c.beginPath(); c.arc(isl.cx, isl.cy + CLIFF + 12, rr, 0, TAU); c.fill();
+  c.globalCompositeOperation = 'source-over';
+  // 崖（積層）
+  const layers = [[CLIFF, '#02050c', 0.45], [CLIFF * 0.74, '#040a18', 0.2], [CLIFF * 0.48, '#071026', 0.28], [CLIFF * 0.22, '#0a1834', 0.4]];
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  for (let i = 0; i < layers.length; i++) {
+    const [off, col, la] = layers[i];
+    c.save(); c.translate(0, off);
+    c.fillStyle = col; c.fill(isl.silh);
+    if (i === 0) { c.globalCompositeOperation = 'lighter'; c.strokeStyle = 'rgba(0,229,255,0.12)'; c.lineWidth = 7 / z; c.stroke(isl.coast); c.globalCompositeOperation = 'source-over'; }
+    c.strokeStyle = 'rgba(0,229,255,' + la + ')'; c.lineWidth = 1 / z; c.stroke(isl.coast);
+    c.restore();
+  }
+  c.strokeStyle = 'rgba(0,229,255,0.13)'; c.lineWidth = 1 / z; c.stroke(isl.wall);
+  // 天面タイル
+  c.fillStyle = GROUT_COL; c.fill(isl.silh);
+  c.fillStyle = TILE_COL; c.fill(isl.tiles);
+  // 海岸線のネオン
+  c.globalCompositeOperation = 'lighter';
+  c.strokeStyle = 'rgba(0,229,255,0.07)'; c.lineWidth = 10 / z; c.stroke(isl.coast);
+  c.strokeStyle = 'rgba(0,229,255,0.22)'; c.lineWidth = 3.2 / z; c.stroke(isl.coast);
+  c.strokeStyle = 'rgba(170,250,255,0.8)'; c.lineWidth = 1.1 / z; c.stroke(isl.coast);
+  c.globalCompositeOperation = 'source-over';
+  c.globalAlpha = 1;
+}
+
+function renderStatic() {
+  const c = sctx;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, staticCv.width, staticCv.height);
+  drawGrid(c);
+  worldXf(c);
+  // ソナーリング
+  c.globalCompositeOperation = 'lighter';
+  c.lineWidth = 1 / cam.z;
+  c.setLineDash([6, 10]);
+  for (const r of [360, 620, 880]) { c.strokeStyle = 'rgba(0,229,255,0.07)'; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.stroke(); }
+  c.setLineDash([]);
+  c.strokeStyle = 'rgba(0,229,255,0.16)';
+  c.beginPath();
+  for (let i = 0; i < 72; i++) {
+    const a = i / 72 * TAU, r0 = 880, r1 = i % 6 === 0 ? 905 : 890;
+    c.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); c.lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
+  }
+  c.stroke();
+  c.globalCompositeOperation = 'source-over';
+  for (const isl of ISLANDS) drawIslandStatic(c, isl);
+  // データブリッジ（基礎線）
+  c.globalCompositeOperation = 'lighter';
+  for (const br of BRIDGES) {
+    const a = Math.min(ISL.general.bootA, br.isl.bootA) * Math.max(0.45, Math.min(ISL.general.dimA, br.isl.dimA));
+    if (a <= 0) continue;
+    c.globalAlpha = a;
+    c.strokeStyle = 'rgba(0,229,255,0.06)'; c.lineWidth = 12 / cam.z; c.stroke(br.path);
+    c.strokeStyle = 'rgba(0,229,255,0.2)'; c.lineWidth = 3 / cam.z; c.stroke(br.path);
+    c.strokeStyle = 'rgba(150,245,255,0.55)'; c.lineWidth = 1 / cam.z; c.stroke(br.path);
+    for (const P of [br.A, br.B]) {
+      c.strokeStyle = 'rgba(150,245,255,0.7)'; c.lineWidth = 1.4 / cam.z;
+      c.beginPath(); hexPath(c, P.x, P.y, 0.6); c.stroke();
+    }
+  }
+  c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+}
+
+function ensureStatic() {
+  let b = 0;
+  for (const isl of ISLANDS) b += isl.bootA * 10 + isl.dimA;
+  const key = cam.x.toFixed(3) + '|' + cam.y.toFixed(3) + '|' + cam.z.toFixed(5) + '|' + b.toFixed(3) + '|' + canvas.width + 'x' + canvas.height;
+  if (key !== staticKey) { staticKey = key; renderStatic(); }
+}
+
+function drawSweep(c) {
+  if (!HAS_CONIC) return;
+  const ang = time * 0.32;
+  const g = c.createConicGradient(ang, 0, 0);
+  g.addColorStop(0, 'rgba(0,229,255,0)'); g.addColorStop(0.9, 'rgba(0,229,255,0)'); g.addColorStop(1, 'rgba(0,229,255,0.07)');
+  c.globalCompositeOperation = 'lighter';
+  c.fillStyle = g; c.beginPath(); c.arc(0, 0, 900, 0, TAU); c.fill();
+  c.strokeStyle = 'rgba(0,229,255,0.22)'; c.lineWidth = 1.2 / cam.z;
+  c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(ang) * 900, Math.sin(ang) * 900); c.stroke();
+}
+
+function drawBridgesDyn(c) {
+  c.globalCompositeOperation = 'lighter';
+  for (const br of BRIDGES) {
+    const a = Math.min(ISL.general.bootA, br.isl.bootA) * Math.max(0.45, Math.min(ISL.general.dimA, br.isl.dimA));
+    if (a <= 0) continue;
+    c.globalAlpha = a;
+    c.setLineDash([3, 9]); c.lineDashOffset = -time * 34;
+    c.strokeStyle = 'rgba(190,250,255,0.55)'; c.lineWidth = 1.3 / cam.z; c.stroke(br.path);
+    c.setLineDash([]);
+    const cols = br.cols.length ? br.cols : [CYAN], n = 6;
+    for (let k = 0; k < n; k++) {
+      let u = (time * 0.17 + k / n + br.isl.idx * 0.11) % 1;
+      if (k & 1) u = 1 - u;
+      const col = cols[k % cols.length];
+      for (let j = 5; j >= 0; j--) {
+        const [px, py] = bridgePt(br, u + ((k & 1) ? j : -j) * 0.011);
+        const s = j === 0 ? 18 : 9 - j;
+        c.globalAlpha = a * (j === 0 ? 0.95 : 0.4 * (1 - j / 6));
+        c.drawImage(glowSprite(col), px - s / 2, py - s / 2, s, s);
+      }
+      const [hx, hy] = bridgePt(br, u);
+      c.globalAlpha = a; c.fillStyle = '#ffffff'; c.beginPath(); c.arc(hx, hy, 1.4, 0, TAU); c.fill();
+    }
+  }
+  c.globalAlpha = 1;
+}
+
+function matchHover(isl, u) {
+  if (!hoverSel) return false;
+  if (hoverSel.type === 'unit') return isl.sid === hoverSel.sid && isl.units[u].id === hoverSel.uid;
+  return isl.units[u].org === hoverSel.org;
+}
+
+function drawTerritory(c, isl) {
+  const P = isl.P;
+  if (!P || isl.bootA <= 0) return;
+  const z = cam.z, A = isl.bootA * isl.dimA, U = isl.U;
+  c.globalAlpha = A;
+  c.globalCompositeOperation = 'source-over';
+  // ① 領土の塗り（境界に近いほど明るい）
+  for (let u = 0; u < U; u++) {
+    if (!isl.count[u]) continue;
+    const col = isl.units[u].color, k = 0.78 + 0.4 * sNorm(isl.str[u]), f = P.fill[u];
+    for (let b = 0; b < 4; b++) if (f[b]) { c.fillStyle = rgba(col, FILL_A[b] * k); c.fill(f[b]); }
+  }
+  // ホバー時：対象以外を暗く
+  if (hoverSel) {
+    c.fillStyle = 'rgba(2,5,13,0.6)';
+    for (let u = 0; u < U; u++) if (isl.count[u] && !matchHover(isl, u)) for (const p of P.fill[u]) if (p) c.fill(p);
+  }
+  // ② 奪取アニメーション
+  for (const [h, an] of isl.anims) drawCaptureAnim(c, isl, h, an);
+  c.globalCompositeOperation = 'lighter';
+  // ③ 首都から広がるエネルギー波
+  for (let u = 0; u < U; u++) {
+    if (!isl.count[u] || isl.heart[u] < 0) continue;
+    const sN = sNorm(isl.str[u]), period = 3.4 - 1.6 * sN;
+    const ph = ((time + u * 0.77 + isl.idx * 0.37) / period) % 1;
+    const rad = ph * (6 + 5 * sN) * HEX_W, hp = isl.hpos[u];
+    const path = new Path2D();
+    let any = false;
+    for (const h of P.owned[u]) {
+      const hx = isl.hexes[h], d = Math.hypot(hx.x - hp.x, hx.y - hp.y);
+      if (Math.abs(d - rad) < R * 0.95) { hexPath(path, hx.x, hx.y, TILE_K * 0.82); any = true; }
+    }
+    if (any) { c.fillStyle = rgba(isl.units[u].color, (0.08 + 0.16 * sN) * (1 - ph)); c.fill(path); }
+    if (P.dots[u]) { c.fillStyle = rgba(isl.units[u].color, 0.25 + 0.35 * sN); c.fill(P.dots[u]); }
+  }
+  // ④ スキャンの光帯
+  const band = ((time * 0.11 + isl.idx * 0.23) % 1.6) - 0.3;
+  if (band > -0.12 && band < 1.12) {
+    const b = isl.bounds, g = c.createLinearGradient(b.minX, b.minY, b.maxX, b.maxY);
+    g.addColorStop(clamp(band - 0.1, 0, 1), 'rgba(200,250,255,0)');
+    g.addColorStop(clamp(band, 0, 1), 'rgba(200,250,255,0.075)');
+    g.addColorStop(clamp(band + 0.1, 0, 1), 'rgba(200,250,255,0)');
+    c.fillStyle = g; c.fill(P.all);
+  }
+  // ⑤ 領土境界のネオン（強いほど太く明るく、エネルギーが流れる）
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  for (let u = 0; u < U; u++) {
+    const path = P.border[u];
+    if (!path) continue;
+    const col = isl.units[u].color, sN = sNorm(isl.str[u]);
+    const dimK = hoverSel && !matchHover(isl, u) ? 0.3 : 1;
+    c.strokeStyle = rgba(col, (0.06 + 0.15 * sN) * dimK); c.lineWidth = (6 + 7 * sN) / z; c.stroke(path);
+    c.strokeStyle = rgba(col, (0.25 + 0.3 * sN) * dimK); c.lineWidth = (2.4 + 1.8 * sN) / z; c.stroke(path);
+    c.strokeStyle = tint(col, 0.45, 0.95 * dimK); c.lineWidth = 1.15 / z; c.stroke(path);
+    if (sN > 0.3 && dimK === 1) {
+      c.setLineDash([5, 13]); c.lineDashOffset = -time * (10 + 45 * sN);
+      c.strokeStyle = 'rgba(255,255,255,' + (0.12 + 0.55 * (sN - 0.3)).toFixed(3) + ')'; c.lineWidth = 1.7 / z; c.stroke(path);
+      c.setLineDash([]);
+    }
+  }
+  // ⑥ 拮抗前線のちらつき
+  if (P.cN) {
+    const fl = new Path2D();
+    let any = false;
+    for (let e = 0; e < P.cN; e++) {
+      if (Math.abs(isl.str[P.cA[e]] - isl.str[P.cB[e]]) >= 5 || rand() > 0.45) continue;
+      const hx = isl.hexes[P.cH[e]], k = P.cK[e], k2 = (k + 1) % 6;
+      fl.moveTo(hx.x + CORN[k][0], hx.y + CORN[k][1]); fl.lineTo(hx.x + CORN[k2][0], hx.y + CORN[k2][1]);
+      any = true;
+    }
+    if (any) {
+      c.strokeStyle = 'rgba(255,255,255,0.12)'; c.lineWidth = 5 / z; c.stroke(fl);
+      c.strokeStyle = 'rgba(255,255,255,0.75)'; c.lineWidth = 1.3 / z; c.stroke(fl);
+    }
+  }
+  // ⑦ イベント発生時の領土パルス / ホバー強調
+  for (const p of PULSES) {
+    if (p.isl !== isl || !isl.count[p.u]) continue;
+    const q = p.t / p.d, env = (0.5 + 0.5 * Math.cos(p.t * TAU * 1.5)) * (1 - q) * Math.min(1, p.t * 8);
+    const col = isl.units[p.u].color;
+    c.fillStyle = rgba(col, 0.5 * env);
+    for (const f of P.fill[p.u]) if (f) c.fill(f);
+    if (P.border[p.u]) { c.strokeStyle = 'rgba(255,255,255,' + (0.85 * env).toFixed(3) + ')'; c.lineWidth = 2.6 / z; c.stroke(P.border[p.u]); }
+  }
+  if (hoverSel) {
+    const env = 0.55 + 0.45 * Math.sin(time * 6);
+    for (let u = 0; u < U; u++) {
+      if (!isl.count[u] || !matchHover(isl, u)) continue;
+      c.fillStyle = rgba(isl.units[u].color, 0.16 + 0.14 * env);
+      for (const f of P.fill[u]) if (f) c.fill(f);
+      if (P.border[u]) { c.strokeStyle = 'rgba(255,255,255,' + (0.4 + 0.4 * env).toFixed(3) + ')'; c.lineWidth = 2 / z; c.stroke(P.border[u]); }
+    }
+  }
+  // ホバー中の島：海岸線を強調
+  if (hoverIsl === isl && focus !== isl.sid) {
+    c.strokeStyle = 'rgba(160,250,255,' + (0.35 + 0.2 * Math.sin(time * 5)).toFixed(3) + ')'; c.lineWidth = 3 / z; c.stroke(isl.coast);
+  }
+  c.globalAlpha = 1;
+  c.globalCompositeOperation = 'source-over';
+}
+
+function drawCaptureAnim(c, isl, h, an) {
+  const hx = isl.hexes[h], p = clamp(an.t / an.dur, 0, 1);
+  const x0 = hx.x - R, y0 = hx.y - R, s = 2 * R;
+  c.save();
+  c.beginPath(); hexPath(c, hx.x, hx.y, TILE_K); c.clip();
+  c.globalCompositeOperation = 'source-over';
+  c.fillStyle = TILE_COL; c.fillRect(x0, y0, s, s);
+  if (an.from >= 0) {
+    const fc = isl.units[an.from].color;
+    if (an.kind === 3) { if (rand() < 0.7 - p * 0.5) { c.fillStyle = rgba(fc, 0.4 * (1 - p)); c.fillRect(x0, y0, s, s); } }
+    else { c.fillStyle = rgba(fc, 0.3 * (1 - p)); c.fillRect(x0, y0, s, s); }
+  }
+  if (an.to >= 0) {
+    const col = isl.units[an.to].color;
+    c.fillStyle = rgba(col, 0.55 - 0.25 * p);
+    c.beginPath(); c.arc(an.ox, an.oy, easeOut(p) * R * 2.2, 0, TAU); c.fill();
+  }
+  c.globalCompositeOperation = 'lighter';
+  if ((an.kind === 2 || an.kind === 4) && p < 0.4) {
+    const w = (1 - p / 0.4); c.fillStyle = 'rgba(255,255,255,' + (w * w * 0.9).toFixed(3) + ')'; c.fillRect(x0, y0, s, s);
+  }
+  c.restore();
+  if (an.to >= 0 && an.kind !== 1) {
+    c.globalCompositeOperation = 'lighter';
+    c.strokeStyle = tint(isl.units[an.to].color, 0.5, 0.9 * (1 - p)); c.lineWidth = 1.6 / cam.z;
+    c.beginPath(); hexPath(c, hx.x, hx.y, TILE_K); c.stroke();
+    c.globalCompositeOperation = 'source-over';
+  }
+}
+
+function drawFx(c) {
+  const z = cam.z;
+  c.globalCompositeOperation = 'lighter'; c.lineCap = 'round'; c.globalAlpha = 1;
+  for (const p of FX) {
+    const q = clamp(p.t / p.d, 0, 1), al = 1 - q;
+    if (p.k === 0) {
+      c.strokeStyle = tint(p.c, 0.3, al); c.lineWidth = 1.4 / z;
+      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.vx * 0.05, p.y - p.vy * 0.05); c.stroke();
+    } else if (p.k === 1) {
+      const r = lerp(p.r0, p.r1, easeOut(q));
+      c.strokeStyle = rgba(p.c, al * 0.9); c.lineWidth = p.w * (1 - q * 0.5) / z;
+      c.beginPath(); hexPath(c, p.x, p.y, r / R); c.stroke();
+    } else if (p.k === 2) {
+      const r = p.r * (0.6 + 0.6 * q);
+      c.globalAlpha = al * al; c.drawImage(glowSprite(p.c), p.x - r, p.y - r, 2 * r, 2 * r); c.globalAlpha = 1;
+    } else {
+      const k0 = Math.max(0, q - 0.35);
+      c.strokeStyle = tint(p.c, 0.55, 0.95); c.lineWidth = 1.5 / z;
+      c.beginPath(); c.moveTo(lerp(p.x, p.x1, k0), lerp(p.y, p.y1, k0)); c.lineTo(lerp(p.x, p.x1, q), lerp(p.y, p.y1, q)); c.stroke();
+    }
+  }
+}
+
+function drawUnits(c) {
+  const zs = zScale();
+  c.globalCompositeOperation = 'lighter';
+  for (const un of UNITS) {
+    const isl = un.isl, A = isl.bootA * isl.dimA;
+    proj(un.x, un.y);
+    const x = PX, y = PY;
+    if (x < -20 || y < -20 || x > view.W + 20 || y > view.H + 20) continue;
+    const col = isl.units[un.u].color, sc = zs * Math.min(1, un.age * 3);
+    const g = 15 * sc;
+    c.globalAlpha = 0.55 * A; c.drawImage(glowSprite(col), x - g / 2, y - g / 2, g, g);
+    const ca = Math.cos(un.ang), sa = Math.sin(un.ang);
+    if (un.state === 'dash') {
+      c.strokeStyle = rgba(col, 0.5 * A); c.lineWidth = 2 * sc;
+      c.beginPath(); c.moveTo(x, y); c.lineTo(x - ca * 14 * sc, y - sa * 14 * sc); c.stroke();
+    }
+    c.globalAlpha = A;
+    c.fillStyle = tint(col, 0.55, 1);
+    const pt = (px, py) => [x + (px * ca - py * sa) * sc, y + (px * sa + py * ca) * sc];
+    const a1 = pt(5.5, 0), a2 = pt(-3.5, 3.8), a3 = pt(-1.2, 0), a4 = pt(-3.5, -3.8);
+    c.beginPath(); c.moveTo(a1[0], a1[1]); c.lineTo(a2[0], a2[1]); c.lineTo(a3[0], a3[1]); c.lineTo(a4[0], a4[1]); c.closePath(); c.fill();
+  }
+  c.globalAlpha = 1;
+}
+
+function drawBeams(c) {
+  const zs = zScale();
+  c.globalCompositeOperation = 'lighter';
+  for (const b of BEAMS) {
+    const hx = b.isl.hexes[b.h], col = b.isl.units[b.u].color;
+    proj(hx.x, hx.y);
+    const x = PX, y = PY;
+    if (b.t < 0.42) {
+      const yy = lerp(-60, y, easeIn(b.t / 0.42));
+      const g = c.createLinearGradient(x, yy - 160, x, yy);
+      g.addColorStop(0, rgba(col, 0)); g.addColorStop(1, tint(col, 0.4, 1));
+      c.strokeStyle = g; c.lineWidth = 3 * zs; c.beginPath(); c.moveTo(x, yy - 160); c.lineTo(x, yy); c.stroke();
+      const s = 34 * zs; c.drawImage(glowSprite(col), x - s / 2, yy - s / 2, s, s);
+      c.drawImage(glowSprite(WHITE), x - s / 4, yy - s / 4, s / 2, s / 2);
+    } else {
+      const k = (b.t - 0.42) / (b.d - 0.42), w = 18 * zs * Math.pow(1 - k, 0.6);
+      const g = c.createLinearGradient(x, 0, x, y);
+      g.addColorStop(0, rgba(col, 0)); g.addColorStop(0.7, rgba(col, 0.32 * (1 - k))); g.addColorStop(1, rgba(col, 0.9 * (1 - k)));
+      c.fillStyle = g; c.fillRect(x - w / 2, 0, w, y);
+      c.fillStyle = 'rgba(255,255,255,' + (0.8 * (1 - k)).toFixed(3) + ')'; c.fillRect(x - w * 0.09, 0, w * 0.18, y);
+      const s = 110 * zs * (1 - k * 0.5);
+      c.globalAlpha = 1 - k; c.drawImage(glowSprite(col), x - s / 2, y - s / 2 * TILT, s, s * TILT); c.globalAlpha = 1;
+    }
+  }
+}
+
+function drawDust(c) {
+  c.globalCompositeOperation = 'lighter';
+  for (const d of DUST) {
+    const a = d.a * (0.5 + 0.5 * Math.sin(time * 1.3 + d.p));
+    c.fillStyle = 'rgba(140,235,255,' + a.toFixed(3) + ')';
+    c.fillRect(d.x * view.W, d.y * view.H, d.s, d.s);
+  }
+}
+
+// 首都エンブレム（pass='glow' は bloom 前、'body' は後に描いて文字をくっきり）
+let labelRects = [];
+function drawEmblems(c, pass) {
+  const zs = zScale();
+  const cands = [];
+  for (const isl of ISLANDS) {
+    const A = isl.bootA * isl.dimA;
+    if (A <= 0 || !isl.P) continue;
+    let lead = -1;
+    for (let u = 0; u < isl.U; u++) if (isl.count[u] && (lead < 0 || isl.count[u] > isl.count[lead])) lead = u;
+    for (let u = 0; u < isl.U; u++) {
+      if (!isl.count[u] || isl.heart[u] < 0) continue;
+      const un = isl.units[u], hp = isl.hpos[u];
+      proj(hp.x, hp.y);
+      const x = PX, y = PY;
+      if (x < -90 || x > view.W + 90 || y < -90 || y > view.H + 90) continue;
+      const sN = sNorm(isl.str[u]), ap = easeOutBack(clamp((time - isl.appearT[u]) / 0.7, 0, 1));
+      const size = clamp(7.5 + Math.sqrt(isl.count[u]) * 0.9, 9, 23) * zs * Math.max(0.01, ap);
+      if (pass === 'glow') {
+        const g = size * (4 + 2.6 * sN);
+        c.globalCompositeOperation = 'lighter';
+        c.globalAlpha = A * (0.18 + 0.45 * sN);
+        c.drawImage(glowSprite(un.color), x - g / 2, y - g / 2, g, g);
+        continue;
+      }
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = A;
+      // 強者のパワーリング
+      if (sN > 0.35) {
+        c.globalCompositeOperation = 'lighter';
+        c.strokeStyle = tint(un.color, 0.3, 0.35 + 0.5 * sN); c.lineWidth = 1.5;
+        const rot = time * (0.6 + 1.6 * sN) + u;
+        for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(x, y, size * 1.5, rot + i * TAU / 3, rot + i * TAU / 3 + 0.9); c.stroke(); }
+        c.globalCompositeOperation = 'source-over';
+      }
+      c.beginPath();
+      for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; const px = x + Math.cos(a) * size, py = y + Math.sin(a) * size; if (i) c.lineTo(px, py); else c.moveTo(px, py); }
+      c.closePath();
+      c.fillStyle = 'rgba(3,8,20,0.88)'; c.fill();
+      c.strokeStyle = un.color; c.lineWidth = 2; c.stroke();
+      c.beginPath();
+      for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; const px = x + Math.cos(a) * size * 0.76, py = y + Math.sin(a) * size * 0.76; if (i) c.lineTo(px, py); else c.moveTo(px, py); }
+      c.closePath(); c.strokeStyle = rgba(un.color, 0.45); c.lineWidth = 1; c.stroke();
+      const fs = Math.round(size * (un.ini.length >= 3 ? 0.5 : 0.68));
+      c.font = '900 ' + fs + 'px Orbitron, Rajdhani, sans-serif';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillStyle = '#ffffff'; c.fillText(un.ini, x, y + 0.5);
+      if (u === lead) {   // 首位マーカー
+        const ty = y - size - 7;
+        c.fillStyle = '#ffd23f';
+        c.beginPath(); c.moveTo(x - 6, ty + 3); c.lineTo(x - 6, ty - 3); c.lineTo(x - 3, ty); c.lineTo(x, ty - 5); c.lineTo(x + 3, ty); c.lineTo(x + 6, ty - 3); c.lineTo(x + 6, ty + 3); c.closePath(); c.fill();
+      }
+      const share = isl.count[u] / isl.N;
+      const isFocus = focus === isl.sid, hov = hoverSel && matchHover(isl, u);
+      if (isFocus || hov || share >= 0.07 || u === lead) cands.push({ isl, u, x, y: y + size + 12, share, pri: (hov ? 1e6 : 0) + (isFocus ? 1e5 : 0) + isl.count[u], isFocus });
+    }
+  }
+  if (pass !== 'body') { c.globalAlpha = 1; return; }
+  // ラベル（重なりを避けて配置）
+  cands.sort((a, b) => b.pri - a.pri);
+  const placed = labelRects.slice();
+  c.textBaseline = 'middle';
+  for (const L of cands) {
+    const un = L.isl.units[L.u], big = L.isFocus;
+    const name = un.name, pct = Math.round(L.share * 100) + '%';
+    c.font = '700 ' + (big ? 14 : 12) + 'px Rajdhani, "Noto Sans JP", sans-serif';
+    const wn = c.measureText(name).width;
+    c.font = (big ? 13 : 11) + 'px "Share Tech Mono", Consolas, monospace';
+    const wp = c.measureText(pct).width;
+    let wo = 0;
+    if (big) { c.font = '600 10px Rajdhani, sans-serif'; wo = c.measureText(un.orgName).width + 6; }
+    const w = wn + wp + wo + 18, h = big ? 20 : 17, x = L.x - w / 2, y = L.y - h / 2;
+    let hit = false;
+    for (const r of placed) if (x < r.x + r.w && x + w > r.x && y < r.y + r.h && y + h > r.y) { hit = true; break; }
+    if (hit) continue;
+    placed.push({ x, y, w, h });
+    c.globalAlpha = L.isl.bootA * L.isl.dimA;
+    c.fillStyle = 'rgba(2,7,18,0.78)'; c.fillRect(x, y, w, h);
+    c.fillStyle = un.color; c.fillRect(x, y, 2, h);
+    c.strokeStyle = rgba(un.color, 0.4); c.lineWidth = 1; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    c.textAlign = 'left';
+    c.font = '700 ' + (big ? 14 : 12) + 'px Rajdhani, "Noto Sans JP", sans-serif';
+    c.fillStyle = tint(un.color, 0.55, 1); c.fillText(name, x + 8, y + h / 2 + 1);
+    let cx = x + 8 + wn + 5;
+    if (big) { c.font = '600 10px Rajdhani, sans-serif'; c.fillStyle = '#7d9db3'; c.fillText(un.orgName, cx, y + h / 2 + 1); cx += wo; }
+    c.font = (big ? 13 : 11) + 'px "Share Tech Mono", Consolas, monospace';
+    c.fillStyle = '#e6fbff'; c.fillText(pct, cx, y + h / 2 + 1);
+  }
+  // 降下ビームの「参戦」テキスト
+  for (const b of BEAMS) {
+    if (b.t < 0.42) continue;
+    const k = (b.t - 0.42) / (b.d - 0.42), hx = b.isl.hexes[b.h];
+    proj(hx.x, hx.y);
+    c.globalAlpha = Math.min(1, (1 - k) * 2) * Math.min(1, (b.t - 0.42) * 6);
+    c.textAlign = 'center';
+    const col = b.isl.units[b.u].color, t1 = b.isl.units[b.u].name + ' 参戦', yb = PY - 34 * zs - k * 14;
+    c.font = '900 ' + Math.round(13 * zs) + 'px "Noto Sans JP", sans-serif';
+    const tw = Math.max(c.measureText(t1).width, 92 * zs) + 16;
+    c.fillStyle = 'rgba(2,6,16,0.82)'; c.fillRect(PX - tw / 2, yb - 26 * zs, tw, 36 * zs);
+    c.fillStyle = col; c.fillRect(PX - tw / 2, yb - 26 * zs, tw, 2);
+    c.fillStyle = '#ffffff';
+    c.fillText(t1, PX, yb);
+    c.font = '700 ' + Math.round(9 * zs) + 'px Orbitron, sans-serif';
+    c.fillStyle = col;
+    c.fillText('NEW CHALLENGER', PX, yb - 15 * zs);
+  }
+  c.globalAlpha = 1;
+  c.textAlign = 'left';
+}
+
+let islandLabelRects = [];
+function drawIslandLabels(c) {
+  islandLabelRects = [];
+  labelRects = [];
+  for (const isl of ISLANDS) {
+    if (isl.bootA <= 0) continue;
+    proj(isl.cx, isl.bounds.minY);
+    const x = PX, y = PY - 14;
+    let lead = -1;
+    for (let u = 0; u < isl.U; u++) if (isl.count[u] && (lead < 0 || isl.count[u] > isl.count[lead])) lead = u;
+    const hov = hoverIsl === isl, foc = focus === isl.sid;
+    c.font = '900 15px "Noto Sans JP", sans-serif';
+    const w1 = c.measureText(isl.sec.name).width;
+    c.font = '700 9px Orbitron, sans-serif';
+    const w2 = c.measureText(isl.sec.en).width;
+    const leadTxt = lead >= 0 ? isl.units[lead].name + ' ' + Math.round(isl.count[lead] / isl.N * 100) + '%' : '— 未制圧 —';
+    c.font = '700 12px Rajdhani, "Noto Sans JP", sans-serif';
+    const w3 = c.measureText('首位 ' + leadTxt).width + (hov && !foc ? 70 : 0);
+    const w = Math.max(w1 + w2 + 12, w3) + 24, h = 40, bx = x - w / 2, by = y - h;
+    c.globalAlpha = isl.bootA * (foc ? 1 : Math.max(0.55, isl.dimA));
+    c.fillStyle = hov ? 'rgba(4,20,38,0.88)' : 'rgba(2,8,20,0.72)'; c.fillRect(bx, by, w, h);
+    const bc = hov || foc ? 'rgba(120,245,255,0.95)' : 'rgba(0,229,255,0.5)';
+    c.strokeStyle = 'rgba(0,229,255,' + (hov ? 0.5 : 0.18) + ')'; c.lineWidth = 1; c.strokeRect(bx + 0.5, by + 0.5, w - 1, h - 1);
+    c.strokeStyle = bc; c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(bx, by + 8); c.lineTo(bx, by); c.lineTo(bx + 8, by);
+    c.moveTo(bx + w - 8, by); c.lineTo(bx + w, by); c.lineTo(bx + w, by + 8);
+    c.moveTo(bx, by + h - 8); c.lineTo(bx, by + h); c.lineTo(bx + 8, by + h);
+    c.moveTo(bx + w - 8, by + h); c.lineTo(bx + w, by + h); c.lineTo(bx + w, by + h - 8);
+    c.stroke();
+    c.strokeStyle = 'rgba(0,229,255,0.5)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(x, by + h); c.lineTo(x, y + 10); c.stroke();
+    c.fillStyle = CYAN; c.fillRect(x - 2, y + 9, 4, 4);
+    c.textBaseline = 'middle'; c.textAlign = 'left';
+    const tx = x - (w1 + w2 + 12) / 2;
+    c.font = '900 15px "Noto Sans JP", sans-serif'; c.fillStyle = '#ffffff'; c.fillText(isl.sec.name, tx, by + 13);
+    c.font = '700 9px Orbitron, sans-serif'; c.fillStyle = '#4fd0f0'; c.fillText(isl.sec.en, tx + w1 + 12, by + 14);
+    c.font = '700 12px Rajdhani, "Noto Sans JP", sans-serif';
+    const l2 = bx + 12;
+    c.fillStyle = '#7d9db3'; c.fillText('首位', l2, by + 29);
+    c.fillStyle = lead >= 0 ? tint(isl.units[lead].color, 0.3, 1) : '#7d9db3';
+    c.fillText(leadTxt, l2 + c.measureText('首位 ').width, by + 29);
+    if (hov && !foc) { c.textAlign = 'right'; c.fillStyle = '#9ff4ff'; c.fillText('▶ クリックで拡大', bx + w - 10, by + 29); c.textAlign = 'left'; }
+    islandLabelRects.push({ isl, x: bx, y: by, w, h });
+    labelRects.push({ x: bx, y: by, w, h: h + 12 });
+  }
+  c.globalAlpha = 1;
+}
+
+function bloomPass() {
+  const W = canvas.width, H = canvas.height;
+  bl[0].g.globalCompositeOperation = 'copy'; bl[0].g.drawImage(canvas, 0, 0, bl[0].c.width, bl[0].c.height);
+  if (HAS_FILTER) bl[1].g.filter = 'contrast(2.3) brightness(0.9)';   // 明るい部分だけを光らせる簡易しきい値
+  bl[1].g.globalCompositeOperation = 'copy'; bl[1].g.drawImage(bl[0].c, 0, 0, bl[1].c.width, bl[1].c.height);
+  if (HAS_FILTER) bl[1].g.filter = 'none';
+  bl[2].g.globalCompositeOperation = 'copy'; bl[2].g.drawImage(bl[1].c, 0, 0, bl[2].c.width, bl[2].c.height);
+  bl[3].g.globalCompositeOperation = 'copy'; bl[3].g.drawImage(bl[2].c, 0, 0, bl[3].c.width, bl[3].c.height);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = HAS_FILTER ? 0.5 : 0.28; ctx.drawImage(bl[2].c, 0, 0, W, H);
+  ctx.globalAlpha = HAS_FILTER ? 0.6 : 0.34; ctx.drawImage(bl[3].c, 0, 0, W, H);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+}
+
+function glitchPass() {
+  const W = canvas.width, H = canvas.height, n = 3 + ((rand() * 5) | 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'source-over';
+  for (let i = 0; i < n; i++) {
+    const y = rand() * H, h = (4 + rand() * 40) * view.dpr, dx = (rand() - 0.5) * 2 * glitchK * 28 * view.dpr;
+    ctx.drawImage(canvas, 0, y, W, h, dx, y, W, h);
+  }
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = rand() < 0.5 ? 'rgba(255,0,120,0.06)' : 'rgba(0,240,255,0.06)';
+  ctx.fillRect(0, rand() * H, W, (10 + rand() * 60) * view.dpr);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function render() {
+  const c = ctx;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  c.drawImage(bgCv, 0, 0);
+  ensureStatic();
+  c.drawImage(staticCv, 0, 0);
+  worldXf(c);
+  drawSweep(c);
+  drawBridgesDyn(c);
+  for (const isl of ISLANDS) drawTerritory(c, isl);
+  drawFx(c);
+  c.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+  drawDust(c);
+  drawUnits(c);
+  drawBeams(c);
+  drawEmblems(c, 'glow');
+  if (quality.bloom) bloomPass();
+  c.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+  c.globalCompositeOperation = 'source-over';
+  drawIslandLabels(c);
+  drawEmblems(c, 'body');
+  if (glitchT > 0) glitchPass();
+}
+
+// ============================================================
+// 7. HUD（タイトル / ランキング / 陣営 / バナー）
+// ============================================================
+const $ = (id) => document.getElementById(id);
+const elMonth = $('t-month'), elLive = $('t-live'), elStats = $('t-stats');
+const rankList = $('rank-list'), orgList = $('org-list'), pShare = $('p-share');
+let ROW_H = 54;
+const OROW_H = 25;
+let hoverSel = null, hoverIsl = null, panelDirty = true, hudAcc = 0, lastMonthTxt = '';
+const panel = { sid: null, rows: new Map(), seg: new Map() };
+const orgRows = new Map();
+function setHover(sel) { hoverSel = sel; }
+
+function updateTabs() {
+  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', (b.dataset.f || null) === focus));
+}
+document.querySelectorAll('#tabs button').forEach((b) => b.addEventListener('click', () => focusOn(b.dataset.f || null)));
+
+function buildPanel(sid) {
+  rankList.innerHTML = ''; pShare.innerHTML = '';
+  panel.rows.clear(); panel.seg.clear();
+  for (const u of SECTOR_UNITS[sid]) {
+    const el = document.createElement('div');
+    el.className = 'row'; el.style.setProperty('--c', u.color);
+    el.innerHTML = '<div class="r-rank">-</div><div class="r-chip"></div><div class="r-main">' +
+      '<div class="r-top"><span class="r-name">' + esc(u.name) + '</span><span class="r-org">' + esc(u.orgName) + '</span><span class="r-delta"></span></div>' +
+      '<div class="r-bar s"><label>強さ</label><div class="bar"><i></i></div><b>0.0</b></div>' +
+      '<div class="r-bar c"><label>規模</label><div class="bar"><i></i></div><b>0.0</b></div></div>';
+    el.addEventListener('mouseenter', () => setHover({ type: 'unit', sid, uid: u.id }));
+    el.addEventListener('mouseleave', () => setHover(null));
+    rankList.appendChild(el);
+    panel.rows.set(u.id, { el, rank: el.querySelector('.r-rank'), delta: el.querySelector('.r-delta'),
+      sBar: el.querySelector('.r-bar.s i'), sNum: el.querySelector('.r-bar.s b'),
+      cBar: el.querySelector('.r-bar.c i'), cNum: el.querySelector('.r-bar.c b'), vis: false, cache: {} });
+    const seg = document.createElement('i');
+    seg.style.background = u.color; seg.style.width = '0%';
+    pShare.appendChild(seg); panel.seg.set(u.id, seg);
+  }
+  $('p-name').textContent = SECTOR[sid].name;
+  $('p-en').textContent = SECTOR[sid].en;
+  panel.sid = sid;
+}
+const setTxt = (r, key, el, v) => { if (r.cache[key] !== v) { r.cache[key] = v; el.textContent = v; } };
+
+function updatePanel() {
+  const sid = focus || 'general', isl = ISL[sid];
+  if (panel.sid !== sid) buildPanel(sid);
+  const snap = D.snapshot(sid, T), prev = D.snapshot(sid, Math.max(0, T - 1));
+  const prevRank = new Map(prev.map((u, i) => [u.id, i]));
+  const shown = new Set();
+  snap.forEach((u, i) => {
+    const r = panel.rows.get(u.id);
+    if (!r) return;
+    shown.add(u.id);
+    const tf = 'translateY(' + (i * ROW_H) + 'px)';
+    if (!r.vis) { r.el.style.transition = 'none'; r.el.style.transform = tf; void r.el.offsetWidth; r.el.style.transition = ''; r.vis = true; r.el.classList.add('vis'); }
+    else if (r.cache.tf !== tf) r.el.style.transform = tf;
+    r.cache.tf = tf;
+    r.el.classList.toggle('top', i === 0);
+    setTxt(r, 'rank', r.rank, String(i + 1));
+    r.sBar.style.transform = 'scaleX(' + (u.s / 100).toFixed(3) + ')';
+    r.cBar.style.transform = 'scaleX(' + (u.c / 100).toFixed(3) + ')';
+    setTxt(r, 's', r.sNum, u.s.toFixed(1));
+    setTxt(r, 'c', r.cNum, u.c.toFixed(1));
+    const pr = prevRank.get(u.id);
+    let txt, cls;
+    if (pr === undefined) { txt = 'NEW'; cls = 'new'; }
+    else if (pr > i) { txt = '▲' + (pr - i); cls = 'up'; }
+    else if (pr < i) { txt = '▼' + (i - pr); cls = 'down'; }
+    else { txt = '―'; cls = 'same'; }
+    if (r.cache.dc !== cls) { r.cache.dc = cls; r.delta.className = 'r-delta ' + cls; }
+    setTxt(r, 'd', r.delta, txt);
+  });
+  for (const [id, r] of panel.rows) {
+    if (shown.has(id) || !r.vis) continue;
+    r.vis = false; r.el.classList.remove('vis');
+  }
+  rankList.style.height = (Math.max(1, snap.length) * ROW_H) + 'px';
+  // 制圧率バー
+  const order = isl.units.map((u, i) => i).sort((a, b) => isl.count[b] - isl.count[a]);
+  order.forEach((u, k) => { const seg = panel.seg.get(isl.units[u].id); seg.style.width = (isl.count[u] / isl.N * 100).toFixed(2) + '%'; seg.style.order = k; });
+  $('p-neutral').textContent = '未制圧 ' + Math.round(isl.nCount / isl.N * 100) + '%';
+  $('p-hex').textContent = (isl.N - isl.nCount) + ' / ' + isl.N + ' HEX';
+}
+
+function updateOrgs() {
+  const agg = new Map();
+  for (const isl of ISLANDS) for (let u = 0; u < isl.U; u++) {
+    if (!isl.count[u]) continue;
+    const o = isl.units[u].org;
+    let r = agg.get(o);
+    if (!r) { r = { org: o, n: 0, mask: 0 }; agg.set(o, r); }
+    r.n += isl.count[u]; r.mask |= 1 << isl.idx;
+  }
+  const list = [...agg.values()].sort((a, b) => b.n - a.n);
+  const maxN = list.length ? list[0].n : 1;
+  const maxRows = Math.max(1, Math.floor(orgList.clientHeight / OROW_H));
+  const seen = new Set();
+  list.forEach((r, i) => {
+    let row = orgRows.get(r.org);
+    if (!row) {
+      const el = document.createElement('div');
+      const col = D.orgs[r.org].color;
+      el.className = 'orow'; el.style.setProperty('--c', col);
+      el.innerHTML = '<div class="o-chip"></div><div class="o-name">' + esc(D.orgs[r.org].name) + '</div><div class="bar"><i></i></div><div class="o-n">0</div><div class="o-fr">' +
+        ISLANDS.map((isl) => '<i title="' + esc(isl.sec.name) + '"></i>').join('') + '</div>';
+      el.addEventListener('mouseenter', () => setHover({ type: 'org', org: r.org }));
+      el.addEventListener('mouseleave', () => setHover(null));
+      orgList.appendChild(el);
+      row = { el, bar: el.querySelector('.bar i'), n: el.querySelector('.o-n'), fr: [...el.querySelectorAll('.o-fr i')], vis: false, mask: -1, nv: -1 };
+      row.el.title = D.orgs[r.org].name + '：展開戦線数で布陣の広さが分かる';
+      orgRows.set(r.org, row);
+    }
+    seen.add(r.org);
+    const show = i < maxRows, tf = 'translateY(' + (i * OROW_H) + 'px)';
+    if (show && !row.vis) { row.el.style.transition = 'none'; row.el.style.transform = tf; void row.el.offsetWidth; row.el.style.transition = ''; }
+    else row.el.style.transform = tf;
+    row.vis = show; row.el.classList.toggle('vis', show);
+    row.bar.style.transform = 'scaleX(' + (r.n / maxN).toFixed(3) + ')';
+    if (row.nv !== r.n) { row.nv = r.n; row.n.textContent = r.n; }
+    if (row.mask !== r.mask) { row.mask = r.mask; row.fr.forEach((e, k) => e.classList.toggle('on', !!(r.mask & (1 << k)))); }
+  });
+  for (const [o, row] of orgRows) if (!seen.has(o) && row.vis) { row.vis = false; row.el.classList.remove('vis'); }
+  // ブリッジのパルス色＝総合戦線と両方に布陣する企業
+  for (const br of BRIDGES) {
+    const cols = [];
+    const G = ISL.general, orgsG = new Set();
+    for (let u = 0; u < G.U; u++) if (G.count[u]) orgsG.add(G.units[u].org);
+    for (let u = 0; u < br.isl.U; u++) if (br.isl.count[u] && orgsG.has(br.isl.units[u].org)) cols.push(br.isl.units[u].color);
+    br.cols = cols;
+  }
+}
+
+function updateStats() {
+  let units = 0, hex = 0, total = 0;
+  for (const isl of ISLANDS) { total += isl.N; hex += isl.N - isl.nCount; for (let u = 0; u < isl.U; u++) if (isl.count[u]) units++; }
+  elStats.innerHTML = '戦線 <b>5</b> ｜ 参戦部隊 <b>' + units + '</b> ｜ 制圧 <b>' + hex.toLocaleString() + '</b>/' + total.toLocaleString() + ' HEX';
+}
+
+// ---- event banners ----
+const bannerQ = [];
+let bannerActive = null;
+function queueEvent(e) { bannerQ.push(e); }
+function updateBanners(dt) {
+  if (bannerActive) {
+    bannerActive.t += dt;
+    if (bannerActive.t >= bannerActive.dur && !bannerActive.out) {
+      bannerActive.out = true; bannerActive.el.classList.add('out');
+      const el = bannerActive.el; setTimeout(() => el.remove(), 460);
+    }
+    if (bannerActive.out && bannerActive.t >= bannerActive.dur + 0.22) bannerActive = null;
+  }
+  // 古くなった速報は捨てる（再生に追いつけるように）
+  while (bannerQ.length > 1 && bannerQ[0].i < T - 2.5) bannerQ.shift();
+  if (!bannerActive && bannerQ.length) showBanner(bannerQ.shift());
+}
+function showBanner(ev) {
+  const isl = ISL[ev.sector], u = isl.units.findIndex((x) => x.id === ev.unit), un = isl.units[u];
+  const q = bannerQ.length;
+  const dur = Math.max(0.85, (q >= 3 ? 0.95 : q >= 1 ? 1.35 : 2.3) / Math.sqrt(speed));
+  const el = document.createElement('div');
+  el.className = 'banner';
+  el.style.setProperty('--fc', un.color); el.style.setProperty('--dur', dur + 's');
+  el.innerHTML = '<div class="bn-flash"></div><div class="bn-side">⚡</div><div class="bn-body">' +
+    '<div class="bn-kick"><span>戦況速報 // BREAKING</span><em>' + esc(un.orgName) + ' 軍 ／ ' + esc(un.name) + '</em></div>' +
+    '<div class="bn-text"><span class="d">⚡ ' + esc(ev.month.replace('-', '.')) + '</span><span class="s">' + esc(SECTOR[ev.sector].name) + ' — </span>' + esc(ev.text) + '</div></div>' +
+    '<div class="bn-prog"></div>' + (bannerQ.length ? '<div class="bn-q">+' + bannerQ.length + '</div>' : '');
+  $('banners').appendChild(el);
+  bannerActive = { el, t: 0, dur, out: false };
+  if (u >= 0) pulse(isl, u);
+  glitch(1, 0.22);
+  shake(2.5);
+}
+
+// ============================================================
+// 8. TIMELINE
+// ============================================================
+let T = 0, prevT = 0, playing = true, speed = 1, scrubbing = false, wasPlaying = false, jumped = false, time = 0;
+const SEC_PER_MONTH = 0.7, HOLD = 2.1;
+const tlIn = $('tl-in'), tlFill = $('tl-fill'), tlThumb = $('tl-thumb'), tlLbl = $('tl-thumb-lbl'), tlNow = $('tl-now'), btnPlay = $('btn-play');
+const evMarks = [];
+function pct(i) { return (i / LAST * 100).toFixed(3) + '%'; }
+function buildTimeline() {
+  const ticks = $('tl-ticks'), evs = $('tl-events');
+  let html = '';
+  MONTHS.forEach((m, i) => {
+    const mo = +m.slice(5);
+    html += '<div class="tk' + (mo === 1 ? ' yr' : [4, 7, 10].includes(mo) ? ' q' : '') + '" style="left:' + pct(i) + '"></div>';
+    if (mo === 1) html += '<div class="yl" style="left:' + pct(i) + '">' + m.slice(0, 4) + '</div>';
+  });
+  ticks.innerHTML = html;
+  const groups = new Map();
+  for (const e of D.events) { if (!groups.has(e.i)) groups.set(e.i, []); groups.get(e.i).push(e); }
+  for (const [i, list] of groups) {
+    const g = document.createElement('div');
+    g.className = 'evg'; g.style.left = pct(i);
+    for (const e of list.slice(0, 4)) {
+      const d = document.createElement('div');
+      d.className = 'evd'; d.style.setProperty('--c', D.units[e.sector][e.unit].color);
+      d.title = e.month.replace('-', '.') + ' ' + SECTOR[e.sector].name + ' — ' + e.text;
+      d.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); jumpTo(Math.max(0, e.i - 0.4)); setPlaying(true); });
+      g.appendChild(d);
+      evMarks.push({ el: d, i: e.i, past: false });
+    }
+    evs.appendChild(g);
+  }
+}
+function setPlaying(p) {
+  if (p && T >= LAST - 1e-3) { jumpTo(0); }
+  playing = p;
+  btnPlay.textContent = playing ? '❚❚' : '▶';
+  elLive.classList.toggle('paused', !playing);
+}
+function jumpTo(t) {
+  T = clamp(t, 0, LAST); jumped = true;
+  bannerQ.length = 0;   // 時間を飛ばしたら古い速報は破棄
+  if (bannerActive && !bannerActive.out) bannerActive.dur = Math.min(bannerActive.dur, bannerActive.t + 0.05);
+}
+btnPlay.addEventListener('click', () => setPlaying(!playing));
+document.querySelectorAll('#speed button').forEach((b) => b.addEventListener('click', () => {
+  speed = +b.dataset.s;
+  document.querySelectorAll('#speed button').forEach((x) => x.classList.toggle('on', x === b));
+}));
+const trackT = (ev) => { const r = tlIn.getBoundingClientRect(); return clamp((ev.clientX - r.left) / r.width, 0, 1) * LAST; };
+const track = $('tl-track');
+track.addEventListener('pointerdown', (ev) => {
+  scrubbing = true; wasPlaying = playing; playing = false;
+  try { track.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
+  jumpTo(trackT(ev));
+});
+track.addEventListener('pointermove', (ev) => { if (scrubbing) jumpTo(trackT(ev)); });
+const endScrub = () => { if (!scrubbing) return; scrubbing = false; setPlaying(wasPlaying && T < LAST); };
+track.addEventListener('pointerup', endScrub);
+track.addEventListener('pointercancel', endScrub);
+
+function updateClock(dt) {
+  prevT = T;
+  if (playing && !scrubbing && time > HOLD) {
+    T += dt * speed / SEC_PER_MONTH;
+    if (T >= LAST) { T = LAST; setPlaying(false); }
+    for (const e of D.events) if (e.i > prevT && e.i <= T) queueEvent(e);
+  }
+}
+function updateTimelineUI() {
+  const p = pct(T);
+  tlFill.style.width = p; tlThumb.style.left = p;
+  const m = fmtMonth(T);
+  if (m !== lastMonthTxt) {
+    lastMonthTxt = m;
+    tlLbl.textContent = m; tlNow.textContent = m; elMonth.textContent = m;
+    elMonth.classList.remove('tick'); void elMonth.offsetWidth; elMonth.classList.add('tick');
+    for (const mk of evMarks) { const past = mk.i <= T; if (past !== mk.past) { mk.past = past; mk.el.classList.toggle('past', past); } }
+  }
+}
+
+// ============================================================
+// 9. INPUT / MAIN LOOP
+// ============================================================
+function islandAtScreen(sx, sy) {
+  for (const r of islandLabelRects) if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h) return r.isl;
+  const [wx, wy] = unproj(sx, sy);
+  for (const isl of ISLANDS) if (hexAt(isl, wx, wy) >= 0) return isl;
+  let best = null, bd = 1.05;
+  for (const isl of ISLANDS) {
+    const d = Math.hypot(wx - isl.cx, (wy - isl.cy - CLIFF * 0.5) * 1.1) / (isl.rad * HEX_W);
+    if (d < bd) { bd = d; best = isl; }
+  }
+  return best;
+}
+canvas.addEventListener('mousemove', (ev) => {
+  hoverIsl = islandAtScreen(ev.clientX, ev.clientY);
+  canvas.classList.toggle('hover', !!hoverIsl && focus !== hoverIsl.sid);
+});
+canvas.addEventListener('mouseleave', () => { hoverIsl = null; canvas.classList.remove('hover'); });
+canvas.addEventListener('click', (ev) => {
+  const isl = islandAtScreen(ev.clientX, ev.clientY);
+  if (isl) focusOn(isl.sid); else if (focus) focusOn(null);
+});
+window.addEventListener('keydown', (ev) => {
+  if (ev.code === 'Space') { ev.preventDefault(); setPlaying(!playing); }
+  else if (ev.key === 'Escape' || ev.key === '0') focusOn(null);
+  else if (ev.key >= '1' && ev.key <= '5') focusOn(SECTORS[+ev.key - 1].id);
+  else if (ev.key === 'ArrowRight') jumpTo(Math.floor(T + 1e-6) + 1);
+  else if (ev.key === 'ArrowLeft') jumpTo(Math.ceil(T - 1e-6) - 1);
+});
+window.addEventListener('resize', resize);
+
+let unitAcc = 0, last = performance.now();
+function frame(now) {
+  let dt = (now - last) / 1000;
+  last = now;
+  if (!(dt > 0)) dt = 0.016;
+  const rawDt = dt;
+  dt = Math.min(dt, 0.05);
+  time += dt;
+  updateClock(dt);
+  updateCamera(dt);
+
+  // boot / focus dim
+  ISLANDS.forEach((isl, i) => {
+    isl.bootA = clamp((time - 0.5 - i * 0.2) / 0.6, 0, 1);
+    const td = focus && focus !== isl.sid ? 0.42 : 1;
+    isl.dimA += (td - isl.dimA) * Math.min(1, dt * 5);
+    if (Math.abs(td - isl.dimA) < 0.004) isl.dimA = td;
+  });
+
+  // world simulation
+  const quiet = scrubbing || jumped || Math.abs(T - prevT) > 0.45;
+  for (const isl of ISLANDS) {
+    updateTargets(isl, T);
+    if (isl.bootA < 1) continue;
+    if (quiet) {
+      let imb = 0;
+      for (let u = 0; u < isl.U; u++) imb += Math.abs(isl.target[u] - isl.count[u]);
+      if (imb > Math.max(8, isl.N * 0.05)) snapIsland(isl); else simulate(isl, dt, true);
+    } else simulate(isl, dt, false);
+    for (const [h, an] of isl.anims) { an.t += dt; if (an.t >= an.dur) isl.anims.delete(h); }
+    if (isl.dirty) rebuild(isl);
+    for (let u = 0; u < isl.U; u++) {
+      const h = isl.heart[u];
+      if (h < 0) continue;
+      const hp = isl.hpos[u], k = Math.min(1, dt * 3);
+      hp.x += (isl.hexes[h].x - hp.x) * k; hp.y += (isl.hexes[h].y - hp.y) * k;
+    }
+    if (!quiet) skirmish(isl, dt);
+  }
+  jumped = false;
+  unitAcc += dt;
+  if (unitAcc > 0.35) { unitAcc = 0; manageUnits(); }
+  updateUnits(dt);
+  updateFx(dt);
+
+  // glitch / shake
+  if (time > nextGlitch) { nextGlitch = time + randR(6, 13); glitch(0.7, randR(0.1, 0.2)); }
+  if (glitchT > 0) { glitchT -= dt; document.body.classList.add('glitch'); if (glitchT <= 0) { glitchK = 0; document.body.classList.remove('glitch'); } }
+  if (shakeAmt > 0.05) { canvas.style.transform = 'translate(' + randR(-1, 1) * shakeAmt + 'px,' + randR(-1, 1) * shakeAmt + 'px)'; shakeAmt *= Math.pow(0.004, dt); }
+  else if (shakeAmt > 0) { shakeAmt = 0; canvas.style.transform = ''; }
+
+  render();
+
+  // HUD
+  updateTimelineUI();
+  updateBanners(dt);
+  hudAcc += dt;
+  if (hudAcc > 0.1 || panelDirty) { hudAcc = 0; panelDirty = false; updatePanel(); updateOrgs(); updateStats(); }
+
+  // adaptive quality（重い環境では bloom → 解像度の順に落とす）
+  quality.ema = quality.ema * 0.95 + Math.min(rawDt, 0.1) * 1000 * 0.05;
+  quality.checkT += dt;
+  if (time > 4 && quality.checkT > 3 && quality.ema > 26 && quality.lowered < 2) {
+    quality.checkT = 0; quality.lowered++;
+    if (quality.bloom) quality.bloom = false; else { quality.maxDpr = 1; resize(); }
+  }
+  requestAnimationFrame(frame);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+SECTORS.forEach((s, i) => { const isl = makeIsland(s, i); ISLANDS.push(isl); ISL[s.id] = isl; });
+buildBridges();
+buildTimeline();
+resize();
+updateTabs();
+setPlaying(true);
+requestAnimationFrame((t) => { last = t; frame(t); });
+})();
+</script>
+</body>
+</html>
