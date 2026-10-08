@@ -36,6 +36,79 @@ function implied(ref: Map<string, number>, share: Map<string, number> | undefine
   return new Map([...ref].map(([u, r]) => [u, share.has(u) ? mass * share.get(u)! : r]));
 }
 
+/** Convergence threshold (max absolute change of any unit's mass per iteration) and iteration cap of {@link baseFixedPoint}. */
+const BASE_TOLERANCE = 1e-12;
+const BASE_MAX_ITERATIONS = 100_000;
+
+/**
+ * Fixed point of  r = mean over the base signals of implied(r, signal)  on the `covered` units, starting from the uniform
+ * distribution and iterating until max |r' − r| < 1e-12 (or 100 000 iterations, with a warning). Returns shares summing to 1.
+ *
+ * Disconnected coverage: group the units into connected components, where two units are connected if some base signal covers
+ * both. A signal only redistributes mass among the units it covers, so every iteration preserves the total mass of each
+ * component; together with the uniform start (1/n per unit) this means that each component's total mass is PROPORTIONAL TO
+ * ITS NUMBER OF UNITS, and the signals only decide how that mass is split inside the component. Two base signals that share
+ * no unit therefore say nothing about their relative sizes, and no signal is allowed to inflate the units it covers
+ * (a one-unit component keeps 1/n, a 3-unit component keeps 3/n). Inside a component the fixed point is unique and the
+ * iteration converges to it, however weakly the signals overlap.
+ */
+export function baseFixedPoint(
+  covered: string[],
+  signals: Map<string, number>[],
+  opts: { maxIter?: number; tol?: number; onWarn?: (msg: string) => void } = {},
+): Map<string, number> {
+  const maxIter = opts.maxIter ?? BASE_MAX_ITERATIONS;
+  const tol = opts.tol ?? BASE_TOLERANCE;
+  const n = covered.length;
+  const index = new Map(covered.map((u, i) => [u, i]));
+  // per signal: indices and shares (0–1) of the covered units it knows
+  const sig = signals.map((m) => {
+    const idx: number[] = [];
+    const sh: number[] = [];
+    for (const [u, v] of m) {
+      const i = index.get(u);
+      if (i != null) {
+        idx.push(i);
+        sh.push(v);
+      }
+    }
+    const covers = new Uint8Array(n);
+    for (const i of idx) covers[i] = 1;
+    return { idx, sh, covers };
+  });
+  let r = new Float64Array(n).fill(1 / n);
+  let next = new Float64Array(n);
+  let converged = false;
+  let iterations = 0;
+  while (iterations < maxIter) {
+    iterations++;
+    next.fill(0);
+    for (const { idx, sh, covers } of sig) {
+      let mass = 0;
+      for (const i of idx) mass += r[i];
+      // a signal spreads the mass of the units it covers and leaves the other units as they are
+      for (let k = 0; k < idx.length; k++) next[idx[k]] += mass * sh[k];
+      for (let i = 0; i < n; i++) if (!covers[i]) next[i] += r[i];
+    }
+    let delta = 0;
+    for (let i = 0; i < n; i++) {
+      next[i] /= sig.length;
+      delta = Math.max(delta, Math.abs(next[i] - r[i]));
+    }
+    [r, next] = [next, r];
+    if (delta < tol) {
+      converged = true;
+      break;
+    }
+  }
+  if (!converged) {
+    (opts.onWarn ?? console.warn)(
+      `scale: base fixed point did not converge after ${iterations} iterations (${n} units, ${signals.length} signals); using the last iterate`,
+    );
+  }
+  return new Map(covered.map((u, i) => [u, r[i]]));
+}
+
 function meanMaps(maps: Map<string, number>[], keys: string[]): Map<string, number> {
   return new Map(keys.map((u) => [u, sum(maps.map((m) => m.get(u) ?? 0)) / maps.length]));
 }
@@ -68,8 +141,7 @@ export function scaleMonth(
   if (!covered.length) {
     base = new Map(present.map((u) => [u, 1 / present.length]));
   } else {
-    let r = new Map(covered.map((u) => [u, 1 / covered.length]));
-    for (let i = 0; i < 50; i++) r = meanMaps(baseSignals.map((s) => implied(r, sigShare.get(s))), covered);
+    const r = baseFixedPoint(covered, baseSignals.map((s) => sigShare.get(s)!));
     const floor = Math.min(...r.values()) * method.floorFactor;
     base = normalise(new Map(present.map((u) => [u, r.get(u) ?? floor])));
   }

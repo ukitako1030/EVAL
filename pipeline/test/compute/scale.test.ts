@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { scaleMonth, computeScale } from '../../src/compute/scale';
+import { vi } from 'vitest';
+import { scaleMonth, computeScale, baseFixedPoint } from '../../src/compute/scale';
 import type { SignalTable } from '../../src/compute/signals';
 
 const method = {
@@ -138,6 +139,84 @@ describe('scaleMonth: per-signal redistribution', () => {
     // the same value IS used in its own month
     const same = scaleMonth(['a', 'b', 'c'], '2024-03', tbl({ ...data, wikipedia: { a: { '2024-03': 1 }, b: { '2024-03': 1 }, c: { '2024-03': 2 } } }), method);
     expect(same.get('a')!.components).toBe(2);
+  });
+});
+
+describe('scaleMonth: base fixed point', () => {
+  // three base signals in one component, so they all feed the base
+  const threeSig = {
+    ...method,
+    components: {
+      users: { weight: 0.5, signals: ['announcements' as const] },
+      attention: { weight: 0.5, signals: ['wikipedia' as const, 'itunes' as const, 'crux' as const] },
+    },
+  };
+  it('converges on a chain of signals that overlap only through small shared units', () => {
+    // a: gpt 1000 / claude 10, b: claude 1 / mistral 1000, c: mistral 1 / deepseek 1000
+    // → gpt : claude : mistral : deepseek = 1 : 0.01 : 10 : 10000 (each signal then reproduces the others' ratio)
+    const r = scaleMonth(
+      ['gpt', 'claude', 'mistral', 'deepseek'],
+      '2025-01',
+      tbl({
+        wikipedia: { gpt: { '2025-01': 1000 }, claude: { '2025-01': 10 } },
+        itunes: { claude: { '2025-01': 1 }, mistral: { '2025-01': 1000 } },
+        crux: { mistral: { '2025-01': 1 }, deepseek: { '2025-01': 1000 } },
+      }),
+      threeSig,
+    );
+    const ratio = { gpt: 1, claude: 0.01, mistral: 10, deepseek: 10000 };
+    const z = Object.values(ratio).reduce((t, x) => t + x, 0);
+    for (const [u, x] of Object.entries(ratio)) {
+      expect(r.get(u)!.share).toBeCloseTo(x / z, 6);
+      // and relative to the analytic value, so the tiny units are not hidden by the absolute tolerance
+      expect(Math.abs(r.get(u)!.share / (x / z) - 1)).toBeLessThan(1e-4);
+    }
+    expect(r.get('gpt')!.share).toBeLessThan(0.001); // was ~34% after 50 iterations
+  });
+  it('disconnected coverage: each connected component keeps a mass proportional to its number of units', () => {
+    // wikipedia covers a,b ; itunes covers c ; no base signal covers both groups → components {a,b} (2 units) and {c} (1 unit)
+    const r = scaleMonth(
+      ['a', 'b', 'c'],
+      '2025-01',
+      tbl({ wikipedia: { a: { '2025-01': 3 }, b: { '2025-01': 1 } }, itunes: { c: { '2025-01': 42 } } }),
+      threeSig,
+    );
+    expect(r.get('a')!.share).toBeCloseTo((2 / 3) * 0.75, 12);
+    expect(r.get('b')!.share).toBeCloseTo((2 / 3) * 0.25, 12);
+    expect(r.get('c')!.share).toBeCloseTo(1 / 3, 12);
+  });
+  it('disconnected coverage with several signals per component (4 units: {a,b,c} via chain, {d})', () => {
+    const r = scaleMonth(
+      ['a', 'b', 'c', 'd'],
+      '2025-01',
+      tbl({
+        wikipedia: { a: { '2025-01': 1 }, b: { '2025-01': 1 } },
+        itunes: { b: { '2025-01': 1 }, c: { '2025-01': 1 } },
+        crux: { d: { '2025-01': 9 } },
+      }),
+      threeSig,
+    );
+    // a,b,c connected through b: equal ratios everywhere → 3/4 of the mass split evenly; d alone gets its 1/4
+    expect(r.get('a')!.share).toBeCloseTo(0.25, 9);
+    expect(r.get('b')!.share).toBeCloseTo(0.25, 9);
+    expect(r.get('c')!.share).toBeCloseTo(0.25, 9);
+    expect(r.get('d')!.share).toBeCloseTo(0.25, 9);
+  });
+});
+
+describe('baseFixedPoint', () => {
+  const share = (o: Record<string, number>) => new Map(Object.entries(o));
+  it('warns when the iteration cap is hit and still returns the last iterate', () => {
+    const warn = vi.fn();
+    const r = baseFixedPoint(['a', 'b', 'c'], [share({ a: 0.9, b: 0.1 }), share({ b: 0.5, c: 0.5 })], { maxIter: 3, onWarn: warn });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/3 iterations/);
+    expect([...r.values()].reduce((t, x) => t + x, 0)).toBeCloseTo(1, 12);
+  });
+  it('does not warn when it converges', () => {
+    const warn = vi.fn();
+    baseFixedPoint(['a', 'b'], [share({ a: 0.75, b: 0.25 })], { onWarn: warn });
+    expect(warn).not.toHaveBeenCalled();
   });
 });
 
