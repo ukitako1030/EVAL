@@ -42,6 +42,18 @@ describe('back to galaxy button', () => {
     expect(back.el.hidden).toBe(true);
   });
 
+  it('sits right after the title in the DOM, so the tab order follows the screen', () => {
+    const store = createStore<AppState>({ ...defaultState(3) });
+    const root = document.createElement('div');
+    const title = document.createElement('header');
+    title.id = 'hud-title';
+    const tools = document.createElement('nav');
+    root.append(title, tools);
+    document.body.appendChild(root);
+    const back = createBackButton(root, store);
+    expect([...root.children]).toEqual([title, back.el, tools]);
+  });
+
   it('destroy removes it and stops following the store', () => {
     const { store, root, back } = setup();
     back.destroy();

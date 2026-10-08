@@ -198,6 +198,43 @@ describe('unit detail panel', () => {
     expect(document.activeElement).toBe(panel.querySelector('.detail-name'));
   });
 
+  it('keeps keyboard focus through a month change (playback rebuilds the body)', () => {
+    const { panel, store } = setup({ t: 0, selectedUnit: 'gpt' }, (w) => {
+      w.breakdown.general.gpt['2025-02'] = [{ source: 'arena-text', model: 'gpt-4.5', value: 99, weight: 0.5, share: 1, kind: 'measured' }];
+    });
+    expect(document.activeElement).toBe(panel.querySelector('.detail-name'));
+    store.set({ t: 0.5 }); // same whole month: nothing rebuilt
+    store.set({ t: 1 });
+    expect(text(panel, '.detail-month')).toBe('2025.02');
+    expect(document.activeElement).toBe(panel.querySelector('.detail-name')); // the new title, not <body>
+    panel.querySelector<HTMLAnchorElement>('.bd-strength a')!.focus();
+    store.set({ t: 0 });
+    expect(text(panel, '.bd-model')).toBe('gpt-4o');
+    expect(document.activeElement).toBe(panel.querySelector('.bd-strength a')); // the same source link again
+    store.set({ t: 2 }); // no breakdown that month: the link is gone, focus falls back to the name
+    expect(document.activeElement).toBe(panel.querySelector('.detail-name'));
+  });
+
+  it('gives focus back to where it was when the panel opened once it closes', () => {
+    const { panel, store, root } = setup();
+    const opener = document.createElement('button');
+    root.appendChild(opener);
+    opener.focus();
+    store.set({ selectedUnit: 'gpt' });
+    expect(document.activeElement).toBe(panel.querySelector('.detail-name'));
+    store.set({ selectedUnit: 'claude' }); // another unit while open: the opener stays the same
+    panel.querySelector('.detail-name')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(panel.hidden).toBe(true);
+    expect(document.activeElement).toBe(opener);
+    // closed while the reader is elsewhere (e.g. a front chip that also clears the unit): focus is left alone
+    store.set({ selectedUnit: 'gpt' });
+    const elsewhere = document.createElement('button');
+    root.appendChild(elsewhere);
+    elsewhere.focus();
+    store.set({ selectedUnit: null });
+    expect(document.activeElement).toBe(elsewhere);
+  });
+
   it('renders untrusted names as text', () => {
     const { panel } = setup({ t: 0, selectedUnit: 'gpt' }, (w) => {
       w.units.general.gpt.name = '<b id="pwn">x</b>';

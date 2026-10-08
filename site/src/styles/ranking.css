@@ -186,7 +186,7 @@
 }
 
 .rank-delta.eq {
-  color: rgba(200, 230, 255, 0.3);
+  color: var(--text-dim);
 }
 
 .rank-delta.new {

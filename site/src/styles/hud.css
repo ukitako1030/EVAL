@@ -171,6 +171,63 @@
   overflow: hidden;
 }
 
+/* ---------- front selector: the top row of the ranking panel (ui/frontTabs.ts; phones use the ◀ ▶ row) ---------- */
+.front-tabs {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  margin: 0 0 10px;
+}
+
+.front-tab {
+  position: relative;
+  height: 24px;
+  padding: 0 0 2px;
+  cursor: pointer;
+  font: 700 11px/1 var(--f-ui);
+  color: #cfefff;
+  background: rgba(61, 232, 255, 0.06);
+  border: 1px solid rgba(61, 232, 255, 0.28);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+/* the colour of the front's current leader */
+.front-tab::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 2px;
+  height: 2px;
+  background: var(--c);
+  box-shadow: 0 0 5px var(--c);
+}
+
+.front-tab.empty::after {
+  opacity: 0.25;
+  box-shadow: none;
+}
+
+.front-tab:hover {
+  background: rgba(61, 232, 255, 0.18);
+  border-color: rgba(61, 232, 255, 0.6);
+}
+
+.front-tab[aria-current='true'] {
+  color: #02030a;
+  background: var(--cyan);
+  border-color: var(--cyan);
+}
+
+.front-tab:focus-visible {
+  outline-offset: 1px;
+}
+
+.m .front-tabs {
+  display: none;
+}
+
 /* ---------- legend ---------- */
 .hud-legend {
   position: absolute;
