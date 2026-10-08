@@ -1,7 +1,7 @@
 import type { Lang } from '../data/types';
 
 export const STRINGS = {
-  subtitle: { ja: '電脳戦況モニター', en: 'AI Battlefield Monitor' },
+  subtitle: { ja: '電脳戦況モニター', en: 'AI battlefield monitor' },
   strength: { ja: '強さ', en: 'Strength' },
   scale: { ja: '規模', en: 'Scale' },
   confidence: { ja: '確度', en: 'Confidence' },
@@ -35,6 +35,17 @@ export const STRINGS = {
   clickPlanet: { ja: '惑星をクリックで戦線へ突入', en: 'Click a planet to enter its front' },
   sources: { ja: 'データ源', en: 'Sources' },
   license: { ja: 'ライセンス', en: 'Licence' },
+  speed: { ja: '速度', en: 'Speed' },
+  weight: { ja: '重み', en: 'Weight' },
+  value: { ja: '値', en: 'Value' },
+  source: { ja: 'データ源', en: 'Source' },
+  vsLastMonth: { ja: '前月比', en: 'vs last month' },
+  showAll: { ja: 'すべて表示', en: 'Show all' },
+  galaxyMap: { ja: '銀河マップ', en: 'Galaxy map' },
+  close: { ja: '閉じる', en: 'Close' },
+  language: { ja: '言語', en: 'Language' },
+  scaleBreakdown: { ja: '規模の内訳', en: 'How scale is made' },
+  strengthBreakdown: { ja: '強さの内訳', en: 'How strength is made' },
 } as const satisfies Record<string, { ja: string; en: string }>;
 
 export type StringKey = keyof typeof STRINGS;
