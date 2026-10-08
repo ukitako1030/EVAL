@@ -8,7 +8,7 @@ const minimal: World = {
   partialMonth: '2026-10',
   orgs: { openai: { name: 'OpenAI', color: '#19c37d' } },
   fronts: [{ id: 'general', name: { ja: '総合戦線', en: 'General Front' } }],
-  units: { general: { gpt: { org: 'openai', name: 'GPT' } } },
+  units: { general: { gpt: { org: 'openai', name: 'GPT', since: '2022-11' } } },
   series: { general: { gpt: [null, { s: 100, c: 100, q: 'medium', qs: 'high', qc: 'medium' }] } },
   breakdown: { general: { gpt: { '2026-10': [{ source: 'arena-text', value: 100, weight: 0.5, kind: 'measured' }] } } },
   events: [{ month: '2026-10', front: 'general', unit: 'gpt', type: 'new_unit', text: { ja: 'a', en: 'a' }, major: false }],
@@ -89,8 +89,13 @@ describe('WorldSchema', () => {
     it('org must exist in orgs', () => {
       expect(paths((w) => (w.units.general.gpt.org = 'nope'))).toEqual(['units.general.gpt.org']);
     });
+    it('since is a required YYYY-MM month; announcements is an optional series key', () => {
+      expect(paths((w) => delete (w.units.general.gpt as Partial<World['units'][string][string]>).since)).toEqual(['units.general.gpt.since']);
+      expect(paths((w) => (w.units.general.gpt.since = '2022-11-30'))).toEqual(['units.general.gpt.since']);
+      expect(paths((w) => (w.units.general.gpt.announcements = 42 as unknown as string))).toEqual(['units.general.gpt.announcements']);
+    });
     it('every unit needs a series and every series a unit', () => {
-      expect(paths((w) => (w.units.general.extra = { org: 'openai', name: 'Extra' }))).toEqual(['series.general.extra']);
+      expect(paths((w) => (w.units.general.extra = { org: 'openai', name: 'Extra', since: '2022-11' }))).toEqual(['series.general.extra']);
       expect(paths((w) => (w.series.general.ghost = [null, null]))).toEqual(['series.general.ghost']);
     });
   });

@@ -36,7 +36,14 @@ export const WorldSchema = z
     partialMonth: MonthStr,
     orgs: z.record(z.string(), z.object({ name: z.string(), color: z.string() })),
     fronts: z.array(z.object({ id: FrontIdSchema, name: LocalizedSchema })),
-    units: z.record(z.string(), z.record(z.string(), z.object({ org: z.string(), name: z.string() }))),
+    units: z.record(
+      z.string(),
+      z.record(
+        z.string(),
+        // since: the unit's first month; announcements: key of its official user-count series in `announcements`
+        z.object({ org: z.string(), name: z.string(), since: MonthStr, announcements: z.string().optional() }),
+      ),
+    ),
     series: z.record(z.string(), z.record(z.string(), z.array(UnitMonthSchema.nullable()))),
     breakdown: z.record(
       z.string(),

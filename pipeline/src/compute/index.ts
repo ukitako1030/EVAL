@@ -121,7 +121,9 @@ export function computeWorld(opts: ComputeOpts): World {
     const ids = fUnits.map((u) => u.id);
     const byId = new Map(fUnits.map((u) => [u.id, u]));
     const exists = (id: string, m: Month) => unitExists(byId.get(id)!, m);
-    world.units[front] = Object.fromEntries(fUnits.map((u) => [u.id, { org: u.org, name: u.name }]));
+    world.units[front] = Object.fromEntries(
+      fUnits.map((u) => [u.id, { org: u.org, name: u.name, since: u.since, ...(u.scale.announcements ? { announcements: u.scale.announcements } : {}) }]),
+    );
 
     // strength
     const weights = method.strength.weights[front] ?? {};

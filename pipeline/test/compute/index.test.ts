@@ -22,7 +22,7 @@ beforeAll(() => {
       ? `  general:
     name: { ja: 総合戦線, en: General Front }
     units:
-      gpt: { org: openai, name: GPT, since: 2022-11, match: ['^gpt'], scale: { wikipedia: [ChatGPT] } }
+      gpt: { org: openai, name: GPT, since: 2022-11, match: ['^gpt'], scale: { wikipedia: [ChatGPT], announcements: chatgpt } }
       claude: { org: anthropic, name: Claude, since: 2023-03, match: ['^claude'], scale: { wikipedia: [Claude] } }`
       : `  ${f}:\n    name: { ja: ${f}, en: ${f} }\n    units: {}`,
   ).join('\n');
@@ -30,7 +30,21 @@ beforeAll(() => {
     join(dir, 'curated', 'units.yaml'),
     `orgs:\n  openai: { name: OpenAI, color: '#19c37d' }\n  anthropic: { name: Anthropic, color: '#ff8a4c' }\nfronts:\n${fronts}\n`,
   );
-  writeFileSync(join(dir, 'curated', 'announcements.yaml'), 'series: {}\n');
+  // announcements start after the months the tests compute, so they never change the scale values
+  writeFileSync(
+    join(dir, 'curated', 'announcements.yaml'),
+    `series:
+  chatgpt:
+    metric: WAU
+    points:
+      - { date: 2024-01-15, value: 100000000, url: 'https://openai.com/a', note: 'not exported' }
+      - { date: 2024-06-01, value: 200000000, metric: MAU, url: 'https://openai.com/b' }
+  unused:
+    metric: MAU
+    points:
+      - { date: 2024-01-15, value: 5, url: 'https://example.com/' }
+`,
+  );
   writeFileSync(join(dir, 'curated', 'events.yaml'), 'custom:\n  - { month: 2022-11, front: general, unit: gpt, text: { ja: 開戦, en: War begins } }\n');
   writeFileSync(join(dir, 'curated', 'releases.yaml'), 'models: []\n');
   writeFileSync(
@@ -104,6 +118,18 @@ describe('computeWorld', () => {
     expect(w.sources.map((s) => s.id)).toEqual(['fake-arena', 'fake-wiki']);
     expect(w.sources[0].asOf).toBe('2026-10-05');
     expect(w.fronts).toHaveLength(7);
+  });
+  it('describes each unit with its org, name, first month and announcements series', () => {
+    const w = computeWorld({
+      rawDir: join(dir, 'raw'),
+      curatedDir: join(dir, 'curated'),
+      methodPath: join(dir, 'config', 'method.yaml'),
+      modules: [arena, wiki],
+      now: new Date('2023-06-15T00:00:00Z'),
+    });
+    expect(w.units.general.gpt).toEqual({ org: 'openai', name: 'GPT', since: '2022-11', announcements: 'chatgpt' });
+    expect(w.units.general.claude).toEqual({ org: 'anthropic', name: 'Claude', since: '2023-03' });
+    expect(w.units.general.claude).not.toHaveProperty('announcements');
   });
   it('gives each cell the strength (qs) and scale (qc) confidence; q is the lower of the two', () => {
     const w = computeWorld({
