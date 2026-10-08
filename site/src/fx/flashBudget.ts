@@ -25,3 +25,57 @@ export function createFlashBudget(opts: { maxPerSecond: number; maxIntensity: nu
 }
 
 export type FlashBudget = ReturnType<typeof createFlashBudget>;
+
+export interface FlashLogStats {
+  granted: number;
+  denied: number;
+  /** most grants seen in any closed 1 s interval of `clock` time */
+  maxPerSecond: number;
+  /** [whole second of `clock`, grants in it] for every second that had a request */
+  perSecond: [number, number][];
+}
+
+/**
+ * Debug wrapper (`?debugFlash`): passes every request through to `budget` and, once per second of `clock` time
+ * (real time, e.g. `performance.now() / 1000`), logs how many flashes were granted / denied in the previous second
+ * and the most grants seen in any 1 s window so far. `stats` stays live for inspection.
+ */
+export function logFlashes(budget: FlashBudget, opts: { clock: () => number; log: (msg: string) => void }): { budget: FlashBudget; stats: FlashLogStats } {
+  const stats: FlashLogStats = { granted: 0, denied: 0, maxPerSecond: 0, perSecond: [] };
+  const recent: number[] = [];
+  let sec = Number.NaN;
+  let secGranted = 0;
+  let secDenied = 0;
+  const flush = () => {
+    if (!Number.isFinite(sec)) return;
+    stats.perSecond.push([sec, secGranted]);
+    opts.log(`[flash] ${sec}s: ${secGranted} granted, ${secDenied} denied · max in any 1 s so far: ${stats.maxPerSecond}`);
+  };
+  return {
+    stats,
+    budget: {
+      request(intensity, now) {
+        const g = budget.request(intensity, now);
+        const t = opts.clock();
+        const s = Math.floor(t);
+        if (s !== sec) {
+          flush();
+          sec = s;
+          secGranted = 0;
+          secDenied = 0;
+        }
+        if (g > 0) {
+          stats.granted++;
+          secGranted++;
+          recent.push(t);
+          while (recent.length && t - recent[0] > 1) recent.shift();
+          stats.maxPerSecond = Math.max(stats.maxPerSecond, recent.length);
+        } else {
+          stats.denied++;
+          secDenied++;
+        }
+        return g;
+      },
+    },
+  };
+}

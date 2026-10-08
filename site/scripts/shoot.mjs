@@ -18,6 +18,10 @@ const HELP = `usage: node scripts/shoot.mjs [options]
   --dpr <n>          device scale factor (default 1 desktop, 2 mobile)
   --eval <js>        evaluate this JS in the page at --eval-at ms (e.g. drive the dev-only window.__renderer)
   --eval-at <ms>     when to run --eval (default 1000)
+  --eval-file <path> like --eval, with the JS read from a file (scripted runs, e.g. a playback with banners)
+  --eval-timeout <ms> how long an (awaited) --eval may run (default 30000)
+  --cpu-throttle <n> slow the CPU down n× (DevTools CPU throttling) — e.g. 4 for a mid-range phone
+  --console          also print the page's console.log / console.info lines (e.g. the ?debugFlash log)
   --resize <WxH@ms>  resize the viewport to WxH at ms (checks the page follows a window resize)
   --chrome <path>    Chrome executable (default: $CHROME_PATH or the usual install location)
 exit code: 0 ok · 1 console errors / exceptions seen · 2 harness failure`;
@@ -33,9 +37,11 @@ function parseArgs(argv) {
     if (!a.startsWith('--')) throw new Error(`unexpected argument ${a}`);
     const key = a.slice(2);
     if (key === 'fps') o.fps = true;
+    else if (key === 'console') o.console = true;
     else if (i + 1 < argv.length) o[key] = argv[++i];
     else throw new Error(`missing value for ${a}`);
   }
+  if (o['eval-file']) o.eval = fs.readFileSync(o['eval-file'], 'utf8');
   return o;
 }
 
@@ -186,6 +192,7 @@ async function main() {
         const text = p.args.map((a) => a.value ?? a.description ?? a.type).join(' ');
         if (p.type === 'error' || p.type === 'assert') current.push(`console.${p.type}: ${text}`);
         else if (p.type === 'warning') warnings.push(`console.warn: ${text}`);
+        else if (o.console && (p.type === 'log' || p.type === 'info')) console.log(`  console.${p.type}: ${text}`);
       } else if (method === 'Log.entryAdded' && p.entry.level === 'error') {
         current.push(`log: ${p.entry.text}${p.entry.url ? ` (${p.entry.url})` : ''}`);
       }
@@ -211,6 +218,7 @@ async function main() {
       });
       await send('Emulation.setTouchEmulationEnabled', { enabled: mobile, maxTouchPoints: mobile ? 5 : 1 });
       await send('Emulation.setUserAgentOverride', { userAgent: mobile ? mobileUA : desktopUA });
+      await send('Emulation.setCPUThrottlingRate', { rate: Math.max(1, Number(o['cpu-throttle'] ?? 1) || 1) });
       current = [];
       warnings.length = 0;
       const t0 = Date.now();
@@ -233,7 +241,7 @@ async function main() {
           continue;
         }
         if (kind === 'eval') {
-          const r = await send('Runtime.evaluate', { expression: o.eval, awaitPromise: true, returnByValue: true });
+          const r = await send('Runtime.evaluate', { expression: o.eval, awaitPromise: true, returnByValue: true }, Number(o['eval-timeout'] ?? 30000));
           if (r.exceptionDetails) current.push(`--eval threw: ${r.exceptionDetails.exception?.description ?? r.exceptionDetails.text}`);
           else console.log(`  eval @${ms}ms → ${JSON.stringify(r.result?.value) ?? 'undefined'}`);
           continue;

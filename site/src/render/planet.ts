@@ -38,6 +38,8 @@ export interface PlanetFrame {
 export interface Planet {
   readonly id: FrontId;
   readonly root: Container;
+  /** planet-local slot between the frontlines and the fog (the zoomed swarm battle draws here, under the fog and sphere shading) */
+  readonly inner: Container;
   readonly slot: PlanetSlot;
   /** current territories (latest frames) */
   readonly wedges: readonly Wedge[];
@@ -103,11 +105,12 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
   const surface = new Sprite({ texture: tex.surface, anchor: 0.5 });
   surface.blendMode = 'add';
   const lineLayer = new Container({ label: 'frontlines' });
+  const inner = new Container({ label: 'inner' });
   const fog = createFog(tex.cloud);
   const shade = new Sprite({ texture: tex.shade, anchor: 0.5 });
   const highlight = new Sprite({ texture: tex.highlight, anchor: 0.5 });
   highlight.blendMode = 'add';
-  root.addChild(decor.back, body, layers[0].c, layers[1].c, coreDark, edges, anim, surface, lineLayer, fog.container, shade, highlight, decor.front);
+  root.addChild(decor.back, body, layers[0].c, layers[1].c, coreDark, edges, anim, surface, lineLayer, inner, fog.container, shade, highlight, decor.front);
   const lineGfx: Graphics[] = [];
 
   let wedges: Wedge[] = [];
@@ -242,6 +245,7 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
       return slot.id;
     },
     root,
+    inner,
     get slot() {
       return slot;
     },

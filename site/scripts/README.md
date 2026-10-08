@@ -38,6 +38,10 @@ npm run shoot -- --url "http://localhost:5173/" --fps
 | `--name <prefix>` | from the URL query | file name prefix → `<prefix>-<W>x<H>-<ms>ms.jpg` |
 | `--dpr <n>` | 1 desktop, 2 mobile | device scale factor |
 | `--eval <js>` / `--eval-at <ms>` | — / `1000` | run JS in the page (awaited) at that time, e.g. `"__renderer.focus({kind:'planet',x:356,y:-168,r:66})"` (dev server only) |
+| `--eval-file <path>` | — | like `--eval`, the JS read from a file (scripted runs, e.g. a playback with battle-news shockwaves) |
+| `--eval-timeout <ms>` | `30000` | how long an awaited `--eval` may run |
+| `--cpu-throttle <n>` | `1` | DevTools CPU throttling (`4` ≈ a mid-range phone) — fps under a slow CPU |
+| `--console` | off | also print the page's `console.log` / `console.info` lines (e.g. the `?debugFlash` log) |
 | `--resize <WxH@ms>` | — | resize the viewport mid-run; later shots are named `…-to<W>x<H>-…` |
 | `--chrome <path>` | `$CHROME_PATH` or the usual install path | Chrome executable |
 
@@ -55,4 +59,11 @@ Notes:
   `window.__renderer`, `__galaxy`, `__store`, `__world`, `__fleets` and `__highlight` expose the
   renderer, the galaxy overview, the app store, the loaded data, the fleets and the org highlight
   (dev server only), e.g. `--eval "__store.set({ front: 'image' })"` zooms into a planet and
-  `--eval "__fleets.count"` prints how many ships are flying.
+  `--eval "__fleets.count"` prints how many ships are flying; `__battle` is the zoomed swarm battle
+  (`__battle.shockwave('gpt')`).
+- `scripts/flash-run.js` (page-side, for `--eval-file`): plays the timeline at 4× with the real playback clock and
+  banner queue from the page's month to 2025-12, fires `__battle.shockwave(unit)` on every banner of the focused front,
+  then a burst of 12 shockwaves; prints a summary. E.g.
+  `node scripts/shoot.mjs --url "http://localhost:5173/?front=general&t=2025-01&debugFlash" --sizes 1440x900 --eval-file scripts/flash-run.js --eval-at 3500 --at 4000 --fps --fps-ms 36000 --console`
+- `?debugFlash` logs the flashes the flash budget granted per second to the console (`--console` prints them)
+  and keeps running totals on `window.__flashStats` (`maxPerSecond` = most grants in any 1 s window).
