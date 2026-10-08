@@ -12,8 +12,12 @@ export interface WorldEvent { month: string; front: FrontId; unit: string; type:
 export interface BreakdownItem { source: string; model: string; value: number; weight: number; share: number; kind: 'measured' | 'reconstructed' }
 /** One component of a scale (usage) value: its `share` (0..1) of the month's blend and the signal ids behind it. */
 export interface ScaleBreakdownItem { component: string; share: number; signals: string[] }
-/** `group` is the id that `BreakdownItem.source` refers to (may be `'curated'`); `dataThrough` is the last date the source covers, null when unknown. */
-export interface SourceInfo { id: string; group: string; name: string; url: string; license: string; credit: string; asOf: string | null; dataThrough: string | null }
+/**
+ * `group` is the id that `BreakdownItem.source` refers to (may be `'curated'`); `dataThrough` is the last date the source
+ * covers, null when unknown; `url` is null for credits without a single link (e.g. curated company announcements, whose
+ * links sit on each figure) — render those as text.
+ */
+export interface SourceInfo { id: string; group: string; name: string; url: string | null; license: string; credit: string; asOf: string | null; dataThrough: string | null }
 export interface AnnouncementPoint { date: string; value: number; url: string }
 export interface Announcement { metric: 'MAU' | 'WAU' | 'DAU'; points: AnnouncementPoint[] }
 export interface World {

@@ -1,4 +1,4 @@
-import type { Lang } from '../data/types';
+import type { FrontId, Lang } from '../data/types';
 
 export const STRINGS = {
   subtitle: { ja: '電脳戦況モニター', en: 'AI battlefield monitor' },
@@ -46,7 +46,53 @@ export const STRINGS = {
   language: { ja: '言語', en: 'Language' },
   scaleBreakdown: { ja: '規模の内訳', en: 'How scale is made' },
   strengthBreakdown: { ja: '強さの内訳', en: 'How strength is made' },
+  copyFailed: { ja: 'リンクをコピーできませんでした', en: 'Could not copy the link' },
+  sortBy: { ja: '並び順', en: 'Sort order' },
+  noUnits: { ja: '― 未参戦 ―', en: 'No units yet' },
+  newEntry: { ja: 'NEW', en: 'NEW' },
+  openDetail: { ja: '詳細を開く', en: 'Open details' },
+  faction: { ja: '陣営', en: 'Faction' },
+  frontsCount: { ja: '戦線数', en: 'Fronts' },
+  deployed: { ja: '展開中', en: 'Deployed' },
+  timeline: { ja: 'タイムライン', en: 'Timeline' },
+  contribution: { ja: '寄与', en: 'Share of blend' },
+  model: { ja: 'モデル', en: 'Model' },
+  dataThrough: { ja: 'データの最終日', en: 'Data through' },
+  signals: { ja: 'シグナル', en: 'Signals' },
+  component: { ja: '要素', en: 'Component' },
+  impliedShare: { ja: 'この要素での規模', en: 'Scale by this component' },
+  baseShare: { ja: 'シグナルなし（基準値）', en: 'No signal (base share)' },
+  announcementsUsed: { ja: '使用した公式発表（利用者数）', en: 'Official user counts used' },
+  date: { ja: '日付', en: 'Date' },
+  metric: { ja: '指標', en: 'Metric' },
+  noBreakdown: { ja: 'この月の内訳はありません', en: 'No breakdown for this month' },
+  notPresent: { ja: 'この月はデータがありません', en: 'No data for this month' },
+  estimatedNote: {
+    ja: '利用できる品質データがないため、同じ戦線で実測された部隊の中央値を中立的な仮の値として使い、霧をかけて表示しています。',
+    en: 'No usable quality data: the unit gets the median of the measured units on its front as a neutral stand-in and is shown in fog.',
+  },
+  compUsers: { ja: '利用者数（公式発表）', en: 'Users (official figures)' },
+  compConsumer: { ja: '一般向けの浸透度', en: 'Consumer reach' },
+  compBusiness: { ja: '企業・開発者の利用', en: 'Business and developer use' },
+  compAttention: { ja: '注目度', en: 'Attention' },
+  name: { ja: '名前', en: 'Name' },
+  credit: { ja: 'クレジット', en: 'Credit' },
+  asOf: { ja: '取得日', en: 'Retrieved' },
+  otherCredits: { ja: 'その他の出典', en: 'Other credits' },
+  backToMonitor: { ja: '戦況モニターへ戻る', en: 'Back to the monitor' },
+  loadError: { ja: 'データを読み込めませんでした。時間をおいて再読み込みしてください。', en: 'Could not load the data; please reload in a moment.' },
 } as const satisfies Record<string, { ja: string; en: string }>;
+
+/** One- or two-letter front labels for narrow columns (the deployment matrix); the full name goes in a tooltip. */
+export const FRONT_SHORT: Record<FrontId, { ja: string; en: string }> = {
+  general: { ja: '総', en: 'G' },
+  code: { ja: 'コ', en: 'C' },
+  agent: { ja: 'エ', en: 'A' },
+  image: { ja: '画', en: 'I' },
+  video: { ja: '動', en: 'V' },
+  speech: { ja: '声', en: 'S' },
+  music: { ja: '楽', en: 'M' },
+};
 
 export type StringKey = keyof typeof STRINGS;
 

@@ -1,6 +1,4 @@
-html,
-body {
-  margin: 0;
-  background: #050816;
-  color: #cfe7ff;
-}
+/* AI WAR — entry stylesheet (Vite inlines the imports). Tokens and the shared HUD frame first, then one file per component. */
+@import './styles/base.css';
+@import './styles/hud.css';
+@import './styles/ranking.css';

@@ -31,8 +31,13 @@ export function clampT(world: World, t: number): number {
   return Number.isFinite(t) ? Math.min(Math.max(t, 0), last) : last;
 }
 
+/** The whole month `t` is in (the month the HUD shows, the URL shares and the detail panel explains). */
+export function monthIndex(world: World, t: number): number {
+  return Math.floor(clampT(world, t) + 1e-9);
+}
+
 export function monthLabel(world: World, t: number): string {
-  return world.months[Math.floor(clampT(world, t) + 1e-9)].replace('-', '.');
+  return world.months[monthIndex(world, t)].replace('-', '.');
 }
 
 /** Plain code-unit comparison: tie-breaks must not depend on the viewer's locale / ICU data. */
