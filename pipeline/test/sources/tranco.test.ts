@@ -140,8 +140,13 @@ describe('fetchTranco', () => {
       { month: '2026-08', listId: 'L20260830', ranks: { 'chatgpt.com': 105, 'claude.ai': 543 } },
       { month: '2026-09', listId: 'L20260930', ranks: { 'chatgpt.com': 105, 'claude.ai': 543 } },
     ]);
-    expect(logs.some((l) => l.includes('2026-08') && l.includes('L20260830'))).toBe(true);
+    // the list id never reaches the signals (`parse` drops it), so the fetch log is where it is recorded
+    expect(logs.filter((l) => l.startsWith('tranco ') && l.includes('list '))).toEqual([
+      'tranco 2026-08: list L20260830 (2026-08-30)',
+      'tranco 2026-09: list L20260930 (2026-09-30)',
+    ]);
     expect(tranco.parse(raw, { now: ctx.now })).toHaveLength(4);
+    expect(JSON.stringify(tranco.parse(raw, { now: ctx.now }))).not.toContain('L2026');
   });
 
   it('waits at least 1.1 s between API calls', async () => {
@@ -198,6 +203,10 @@ describe('fetchTranco', () => {
 describe('tranco module', () => {
   it('declares an accumulating scale source citing the Tranco paper', () => {
     expect(tranco).toMatchObject({ id: 'tranco', role: 'scale', history: 'accumulate' });
-    expect(tranco.meta.credit).toBe('Tranco list (Le Pochat et al., NDSS 2019), list IDs per month; non-commercial');
+    expect(tranco.meta.credit).toBe("Tranco list (Le Pochat et al., NDSS 2019), monthly lists ending at each month's last day; non-commercial");
+  });
+
+  it('does not promise list IDs in the credit: parse drops them', () => {
+    expect(tranco.meta.credit).not.toMatch(/list IDs?/i);
   });
 });

@@ -19,7 +19,7 @@ const RATE_LIMIT_WAITS_MS = [5_000, 15_000, 45_000];
 export interface TrancoRaw {
   /** 'YYYY-MM' */
   month: Month;
-  /** Tranco list id that the ranks were read from (needed for the citation) */
+  /** Tranco list id that the ranks were read from; kept in the raw snapshot and logged per month, not emitted as a signal */
   listId: string;
   /** configured host -> rank (1 = most popular); hosts that are not in the top 1M are absent */
   ranks: Record<string, number>;
@@ -156,7 +156,8 @@ export const tranco: ScaleModule = {
     name: 'Tranco top sites list (with subdomains)',
     url: 'https://tranco-list.eu',
     license: 'No licence of its own; cite Le Pochat et al., NDSS 2019 (non-commercial use; includes Cloudflare Radar data, CC BY-NC 4.0)',
-    credit: 'Tranco list (Le Pochat et al., NDSS 2019), list IDs per month; non-commercial',
+    // no list IDs here: `parse` drops `listId`, so they live only in the raw snapshot and the fetch log
+    credit: "Tranco list (Le Pochat et al., NDSS 2019), monthly lists ending at each month's last day; non-commercial",
   },
   fetch: (ctx) => fetchTranco(ctx),
   parse: parseTranco,
