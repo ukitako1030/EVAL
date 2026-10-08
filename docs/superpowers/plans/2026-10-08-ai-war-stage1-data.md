@@ -2577,6 +2577,8 @@ const stat: SourceModule = { ...ok, id: 'static-src', static: true };
 const ctx = (): FetchCtx => ({
   env: {},
   now: new Date('2026-10-12T06:00:00Z'),
+  backfill: false,
+  keys: () => [],
   fetchText: async () => '',
   fetchBytes: async () => new Uint8Array(),
   fetchJson: async () => ({}),
@@ -2618,12 +2620,16 @@ Expected: FAIL — module not found.
 
 `pipeline/src/sources/types.ts`:
 ```ts
-import type { Observation, SignalObs } from '../core/types';
+import type { Observation, SignalId, SignalObs } from '../core/types';
 import type { HistoryMode } from '../raw/store';
 
 export interface FetchCtx {
   env: Record<string, string | undefined>;
   now: Date;
+  /** true with `npm run fetch -- --backfill`: accumulate-history sources fetch their whole past, not just recent months */
+  backfill: boolean;
+  /** identifiers configured in curated/units.yaml for a scale signal (hostnames, article titles, app ids…), de-duplicated */
+  keys(signal: SignalId): string[];
   fetchText(url: string, init?: RequestInit): Promise<string>;
   fetchBytes(url: string, init?: RequestInit): Promise<Uint8Array>;
   fetchJson<T = unknown>(url: string, init?: RequestInit): Promise<T>;
@@ -2696,11 +2702,18 @@ async function fetchWithRetry(url: string, init: RequestInit = {}, attempts = 3,
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
 }
 
-export function makeFetchCtx(now: Date, env: Record<string, string | undefined>, log: (m: string) => void): FetchCtx {
+export function makeFetchCtx(
+  now: Date,
+  env: Record<string, string | undefined>,
+  log: (m: string) => void,
+  opts: { backfill: boolean; keys: FetchCtx['keys'] },
+): FetchCtx {
   return {
     env,
     now,
     log,
+    backfill: opts.backfill,
+    keys: opts.keys,
     fetchText: async (url, init) => (await fetchWithRetry(url, init)).text(),
     fetchBytes: async (url, init) => new Uint8Array(await (await fetchWithRetry(url, init)).arrayBuffer()),
     fetchJson: async <T>(url: string, init?: RequestInit) => (await (await fetchWithRetry(url, init)).json()) as T,
@@ -3188,6 +3201,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { SOURCES } from '../sources/index';
 import { makeFetchCtx } from '../sources/http';
 import { runFetch } from '../sources/run';
+import { parseUnits } from '../config/load';
+import { FRONT_IDS, type SignalId } from '../core/types';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -3202,9 +3217,22 @@ function loadDotEnv(path: string): Record<string, string> {
   return out;
 }
 
-const only = process.argv.slice(2).filter((a) => !a.startsWith('-'));
+const args = process.argv.slice(2);
+const only = args.filter((a) => !a.startsWith('-'));
+const backfill = args.includes('--backfill');
 const env = { ...loadDotEnv(join(root, '..', '.env')), ...process.env };
-const ctx = makeFetchCtx(new Date(), env, (m) => console.log(m));
+const units = parseUnits(readFileSync(join(root, 'curated', 'units.yaml'), 'utf8'));
+const keys = (signal: SignalId): string[] => {
+  const out = new Set<string>();
+  for (const f of FRONT_IDS) {
+    for (const u of units.units[f]) {
+      const v = (u.scale as Record<string, string | string[] | undefined>)[signal];
+      for (const k of Array.isArray(v) ? v : v ? [v] : []) out.add(k);
+    }
+  }
+  return [...out];
+};
+const ctx = makeFetchCtx(new Date(), env, (m) => console.log(m), { backfill, keys });
 const status = await runFetch(SOURCES, ctx, join(root, 'raw'), only.length ? only : undefined);
 const failed = status.filter((s) => s.status === 'failed').length;
 console.log(`done: ${status.filter((s) => s.status === 'ok').length} ok, ${status.filter((s) => s.status === 'skipped').length} skipped, ${failed} failed`);
