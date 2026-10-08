@@ -17,8 +17,9 @@ What it does (idempotent; re-running produces the same file):
      keeping only models with > 300 votes when vote counts exist (same filter the old UI used),
   5. joins Organization from the leaderboard_table CSV of the same date
      (else the nearest earlier CSV, else any CSV that knows the key, else FALLBACK_ORG),
-  6. writes pipeline/raw/arena-legacy/<date>.json, one item per line (same layout as
-     pipeline/src/raw/store.ts saveSnapshot).
+  6. writes pipeline/raw/arena-legacy/current.json (the stable file name of a `full` source), one item per
+     line (same layout as pipeline/src/raw/store.ts saveSnapshot; --date is stored inside the file), and
+     deletes any legacy <date>.json files of the source afterwards.
 
 Safety of the pickles (they are code-carrying, so this matters):
   * Every downloaded/cached file is verified against the digest the HF tree API reports for the pinned
@@ -245,7 +246,7 @@ def num(v: float):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--date", default=dt.date.today().isoformat(), help="snapshot file date (default: today)")
+    ap.add_argument("--date", default=dt.date.today().isoformat(), help="snapshot date stored in the file (default: today)")
     ap.add_argument("--from", dest="start", default="2023-05", help="first month YYYY-MM")
     ap.add_argument("--to", dest="end", default="9999-12", help="last month YYYY-MM (default: last available)")
     ap.add_argument("--cache", default=os.path.join(tempfile.gettempdir(), "ai-war-arena-legacy-cache"))
