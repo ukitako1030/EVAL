@@ -25,16 +25,23 @@ interface SnapshotRef {
  * Writes raw/<sourceId>/... with one item per line (git-friendly diffs).
  * 'full' sources contain their whole history in every fetch, so they use ONE stable file, current.json (the snapshot
  * date lives inside it), and any legacy <date>.json files of the source are deleted once the new file is on disk.
- * 'accumulate' sources keep one <date>.json per fetch.
- * The file is written to <name>.tmp and renamed into place, so re-running on the same date replaces it atomically.
+ * 'accumulate' sources keep one <date>.json per fetch. Re-running on a date that already has a file merges into it
+ * (the earlier items the new fetch does not repeat are kept, ahead of the new ones): a weekly fetch only covers recent
+ * months, so replacing the file would drop a `--backfill` made earlier the same day.
+ * The file is written to <name>.tmp and renamed into place, so a failed write never damages the existing snapshot.
  */
 export function saveSnapshot<T>(rawDir: string, sourceId: string, date: string, items: T[], mode: HistoryMode): string {
   const dir = join(rawDir, sourceId);
   mkdirSync(dir, { recursive: true });
-  const body = items.map((it) => JSON.stringify(it)).join(',\n');
-  const text = `{"sourceId":${JSON.stringify(sourceId)},"date":${JSON.stringify(date)},"items":[\n${body}\n]}\n`;
   const name = mode === 'full' ? CURRENT_JSON : `${date}.json`;
   const path = join(dir, name);
+  const lines = items.map((it) => JSON.stringify(it));
+  if (mode === 'accumulate') {
+    const fresh = new Set(lines);
+    lines.unshift(...readExistingLines(path).filter((l) => !fresh.has(l)));
+  }
+  const body = lines.join(',\n');
+  const text = `{"sourceId":${JSON.stringify(sourceId)},"date":${JSON.stringify(date)},"items":[\n${body}\n]}\n`;
   const tmp = `${path}.tmp`;
   try {
     writeFileSync(tmp, text);
@@ -48,6 +55,17 @@ export function saveSnapshot<T>(rawDir: string, sourceId: string, date: string, 
     for (const f of readdirSync(dir)) if (DATED_JSON.test(f)) rmSync(join(dir, f));
   }
   return path;
+}
+
+/** The items of an existing snapshot file as JSON lines; empty when it is missing or unreadable (it is then replaced). */
+function readExistingLines(path: string): string[] {
+  if (!existsSync(path)) return [];
+  try {
+    const file = JSON.parse(readFileSync(path, 'utf8')) as Partial<SnapshotFile<unknown>>;
+    return Array.isArray(file.items) ? file.items.map((it) => JSON.stringify(it)) : [];
+  } catch {
+    return [];
+  }
 }
 
 /** The snapshot date stored in the header of `path`; falls back to parsing the whole file when the header is unusual. */

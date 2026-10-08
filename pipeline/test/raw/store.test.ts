@@ -109,11 +109,23 @@ describe('raw store', () => {
     expect(readdirSync(join(dir, 'legacy-safe'))).toEqual(['2026-09-28.json']);
     expect(loadSource(dir, 'legacy-safe', 'full')).toEqual([{ v: 1 }]);
   });
-  it('writes atomically: no .tmp file remains and re-running the same date replaces the content', () => {
-    saveSnapshot(dir, 'atomic', '2026-10-05', [{ v: 1 }], 'accumulate');
+  it('writes atomically: no .tmp file remains and re-running the same date merges into the file', () => {
+    saveSnapshot(dir, 'atomic', '2026-10-05', [{ v: 1 }, { v: 2 }], 'accumulate');
     saveSnapshot(dir, 'atomic', '2026-10-05', [{ v: 2 }, { v: 3 }], 'accumulate');
     expect(readdirSync(join(dir, 'atomic'))).toEqual(['2026-10-05.json']);
-    expect(loadSource(dir, 'atomic', 'accumulate')).toEqual([{ v: 2 }, { v: 3 }]);
+    expect(loadSource(dir, 'atomic', 'accumulate')).toEqual([{ v: 1 }, { v: 2 }, { v: 3 }]);
+  });
+  it('a same-day weekly fetch keeps the history of a backfill made earlier that day', () => {
+    const backfill = ['2026-07', '2026-08', '2026-09'].map((m) => ({ key: 'a.com', month: m, value: 1 }));
+    saveSnapshot(dir, 'sameday', '2026-10-08', backfill, 'accumulate');
+    saveSnapshot(dir, 'sameday', '2026-10-08', [{ key: 'a.com', month: '2026-09', value: 2 }], 'accumulate');
+    const items = loadSource<{ month: string; value: number }>(dir, 'sameday', 'accumulate');
+    expect(items.map((i) => `${i.month}:${i.value}`)).toEqual(['2026-07:1', '2026-08:1', '2026-09:1', '2026-09:2']);
+  });
+  it('a full source still replaces its snapshot on a same-day re-run', () => {
+    saveSnapshot(dir, 'full-same', '2026-10-05', [{ v: 1 }, { v: 2 }], 'full');
+    saveSnapshot(dir, 'full-same', '2026-10-05', [{ v: 3 }], 'full');
+    expect(loadSource(dir, 'full-same', 'full')).toEqual([{ v: 3 }]);
   });
   it('writes <date>.json.tmp first and renames it over <date>.json', () => {
     const path = saveSnapshot(dir, 'atomic3', '2026-10-05', [{ v: 1 }], 'accumulate');
