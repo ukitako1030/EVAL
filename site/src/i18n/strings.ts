@@ -1,4 +1,4 @@
-import type { FrontId, Lang } from '../data/types';
+import type { Confidence, FrontId, Lang } from '../data/types';
 
 export const STRINGS = {
   subtitle: { ja: '電脳戦況モニター', en: 'AI battlefield monitor' },
@@ -75,6 +75,8 @@ export const STRINGS = {
   compConsumer: { ja: '一般向けの浸透度', en: 'Consumer reach' },
   compBusiness: { ja: '企業・開発者の利用', en: 'Business and developer use' },
   compAttention: { ja: '注目度', en: 'Attention' },
+  signalAnnouncements: { ja: '公式発表', en: 'Official announcements' },
+  kind: { ja: '種別', en: 'Type' },
   name: { ja: '名前', en: 'Name' },
   credit: { ja: 'クレジット', en: 'Credit' },
   asOf: { ja: '取得日', en: 'Retrieved' },
@@ -82,6 +84,12 @@ export const STRINGS = {
   backToMonitor: { ja: '戦況モニターへ戻る', en: 'Back to the monitor' },
   loadError: { ja: 'データを読み込めませんでした。時間をおいて再読み込みしてください。', en: 'Could not load the data; please reload in a moment.' },
 } as const satisfies Record<string, { ja: string; en: string }>;
+
+/** The label for each confidence level (`q`, `qs`, `qc`). */
+export const CONFIDENCE_KEY: Record<Confidence, StringKey> = { high: 'qHigh', medium: 'qMedium', reconstructed: 'qReconstructed', estimated: 'qEstimated' };
+
+/** Labels for the scale components of `world.scaleBreakdown` (pipeline `method.yaml` scale.components); unknown ids show as-is. */
+export const SCALE_COMPONENT_KEY: Record<string, StringKey> = { users: 'compUsers', consumer: 'compConsumer', business: 'compBusiness', attention: 'compAttention' };
 
 /** One- or two-letter front labels for narrow columns (the deployment matrix); the full name goes in a tooltip. */
 export const FRONT_SHORT: Record<FrontId, { ja: string; en: string }> = {

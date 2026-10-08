@@ -2,3 +2,6 @@
 @import './styles/base.css';
 @import './styles/hud.css';
 @import './styles/ranking.css';
+@import './styles/timeline.css';
+@import './styles/banners.css';
+@import './styles/detail.css';

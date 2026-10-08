@@ -1,6 +1,6 @@
-import type { Confidence, FrontId, Lang, World } from '../data/types';
+import type { FrontId, Lang, World } from '../data/types';
 import { frontFrame, monthIndex, type SortBy, type UnitFrame } from '../data/timeline';
-import { tr, type StringKey } from '../i18n/strings';
+import { CONFIDENCE_KEY, tr } from '../i18n/strings';
 import type { AppState, Store } from '../state/store';
 import { clamp, fmt1, frontName, h, orgName, setAccent, setAttr, setStyle, setText, srOnly, uid } from './dom';
 
@@ -8,8 +8,6 @@ import { clamp, fmt1, frontName, h, orgName, setAccent, setAttr, setStyle, setTe
 export const ROW_H = 46;
 /** The strength bar spans 40..100 (below 40 is a sliver), like the mockups. */
 export const S_BAR_MIN = 40;
-
-export const Q_KEY: Record<Confidence, StringKey> = { high: 'qHigh', medium: 'qMedium', reconstructed: 'qReconstructed', estimated: 'qEstimated' };
 
 interface Row {
   org: string;
@@ -165,7 +163,7 @@ export function createRanking(root: HTMLElement, world: World, store: Store<AppS
       r.li.classList.toggle('lead', u.rank === 1);
       r.li.classList.toggle('fog', u.fog > 0);
       r.li.classList.toggle('dim', state.hoverOrg !== null && state.hoverOrg !== u.org);
-      setAttr(r.chip, 'title', tr(Q_KEY[u.q], state.lang));
+      setAttr(r.chip, 'title', tr(CONFIDENCE_KEY[u.q], state.lang));
       setText(r.rank, String(u.rank));
       const isNew = i0 > 0 && !series[u.id]?.[i0 - 1] && !!series[u.id]?.[i0];
       const d = deltaMark(u, isNew, state.lang);
