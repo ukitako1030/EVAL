@@ -41,22 +41,27 @@ export interface Banner {
  * banners keep pace with playback (which holds that long per banner) instead of falling further and further behind.
  */
 export function createBannerQueue(opts: { maxVisible: number; seconds: number; maxPending: number; stagger: number; minSeconds?: number }) {
-  let pending: WorldEvent[] = [];
-  let scheduled: Banner[] = [];
+  const pending: WorldEvent[] = [];
+  const scheduled: Banner[] = [];
+  /** what `update` returns: one array, rewritten every call (it runs every frame) */
+  const visible: Banner[] = [];
   let seq = 0;
   let minSeconds = Math.min(opts.minSeconds ?? opts.seconds, opts.seconds);
   return {
-    push(events: WorldEvent[]) {
-      pending.push(...events);
-      if (pending.length > opts.maxPending) pending = pending.slice(pending.length - opts.maxPending);
+    push(events: readonly WorldEvent[]) {
+      for (const e of events) pending.push(e);
+      if (pending.length > opts.maxPending) pending.splice(0, pending.length - opts.maxPending);
     },
     /** Change `minSeconds` (e.g. with the playback speed). */
     setMinSeconds(s: number) {
       if (Number.isFinite(s) && s >= 0) minSeconds = Math.min(s, opts.seconds);
     },
-    /** Banners visible at `now` (seconds). */
-    update(now: number): Banner[] {
-      scheduled = scheduled.filter((b) => b.end > now);
+    /** Banners visible at `now` (seconds). The array is reused by the next call: read it, don't keep it. */
+    update(now: number): readonly Banner[] {
+      // drop the expired ones (in place)
+      let k = 0;
+      for (let i = 0; i < scheduled.length; i++) if (scheduled[i].end > now) scheduled[k++] = scheduled[i];
+      scheduled.length = k;
       // the oldest banner yields to waiting news once it has been readable for minSeconds (scheduled is in start order)
       while (pending.length && scheduled.length >= opts.maxVisible && now - scheduled[0].start + 1e-9 >= minSeconds) scheduled.shift();
       while (scheduled.length < opts.maxVisible && pending.length) {
@@ -65,11 +70,13 @@ export function createBannerQueue(opts: { maxVisible: number; seconds: number; m
         const start = Math.max(now, last ? last.start + opts.stagger : now);
         scheduled.push({ key: `${e.month}|${e.front}|${e.unit}|${e.type}|${seq++}`, event: e, start, end: start + opts.seconds });
       }
-      return scheduled.filter((b) => b.start <= now);
+      visible.length = 0;
+      for (let i = 0; i < scheduled.length; i++) if (scheduled[i].start <= now) visible.push(scheduled[i]);
+      return visible;
     },
     clear() {
-      pending = [];
-      scheduled = [];
+      pending.length = 0;
+      scheduled.length = 0;
     },
   };
 }

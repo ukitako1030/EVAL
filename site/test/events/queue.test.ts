@@ -115,4 +115,17 @@ describe('banner queue', () => {
     expect(q.update(8.7).map((b) => b.event.unit)).toEqual(['c']);
     expect(q.update(8.8).map((b) => b.event.unit)).toEqual(['d']);
   });
+  it('allocates nothing per frame: update returns one reused array, rewritten each call', () => {
+    const q = createBannerQueue({ maxVisible: 2, seconds: 4, maxPending: 6, stagger: 0.35 });
+    q.push([ev('a'), ev('b')]);
+    const v = q.update(0);
+    expect(v.map((b) => b.event.unit)).toEqual(['a']);
+    expect(q.update(0.1)).toBe(v);
+    expect(q.update(0.4)).toBe(v);
+    expect(v.map((b) => b.event.unit)).toEqual(['a', 'b']);
+    expect(q.update(4.2)).toBe(v);
+    expect(v.map((b) => b.event.unit)).toEqual(['b']);
+    q.clear();
+    expect(q.update(4.3)).toEqual([]);
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createPlayback, cappedHoldCount, BASE_SECONDS_PER_MONTH, HOLD_SECONDS, MAX_HOLD_SECONDS } from '../../src/playback/clock';
+import { createPlayback, cappedHoldCount, newsAfterChange, BASE_SECONDS_PER_MONTH, HOLD_SECONDS, MAX_HOLD_SECONDS } from '../../src/playback/clock';
 
 const run = (pb: ReturnType<typeof createPlayback>, st: { t: number; playing: boolean; speed: 1 | 2 | 4 }, seconds: number, dt = 0.05) => {
   let s = { ...st };
@@ -143,5 +143,26 @@ describe('playback clock', () => {
     expect(pb2.tick(0.05, { t: 1, playing: true, speed: 1 }).t).toBeGreaterThan(1);
     pb2.holdAt(3, 1);
     expect(pb2.tick(0.05, { t: 3, playing: true, speed: 1 }).holding).toBe(false);
+  });
+});
+
+describe('newsAfterChange (a store change the playback tick did not make)', () => {
+  const st = (t: number, playing: boolean, front: 'general' | null = null) => ({ t, playing, front });
+  it('pressing play while paused at month 0 starts from the top (opening news + hold)', () => {
+    expect(newsAfterChange(st(0, true), st(0, false), false)).toEqual({ clear: false, fromTop: true });
+    expect(newsAfterChange(st(0.4, true), st(0.4, false), false)).toEqual({ clear: false, fromTop: true });
+  });
+  it('pressing play elsewhere just resumes', () => {
+    expect(newsAfterChange(st(5, true), st(5, false), false)).toEqual({ clear: false, fromTop: false });
+  });
+  it('moving t clears stale news; landing on month 0 while playing starts from the top ("play again")', () => {
+    expect(newsAfterChange(st(7, false), st(3, false), false)).toEqual({ clear: true, fromTop: false });
+    expect(newsAfterChange(st(0, true), st(46, false), false)).toEqual({ clear: true, fromTop: true });
+    expect(newsAfterChange(st(0, false), st(4, false), false)).toEqual({ clear: true, fromTop: false });
+  });
+  it('ignores the playback tick, front switches and pausing', () => {
+    expect(newsAfterChange(st(0.1, true), st(0, true), true)).toEqual({ clear: false, fromTop: false });
+    expect(newsAfterChange(st(0, true, 'general'), st(0, false), false)).toEqual({ clear: false, fromTop: false });
+    expect(newsAfterChange(st(0, false), st(0, true), false)).toEqual({ clear: false, fromTop: false });
   });
 });

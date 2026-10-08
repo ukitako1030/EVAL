@@ -4,8 +4,10 @@
  * zooms, and a faint hex grid. Optional painted art (`public/art/bg-desktop.*` / `bg-mobile.*`,
  * detected at build time) replaces the procedural nebula when present.
  */
-import { Assets, Container, Graphics, Particle, ParticleContainer, Sprite, type Texture } from 'pixi.js';
+import { Assets, Container, Particle, ParticleContainer, Sprite, type Texture } from 'pixi.js';
 import type { Camera, Viewport } from './camera';
+import { createDynMesh } from './dynMesh';
+import { rgba, strokeSegment } from './meshBuild';
 import { DOT_SIZE, GLINT_SIZE, dotTexture, drawHex, drawNebula, galaxyDiscTexture, glintTexture, glowTexture, mulberry32, nebulaSize, redrawableTexture } from './bgTextures';
 
 export interface BackgroundView {
@@ -23,8 +25,6 @@ export interface Background {
   /** call when the screen size changes; heavy textures are rebuilt once the size settles */
   resize(w: number, h: number, resolution: number): void;
   update(dt: number, view: BackgroundView): void;
-  /** brief hex-grid brighten (0..1), e.g. on a camera move */
-  flicker(amount: number): void;
   setReducedMotion(on: boolean): void;
   destroy(): void;
 }
@@ -56,6 +56,13 @@ const TWINKLE_COLS = [0xcfe9ff, 0xffd0f4, 0xb9a8ff];
 /** apparent dot diameter = star size × this */
 const DOT_SPREAD = 2;
 const REBUILD_DELAY = 0.15;
+const STREAK_COLOR = 0xaadcff;
+// per-frame star-layer offsets / scales (one module-level scratch: no arrays per frame)
+const layerOx = new Float64Array(STAR_LAYERS.length);
+const layerOy = new Float64Array(STAR_LAYERS.length);
+const layerSc = new Float64Array(STAR_LAYERS.length);
+/** the hex grid's constant opacity */
+const HEX_ALPHA = 0.05;
 
 interface Star {
   p: Particle;
@@ -103,14 +110,15 @@ export function createBackground(opts: { reducedMotion?: boolean } = {}): Backgr
 
   const starField = new ParticleContainer({ texture: dotTex, dynamicProperties: { position: true } });
   starField.blendMode = 'add';
-  const streaks = new Graphics();
-  streaks.blendMode = 'add';
+  // warp streaks change every frame of a camera move: a dynamic mesh refilled in place, not a re-tessellated Graphics
+  const streaks = createDynMesh({ label: 'warp-streaks', blendMode: 'add', verts: 2048, indices: 3072 });
+  streaks.mesh.visible = false;
   const twinkleLayer = new Container({ label: 'twinkles' });
   twinkleLayer.blendMode = 'add';
   const hex = new Sprite(hexTex.texture);
   hex.blendMode = 'add';
 
-  container.addChild(nebula, art, disc, starField, streaks, twinkleLayer, hex);
+  container.addChild(nebula, art, disc, starField, streaks.mesh, twinkleLayer, hex);
 
   let W = 0;
   let H = 0;
@@ -121,7 +129,6 @@ export function createBackground(opts: { reducedMotion?: boolean } = {}): Backgr
   let rebuildIn = -1;
   let time = 0;
   let drift = 0;
-  let hexFlick = 0;
   let stars: Star[] = [];
   let twinkles: Twinkle[] = [];
   let artUrl: string | null = null;
@@ -226,16 +233,15 @@ export function createBackground(opts: { reducedMotion?: boolean } = {}): Backgr
     const ccy = viewport.y + viewport.h / 2;
     const camX = cam.x * cam.scale;
     const camY = cam.y * cam.scale;
-    const layerOx: number[] = [];
-    const layerOy: number[] = [];
-    const layerSc: number[] = [];
-    STAR_LAYERS.forEach((L, i) => {
+    for (let i = 0; i < STAR_LAYERS.length; i++) {
+      const L = STAR_LAYERS[i];
       layerOx[i] = camX * L.k - DRIFT_DIR.x * drift * L.drift;
       layerOy[i] = camY * L.k - DRIFT_DIR.y * drift * L.drift;
       // never contract below the overview (only the intro zooms out further)
       layerSc[i] = Math.max(1, Math.pow(zr, L.zk));
-    });
-    for (const s of stars) {
+    }
+    for (let j = 0; j < stars.length; j++) {
+      const s = stars[j];
       const i = s.layer;
       const sc = layerSc[i];
       s.p.x = ccx + (mod(s.x - layerOx[i], W) - ccx) * sc;
@@ -243,22 +249,25 @@ export function createBackground(opts: { reducedMotion?: boolean } = {}): Backgr
     }
 
     const aw = Math.abs(warp);
-    streaks.clear();
     if (aw > 0.08 && !reduced) {
-      streaks.visible = true;
+      streaks.mesh.visible = true;
       // the mockup's 1.45 s zoom → our 900 ms one is faster, so streaks are scaled down to keep the same feel
-      const alpha = Math.min(0.42, aw * 0.18);
+      const color = rgba(STREAK_COLOR, Math.min(0.42, aw * 0.18));
+      streaks.begin();
+      const m = streaks.buf;
       for (let li = 1; li < STAR_LAYERS.length; li++) {
         const len = clamp(warp * 0.045 * li, -0.45, 0.45);
-        for (const s of stars) {
+        const width = li === 2 ? 1.4 : 0.8;
+        for (let j = 0; j < stars.length; j++) {
+          const s = stars[j];
           if (s.layer !== li) continue;
           const X = s.p.x;
           const Y = s.p.y;
-          streaks.moveTo(X, Y).lineTo(X + (X - ccx) * len, Y + (Y - ccy) * len);
+          strokeSegment(m, X, Y, X + (X - ccx) * len, Y + (Y - ccy) * len, width, color);
         }
-        streaks.stroke({ width: li === 2 ? 1.4 : 0.8, color: 0xaadcff, alpha });
       }
-    } else streaks.visible = false;
+      streaks.end();
+    } else if (streaks.mesh.visible) streaks.mesh.visible = false;
 
     for (const t of twinkles) {
       const px = mod(t.x - camX * t.k - DRIFT_DIR.x * drift * t.k * 80, W);
@@ -311,26 +320,23 @@ export function createBackground(opts: { reducedMotion?: boolean } = {}): Backgr
 
     updateStars(view);
 
-    hexFlick = Math.max(0, hexFlick - dt * 1.5);
+    // a steady, faint grid: it never brightens (a full-screen brightening would be a flash outside the flash budget)
     hex.position.set(0, 0);
     hex.width = W;
     hex.height = H;
-    hex.alpha = 0.05 + hexFlick * 0.12;
+    hex.alpha = HEX_ALPHA;
   }
 
   return {
     container,
     resize,
     update,
-    flicker(amount) {
-      if (!reduced) hexFlick = Math.max(hexFlick, clamp(amount, 0, 1));
-    },
     setReducedMotion(on) {
       reduced = on;
-      if (on) hexFlick = 0;
     },
     destroy() {
       artUrl = null;
+      streaks.destroy();
       container.destroy({ children: true });
       for (const t of [dotTex, glowTex, glintTex, discTex]) t.destroy(true);
       nebTex.destroy();

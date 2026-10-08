@@ -90,6 +90,10 @@ export const STRINGS = {
   backToMonitor: { ja: '戦況モニターへ戻る', en: 'Back to the monitor' },
   introTitle: { ja: 'ChatGPT 公開、開戦', en: 'ChatGPT launches — the war begins' },
   loadError: { ja:'データを読み込めませんでした。時間をおいて再読み込みしてください。', en: 'Could not load the data; please reload in a moment.' },
+  webglRequired: {
+    ja: 'WebGL が必要です。WebGL に対応した（有効にした）ブラウザで開いてください。',
+    en: 'WebGL is required to show the battlefield; please open this page in a browser with it turned on.',
+  },
 } as const satisfies Record<string, { ja: string; en: string }>;
 
 /** The label for each confidence level (`q`, `qs`, `qc`). */
@@ -111,8 +115,9 @@ export const FRONT_SHORT: Record<FrontId, { ja: string; en: string }> = {
 
 export type StringKey = keyof typeof STRINGS;
 
+/** The text for `key` in `lang`; an unknown key or language (bad data) falls back to the key itself, never throws. */
 export function tr(key: StringKey, lang: Lang): string {
-  return STRINGS[key][lang];
+  return (STRINGS as Record<string, Partial<Record<string, string>> | undefined>)[key]?.[lang] ?? String(key);
 }
 
 // ---- UI strings added with the accessibility review: a separate block (and lookup) so parallel edits merge cleanly ----

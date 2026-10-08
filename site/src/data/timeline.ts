@@ -24,6 +24,8 @@ export interface UnitFrame {
 }
 
 export const FOG: Record<Confidence, number> = { high: 0, medium: 0.25, reconstructed: 0.5, estimated: 0.8 };
+/** an unknown confidence is drawn as estimated (thick fog) */
+const fogOf = (q: Confidence): number => FOG[q] ?? FOG.estimated;
 
 /** Clamps `t` to the month range; a non-finite `t` (NaN, ±Infinity) maps to the last month so no caller ever sees NaN. */
 export function clampT(world: World, t: number): number {
@@ -45,12 +47,39 @@ const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 const keyOf = (sortBy: SortBy) => (m: { s: number; c: number }) => (sortBy === 'strength' ? m.s : m.c);
 
-function ranksAt(world: World, front: FrontId, i: number, sortBy: SortBy): Map<string, number> {
+function computeRanks(world: World, front: FrontId, i: number, sortBy: SortBy): Map<string, number> {
   const S = world.series[front] ?? {};
   const key = keyOf(sortBy);
   const ids = Object.keys(S).filter((u) => S[u][i]);
   ids.sort((a, b) => key(S[b][i] as UnitMonth) - key(S[a][i] as UnitMonth) || cmp(a, b));
   return new Map(ids.map((u, k) => [u, k + 1]));
+}
+
+type RankCache = Record<SortBy, Partial<Record<FrontId, ReadonlyMap<string, number>[]>>>;
+/** world data never changes after load: whole-month ranks are computed once per (world, front, month, sortBy) */
+const rankCache = new WeakMap<World, RankCache>();
+const NO_RANKS: ReadonlyMap<string, number> = new Map();
+
+/** Unit id → 1-based rank among the units with data in whole month `i` (memoised; do not mutate the result). */
+export function ranksAt(world: World, front: FrontId, i: number, sortBy: SortBy): ReadonlyMap<string, number> {
+  let c = rankCache.get(world);
+  if (!c) {
+    c = { strength: {}, scale: {} };
+    rankCache.set(world, c);
+  }
+  const byMonth = (c[sortBy][front] ??= []);
+  return (byMonth[i] ??= computeRanks(world, front, i, sortBy));
+}
+
+/** world.units[front] as entries, computed once per world */
+const unitEntryCache = new WeakMap<World, Partial<Record<FrontId, [string, World['units'][FrontId][string]][]>>>();
+function unitEntries(world: World, front: FrontId): [string, World['units'][FrontId][string]][] {
+  let c = unitEntryCache.get(world);
+  if (!c) {
+    c = {};
+    unitEntryCache.set(world, c);
+  }
+  return (c[front] ??= Object.entries(world.units[front] ?? {}));
 }
 
 export function frontFrame(world: World, front: FrontId, t: number, sortBy: SortBy = 'strength'): UnitFrame[] {
@@ -59,7 +88,7 @@ export function frontFrame(world: World, front: FrontId, t: number, sortBy: Sort
   const i1 = Math.min(i0 + 1, world.months.length - 1);
   const f = Math.max(0, tt - i0); // tt can sit up to 1e-9 below a whole month, where i0 already rounds up
   const out: UnitFrame[] = [];
-  for (const [id, u] of Object.entries(world.units[front] ?? {})) {
+  for (const [id, u] of unitEntries(world, front)) {
     const arr = world.series[front]?.[id] ?? [];
     const a = arr[i0];
     const b = arr[i1];
@@ -68,33 +97,37 @@ export function frontFrame(world: World, front: FrontId, t: number, sortBy: Sort
       s = a.s + (b.s - a.s) * f;
       c = a.c + (b.c - a.c) * f;
       q = f < 0.5 ? a.q : b.q;
-      fogBlend = FOG[a.q] + (FOG[b.q] - FOG[a.q]) * f;
+      fogBlend = fogOf(a.q) + (fogOf(b.q) - fogOf(a.q)) * f;
       presence = 1;
     } else if (a) {
       ({ s, c, q } = a);
-      fogBlend = FOG[q];
+      fogBlend = fogOf(q);
       presence = i1 === i0 ? 1 : 1 - f;
     } else if (b) {
       ({ s, c, q } = b);
-      fogBlend = FOG[q];
+      fogBlend = fogOf(q);
       presence = f;
     } else continue;
     presence = Math.min(Math.max(presence, 0), 1);
-    if (presence <= 0) continue;
-    out.push({ id, front, org: u.org, name: u.name, color: world.orgs[u.org]?.color ?? '#888888', s, c, q, fog: FOG[q], fogBlend, presence, rank: 0, rankDelta: 0 });
+    if (!(presence > 0)) continue;
+    // parseWorld repairs world.json, but these values position geometry: never let a NaN through to PixiJS
+    if (!Number.isFinite(s)) s = 0;
+    if (!Number.isFinite(c)) c = 0;
+    out.push({ id, front, org: u.org, name: u.name, color: world.orgs[u.org]?.color ?? '#888888', s, c, q, fog: fogOf(q), fogBlend, presence, rank: 0, rankDelta: 0 });
   }
   // an arriving / leaving unit ranks by what is visible of it, so a nearly invisible unit never jumps to the top
   const key = keyOf(sortBy);
   const rankKey = (u: UnitFrame) => key(u) * u.presence;
   out.sort((x, y) => rankKey(y) - rankKey(x) || cmp(x.id, y.id));
-  const prev = i0 > 0 ? ranksAt(world, front, i0 - 1, sortBy) : new Map<string, number>();
+  const prev = i0 > 0 ? ranksAt(world, front, i0 - 1, sortBy) : NO_RANKS;
   const cur = ranksAt(world, front, i0, sortBy);
-  out.forEach((u, k) => {
+  for (let k = 0; k < out.length; k++) {
+    const u = out[k];
     u.rank = k + 1;
     const p = prev.get(u.id);
     const r = cur.get(u.id);
     u.rankDelta = p !== undefined && r !== undefined ? p - r : 0;
-  });
+  }
   return out;
 }
 

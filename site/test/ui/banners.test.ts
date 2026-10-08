@@ -37,6 +37,24 @@ describe('battle-news banners', () => {
     expect(root.querySelector('.banners')?.getAttribute('aria-live')).toBe('polite');
   });
 
+  it('a frame with the same banners touches nothing; a changed set swaps exactly the changed ones', () => {
+    const { world, root, banners } = setup();
+    const q = createBannerQueue({ maxVisible: 2, seconds: 4, maxPending: 6, stagger: 0 });
+    q.push(selectEvents(world, 2, null));
+    banners.render(q.update(0));
+    const before = live(root);
+    expect(before).toHaveLength(1);
+    const spy = vi.spyOn(root.querySelector('.banners')!, 'appendChild');
+    for (let f = 1; f < 30; f++) banners.render(q.update(f / 60)); // the same banner every frame
+    expect(spy).not.toHaveBeenCalled();
+    expect(live(root)[0]).toBe(before[0]);
+    q.push(selectEvents(world, 0, null));
+    banners.render(q.update(0.6)); // a second banner arrives, the first stays
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(live(root)[0]).toBe(before[0]);
+    expect(live(root)).toHaveLength(2);
+  });
+
   it('switches the banner text with the language', () => {
     const { world, root, store, banners } = setup();
     const q = createBannerQueue({ maxVisible: 2, seconds: 4, maxPending: 6, stagger: 0 });

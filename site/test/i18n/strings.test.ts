@@ -26,4 +26,10 @@ describe('i18n', () => {
     expect(tr('strength', 'ja')).toBe('強さ');
     expect(tr('strength', 'en')).toBe('Strength');
   });
+  it('tr never throws on a key or language from bad data: it falls back to the key itself', () => {
+    const anyTr = tr as (k: unknown, l: unknown) => string;
+    expect(anyTr('noSuchKey', 'ja')).toBe('noSuchKey');
+    expect(anyTr(undefined, 'en')).toBe('undefined');
+    expect(anyTr('strength', 'fr')).toBe('strength');
+  });
 });

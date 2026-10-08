@@ -6,8 +6,10 @@
 import { Application, Container, UPDATE_PRIORITY, type Ticker } from 'pixi.js';
 import { AdvancedBloomFilter } from 'pixi-filters/advanced-bloom';
 import type { QualityLevel } from '../fx/quality';
-import { createBackground } from './background';
+import { createBackground, type BackgroundView } from './background';
 import { cameraFor, ease, worldToScreen, worldTransform, type Camera, type CameraTarget, type Viewport } from './camera';
+import { createErrorLog } from '../util/errorLog';
+import { requireWebGL } from './webgl';
 
 export interface RendererOptions {
   /** prefers-reduced-motion: camera moves are instant, ambient drift stops */
@@ -54,6 +56,11 @@ export interface Renderer {
   readonly viewport: Viewport;
   /** true while a focus move is animating */
   readonly cameraMoving: boolean;
+  /**
+   * CPU time (ms) the last complete frame spent in update + render (the frame callbacks through PixiJS's render), NaN
+   * before the first; the quality governor tells a slow app from a slow display (50 Hz, a 30 fps cap) with it
+   */
+  readonly workMs: number;
   setQuality(level: QualityLevel): void;
   setReducedMotion(on: boolean): void;
   /** keep HUD panels from covering the framed area */
@@ -81,6 +88,13 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
     resolution: baseResolution,
     autoDensity: true,
   });
+  // without WebGL PixiJS falls back to WebGPU / Canvas, which would draw nothing: fail loudly (load-error screen)
+  try {
+    requireWebGL(app.renderer);
+  } catch (err) {
+    app.destroy();
+    throw err;
+  }
   app.canvas.classList.add('stage');
   canvasParent.appendChild(app.canvas);
 
@@ -128,7 +142,28 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
   }
   setQuality(0);
 
+  // PixiJS stops requesting frames when a ticker listener throws: never let one escape
+  const tickError = createErrorLog('a renderer frame');
+  // work time: from this (HIGH priority) listener to one that runs after PixiJS's render (LOW) — update + render
+  let frameStart = Number.NaN;
+  let workMs = Number.NaN;
   function tick(ticker: Ticker) {
+    frameStart = performance.now();
+    try {
+      step(ticker);
+    } catch (err) {
+      tickError(err);
+    }
+  }
+  function endWork() {
+    if (frameStart === frameStart) workMs = performance.now() - frameStart;
+  }
+
+  // reused every frame
+  const GALAXY: CameraTarget = { kind: 'galaxy' };
+  const bgView: BackgroundView = { cam, viewport, overviewScale: 1, warp: 0 };
+
+  function step(ticker: Ticker) {
     const rawDt = ticker.elapsedMS / 1000;
     const dt = Math.min(MAX_DT, Math.max(0, ticker.deltaMS / 1000));
 
@@ -148,10 +183,21 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
     world.position.set(wt.x, wt.y);
     world.scale.set(wt.scale);
 
-    bg.update(dt, { cam, viewport, overviewScale: cameraFor({ kind: 'galaxy' }, viewport).scale, warp });
-    for (const cb of callbacks) cb(dt, rawDt);
+    bgView.cam = cam;
+    bgView.viewport = viewport;
+    bgView.overviewScale = cameraFor(GALAXY, viewport).scale;
+    bgView.warp = warp;
+    bg.update(dt, bgView);
+    for (const cb of callbacks) {
+      try {
+        cb(dt, rawDt);
+      } catch (err) {
+        tickError(err);
+      }
+    }
   }
   app.ticker.add(tick, undefined, UPDATE_PRIORITY.HIGH);
+  app.ticker.add(endWork, undefined, UPDATE_PRIORITY.UTILITY);
 
   return {
     app,
@@ -171,6 +217,9 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
     get cameraMoving() {
       return tween !== null;
     },
+    get workMs() {
+      return workMs;
+    },
     setQuality,
     setReducedMotion(on) {
       reduced = on;
@@ -189,8 +238,9 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
         cam = cameraFor(target, viewport);
         return;
       }
+      // (no hex-grid flicker: brightening the whole screen on every move — rapid ◀ ▶ taps, swipes — is a full-screen
+      // flash outside the flash budget; the warp streaks carry the move)
       tween = { from: o.from ? { ...o.from } : { ...cam }, t: 0, dur };
-      bg.flicker(0.8);
     },
     worldToScreen(x, y) {
       return worldToScreen(cam, viewport, x, y);
@@ -202,6 +252,7 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
     destroy() {
       callbacks.clear();
       app.ticker.remove(tick);
+      app.ticker.remove(endWork);
       worldRoot.filters = [];
       bloom.destroy();
       bg.destroy();

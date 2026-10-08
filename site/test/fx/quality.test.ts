@@ -64,6 +64,43 @@ describe('quality governor', () => {
     expect(g.level).toBe(1);
   });
 
+  describe('display-limited frame rates (work time measured)', () => {
+    /** `n` windows of frames at `fps`, each frame's update + render work taking `workMs` */
+    const run = (g: ReturnType<typeof createQualityGovernor>, fps: number, workMs: number, n: number) => {
+      for (let i = 0; i < fps * n; i++) g.frame(0, 1 / fps, workMs / 1000);
+    };
+    it('a steady 50 Hz monitor with cheap frames never downgrades', () => {
+      const g = createQualityGovernor({ targetFps: 60, window: 2 });
+      run(g, 50, 4, 20);
+      expect(g.level).toBe(0);
+    });
+    it('a steady 30 fps cap with cheap frames never downgrades', () => {
+      const g = createQualityGovernor({ targetFps: 60, window: 2 });
+      run(g, 30, 6, 20);
+      expect(g.level).toBe(0);
+    });
+    it('a steady low rate with busy frames (the app is the bottleneck) still steps down', () => {
+      const g = createQualityGovernor({ targetFps: 60, window: 2 });
+      run(g, 30, 30, 2); // startup window
+      run(g, 30, 30, 4); // two slow windows
+      expect(g.level).toBe(1);
+      const h = createQualityGovernor({ targetFps: 60, window: 2 });
+      run(h, 50, 17, 6);
+      expect(h.level).toBe(1);
+    });
+    it('cheap but irregular frames on a 60 Hz display (GPU-bound: dropped vsyncs) still step down', () => {
+      const g = createQualityGovernor({ targetFps: 60, window: 2 });
+      // every other frame misses a vsync: 16.7 / 33.3 ms → 40 fps, CPU work tiny
+      for (let i = 0; i < 40 * 6; i++) g.frame(0, i % 2 ? 2 / 60 : 1 / 60, 0.003);
+      expect(g.level).toBeGreaterThanOrEqual(1);
+    });
+    it('without a work measurement it judges by frame rate alone (as before)', () => {
+      const g = createQualityGovernor({ targetFps: 60, window: 2 });
+      for (let i = 0; i < 30 * 6; i++) g.frame(0, 1 / 30);
+      expect(g.level).toBe(1);
+    });
+  });
+
   it('ignores a non-finite dt without poisoning the window', () => {
     const g = createQualityGovernor({ targetFps: 64, window: 1 });
     windows(g, 64, 1); // startup

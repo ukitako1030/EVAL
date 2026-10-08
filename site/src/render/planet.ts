@@ -13,7 +13,8 @@ import { Circle, Container, Sprite } from 'pixi.js';
 import type { FrontId } from '../data/types';
 import type { UnitFrame } from '../data/timeline';
 import type { FlashBudget } from '../fx/flashBudget';
-import { START_ANGLE, TAU, borderAngle, followGlow, frontlines, territories, wedgeBrightness, type Frontline, type PlanetSlot, type Wedge } from './layout';
+import { START_ANGLE, TAU, borderAngle, followGlow, wedgeBrightness, type Frontline, type PlanetSlot, type Wedge } from './layout';
+import { frontlinesInto, territoriesInto } from './territoryBuf';
 import { createFog } from './fog';
 import { createPlanetDecor } from './planetDecor';
 import { drawFrontline, drawPulses, drawRimGlow, fillStep, fillWedge, rimEnd, rimStart, sampleRho, type PulseView } from './planetDraw';
@@ -47,9 +48,14 @@ export interface Planet {
   /** planet-local slot between the frontlines and the fog (the zoomed swarm battle draws here, under the fog and sphere shading) */
   readonly inner: Container;
   readonly slot: PlanetSlot;
-  /** current territories (latest frames) */
+  /**
+   * current territories (latest frames). The array and its objects are reused and rewritten in place as the frames
+   * change (no per-frame garbage): read them each frame, compare `revision` to tell when they changed.
+   */
   readonly wedges: readonly Wedge[];
   readonly lines: readonly Frontline[];
+  /** bumped whenever `wedges` / `lines` are rewritten (new frames) */
+  readonly revision: number;
   /** rank-1 unit of the frames (by the store's sort order) */
   readonly leader: UnitFrame | null;
   /** atmosphere colour (leader colour mixed with cyan) */
@@ -83,16 +89,8 @@ const MAX_SAMPLES = 31;
 const ALPHA_EPS = 0.5 / 255;
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 
-function changed(a: readonly Wedge[], b: readonly Wedge[]): boolean {
-  if (a.length !== b.length) return true;
-  for (let i = 0; i < a.length; i++) {
-    const x = a[i];
-    const y = b[i];
-    if (x.id !== y.id || Math.abs(x.a0 - y.a0) > 0.0015 || Math.abs(x.a1 - y.a1) > 0.0015 || Math.abs(x.s - y.s) > 0.25 || Math.abs(x.fogBlend - y.fogBlend) > 0.01)
-      return true;
-  }
-  return false;
-}
+/** per wedge, the numbers the geometry was last built from: a0, a1, s, fogBlend */
+const GEO = 4;
 
 /** a territory's vertices in a wedge layer's mesh and the brightness last applied to them */
 interface WedgeRange {
@@ -134,8 +132,10 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
   highlight.blendMode = 'add';
   root.addChild(decor.back, body, layers[0].m.mesh, layers[1].m.mesh, coreDark, edges.mesh, anim.mesh, surface, lineMesh.mesh, inner, fog.container, shade, highlight, decor.front);
 
-  let wedges: Wedge[] = [];
-  let lines: Frontline[] = [];
+  // rewritten in place by setFrames (./territoryBuf): no new wedge / frontline objects per playback frame
+  const wedges: Wedge[] = [];
+  const lines: Frontline[] = [];
+  let revision = 0;
   let leader: UnitFrame | null = null;
   let atm = NO_ATM;
   let leadCol = NO_LEAD;
@@ -147,9 +147,9 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
   let snapNum = new Float64Array(16 * SNAP);
   let snapN = -1;
 
-  // geometry state
-  let geoWedges: Wedge[] = [];
+  // geometry state: the wedges the meshes were last built from (ids + GEO numbers each)
   const geoIds: string[] = [];
+  let geoNum = new Float64Array(16 * GEO);
   let geoInit = false;
   let geoPx = 0;
   let dirty = true;
@@ -350,9 +350,29 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
       for (let k = 0; k < n && !live; k++) live = wedges[k].id === id;
       if (!live) disp.delete(id);
     }
-    geoWedges = wedges;
+    if (geoNum.length < n * GEO) geoNum = new Float64Array(n * GEO * 2);
+    for (let k = 0; k < n; k++) {
+      const w = wedges[k];
+      const o = k * GEO;
+      geoNum[o] = w.a0;
+      geoNum[o + 1] = w.a1;
+      geoNum[o + 2] = w.s;
+      geoNum[o + 3] = w.fogBlend;
+    }
     geoPx = px;
     dirty = false;
+  }
+
+  /** have the territories moved enough since the meshes were built to need a rebuild */
+  function changedSinceGeo(): boolean {
+    if (wedges.length !== geoIds.length) return true;
+    for (let k = 0; k < wedges.length; k++) {
+      const w = wedges[k];
+      const o = k * GEO;
+      if (w.id !== geoIds[k] || Math.abs(w.a0 - geoNum[o]) > 0.0015 || Math.abs(w.a1 - geoNum[o + 1]) > 0.0015 || Math.abs(w.s - geoNum[o + 2]) > 0.25 || Math.abs(w.fogBlend - geoNum[o + 3]) > 0.01)
+        return true;
+    }
+    return false;
   }
 
   function findWedge(id: string): Wedge | null {
@@ -393,17 +413,18 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
       decorDirty = true;
       dirty = true;
     },
+    get revision() {
+      return revision;
+    },
     setFrames(frames) {
       if (sameFrames(frames)) return;
       snapshot(frames);
-      const w = territories(frames);
+      territoriesInto(frames, wedges);
+      frontlinesInto(wedges, lines);
+      revision++;
       leader = null;
       for (let i = 0; i < frames.length && !leader; i++) if (frames[i].rank === 1) leader = frames[i];
-      if (!dirty && changed(w, geoWedges)) dirty = true;
-      wedges = w;
-      lines = frontlines(w);
-      pulse.wedges = wedges;
-      pulse.lines = lines;
+      if (!dirty && changedSinceGeo()) dirty = true;
     },
     update(dt, f) {
       const R = slot.r;

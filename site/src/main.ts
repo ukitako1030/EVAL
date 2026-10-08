@@ -10,14 +10,16 @@
  * front at a time, its swarm battle pinned inside the large planet, bloom off; the renderer insets follow the mobile
  * HUD (and an open bottom sheet) so the planet is never hidden.
  */
+import './fonts';
 import { createRenderer } from './render/app';
+import { WebGLRequiredError } from './render/webgl';
 import { createGalaxy } from './render/galaxy';
 import { createFleets } from './render/fleets';
 import { createHighlight } from './render/highlight';
 import { createBattle } from './render/battle';
 import { FONT_DISP, FONT_JP, FONT_UI } from './render/labels';
 import { createQualityGovernor, type QualityLevel } from './fx/quality';
-import { createFlashBudget, logFlashes } from './fx/flashBudget';
+import { REDUCED_MOTION_FLASH, createFlashBudget, logFlashes, scaleGrants } from './fx/flashBudget';
 import { tr } from './i18n/strings';
 import { loadWorld } from './data/load';
 import { createFrameSource, monthIndex } from './data/timeline';
@@ -26,7 +28,7 @@ import { createStore, defaultState, type AppState } from './state/store';
 import { decodeUrl } from './state/url';
 import { nextSearch, syncUrl } from './state/urlSync';
 import { initialPlayback, safeLocalStorage } from './state/intro';
-import { HOLD_SECONDS, MAX_HOLD_SECONDS, createPlayback } from './playback/clock';
+import { HOLD_SECONDS, MAX_HOLD_SECONDS, createPlayback, newsAfterChange } from './playback/clock';
 import { createBannerQueue, holdCounts, selectEvents } from './events/queue';
 import { mountHud } from './ui/hud';
 import { createRanking } from './ui/ranking';
@@ -40,11 +42,17 @@ import { createIntroCard, type IntroCard } from './ui/introCard';
 import { showLoadError } from './ui/loadError';
 import { createMobile, type Mobile, type OverlayHistory } from './ui/mobile';
 import { holdOnScreen, layoutMode, viewportOf, type Insets } from './ui/mobileLayout';
+import { createErrorLog } from './util/errorLog';
 
 /** Banners stay up this long (s); the focused view shows one at a time, the galaxy two (one on phones). */
 const BANNER_SECONDS = 4;
 /** The mobile layout never renders above this quality level (1 = no bloom); the fps governor may still go lower. */
 const MOBILE_QUALITY: QualityLevel = 1;
+/**
+ * Debug switches (`?quality`, `?hover`, `?debugFlash`) and the `window.__*` handles: the dev server, or a build made
+ * with `VITE_DEBUG_HOOKS=1` (site/scripts/README.md). A production build ignores them and drops them from the address.
+ */
+const DEBUG = import.meta.env.DEV || import.meta.env.VITE_DEBUG_HOOKS === '1';
 /** Camera glide when the framed area moves (a bottom sheet opens / closes), ms. */
 const REFRAME_MS = 600;
 
@@ -67,8 +75,9 @@ async function boot(mount: HTMLElement) {
     });
     motion.addEventListener('change', (e) => store.set({ reducedMotion: e.matches }));
 
-    // debug: ?quality=0..3 pins the quality level (screenshot / fps harness); otherwise the governor steps it down
-    const q = params.get('quality');
+    // debug (dev server / debug build only): ?quality=0..3 pins the quality level (screenshot / fps harness);
+    // otherwise the governor steps it down
+    const q = DEBUG ? params.get('quality') : null;
     const pinnedQuality = q === '0' || q === '1' || q === '2' || q === '3';
     if (pinnedQuality) renderer.setQuality(Number(q) as QualityLevel);
     const compact = layoutMode(window.innerWidth, window.innerHeight) === 'mobile';
@@ -77,14 +86,16 @@ async function boot(mount: HTMLElement) {
 
     // every light flash goes through this budget; debug: ?debugFlash logs grants per second (window.__flashStats)
     const budget = createFlashBudget({ maxPerSecond: 3, maxIntensity: 0.35 });
-    const flashLog = params.has('debugFlash') ? logFlashes(budget, { clock: () => performance.now() / 1000, log: (m) => console.log(m) }) : null;
-    const flashes = flashLog?.budget ?? budget;
+    const flashLog = DEBUG && params.has('debugFlash') ? logFlashes(budget, { clock: () => performance.now() / 1000, log: (m) => console.log(m) }) : null;
+    // reduced motion also means less light: every granted flash is dimmed here, in one place
+    const flashes = scaleGrants(flashLog?.budget ?? budget, () => (store.get().reducedMotion ? REDUCED_MOTION_FLASH : 1));
 
     // wait briefly for the web fonts so the first labels render in the right face (refreshed if they arrive later)
     await Promise.race([fonts, new Promise((r) => setTimeout(r, 1500))]);
     const galaxy = createGalaxy(renderer, { world, store, flashes });
     const now = () => galaxy.time; // the shared clock
-    const fleets = createFleets(galaxy, renderer, { world, store });
+    const frames = createFrameSource(world);
+    const fleets = createFleets(galaxy, renderer, { world, store, frames });
     const highlight = createHighlight(galaxy, { world, store, flashes, fleets });
     const battle = createBattle(renderer, galaxy, { store, flashes, now });
     const refreshText = () => {
@@ -95,7 +106,6 @@ async function boot(mount: HTMLElement) {
     preloadFontGlyphs(world).then(refreshText, () => undefined);
 
     // ---- HUD ----
-    const frames = createFrameSource(world);
     const hud = mountHud(mount, store, world, { nativeShare: () => mobile.active });
     const ranking = createRanking(hud.slots.ranking, world, store, { frames });
     createDeployment(hud.slots.deployment, world, store, { frames });
@@ -175,10 +185,14 @@ async function boot(mount: HTMLElement) {
     let ticking = false; // store writes from the playback tick (anything else moving `t` is the user)
     const started = new Set<string>();
     let card: IntroCard | null = null;
-    /** Playback starts at month 0 (after the intro card, or "play again" from the end): announce 開戦 and hold on it. */
+    /**
+     * Playback starts at month 0 (after the intro card, "play again" from the end, or play pressed while paused there):
+     * announce 開戦 and hold on it.
+     */
     const startFromTheTop = () => {
       const s = store.get();
       if (!s.playing || monthIndex(world, s.t) !== 0) return;
+      queue.clear(); // a restart (paused during the opening hold, then play) must not queue the opening news twice
       queue.push(selectEvents(world, 0, s.front));
       playback.holdAt(0, s.speed); // month 0 has news too: let it be read before moving on
     };
@@ -193,10 +207,9 @@ async function boot(mount: HTMLElement) {
       } else if ((s.selectedUnit === null) !== (prev.selectedUnit === null)) {
         reframe({ aim: false, animate: true }); // the mobile bottom sheet opened / closed: the planet moves above it
       }
-      if (s.front === prev.front && !ticking && s.t !== prev.t) {
-        queue.clear(); // scrubbed / stepped / skipped: news from the old position is stale
-        if (!card) startFromTheTop();
-      }
+      const news = newsAfterChange(s, prev, ticking);
+      if (news.clear) queue.clear(); // scrubbed / stepped / skipped: news from the old position is stale
+      if (news.fromTop && !card) startFromTheTop(); // incl. play pressed while paused at month 0
       if (s.speed !== prev.speed) queue.setMinSeconds(HOLD_SECONDS[s.speed]);
       if (s.reducedMotion !== prev.reducedMotion) renderer.setReducedMotion(s.reducedMotion);
       if (s.lang !== prev.lang) document.title = `AI WAR — ${tr('subtitle', s.lang)}`;
@@ -221,42 +234,51 @@ async function boot(mount: HTMLElement) {
     }
 
     // ---- frame loop ----
+    // a step that throws must not freeze the site (PixiJS stops its ticker on an exception): log it once, keep going
+    const frameError = createErrorLog('a frame');
     renderer.onFrame((dt, rawDt) => {
-      if (!pinnedQuality) {
-        const g = governor.frame(now(), rawDt);
-        const level = mobile.active ? (Math.max(g, MOBILE_QUALITY) as QualityLevel) : g;
-        if (level !== renderer.quality) renderer.setQuality(level);
-      }
-      let s = store.get();
-      if (card) {
-        if (!s.intro) card.close(); // skipped
-        else if (card.advance(dt)) startFromTheTop(); // 開戦
-        if (card.closed) card = null;
-      } else if (!timeline.isDragging()) {
-        const r = playback.tick(rawDt, s);
-        if (r.t !== s.t || r.playing !== s.playing) {
-          const ended = s.intro && !r.playing && r.t >= last;
-          ticking = true;
-          store.set(ended ? { t: r.t, playing: false, intro: false } : { t: r.t, playing: r.playing });
-          ticking = false;
+      try {
+        if (!pinnedQuality) {
+          // with the measured work time a steady 50 Hz / 30 fps-capped display with cheap frames is not "slow"
+          const g = governor.frame(now(), rawDt, renderer.workMs / 1000);
+          const level = mobile.active ? (Math.max(g, MOBILE_QUALITY) as QualityLevel) : g;
+          if (level !== renderer.quality) renderer.setQuality(level);
         }
-        if (s.playing) for (const m of r.crossed) queue.push(selectEvents(world, m, s.front));
-      }
+        let s = store.get();
+        if (card) {
+          if (!s.intro) card.close(); // skipped
+          else if (card.advance(dt)) startFromTheTop(); // 開戦
+          if (card.closed) card = null;
+        } else if (!timeline.isDragging()) {
+          const r = playback.tick(rawDt, s);
+          if (r.t !== s.t || r.playing !== s.playing) {
+            const ended = s.intro && !r.playing && r.t >= last;
+            ticking = true;
+            store.set(ended ? { t: r.t, playing: false, intro: false } : { t: r.t, playing: r.playing });
+            ticking = false;
+          }
+          if (s.playing) for (const m of r.crossed) queue.push(selectEvents(world, m, s.front));
+        }
 
-      s = store.get();
-      galaxy.update(dt, frames(s.t, s.sortBy));
-      highlight.update(dt);
-      fleets.update(dt, s.t);
-      battle.update(dt); // after galaxy.update: reads this frame's planet wedges
+        s = store.get();
+        galaxy.update(dt, frames(s.t, s.sortBy));
+        highlight.update(dt);
+        fleets.update(dt, s.t);
+        battle.update(dt); // after galaxy.update: reads this frame's planet wedges
 
-      const visible = queue.update(now());
-      banners.render(visible);
-      for (const b of visible) {
-        if (started.has(b.key)) continue;
-        started.add(b.key);
-        if (b.event.front === s.front) battle.shockwave(b.event.unit); // the news hits the focused battle
+        const visible = queue.update(now());
+        banners.render(visible);
+        for (const b of visible) {
+          if (started.has(b.key)) continue;
+          started.add(b.key);
+          if (b.event.front === s.front) battle.shockwave(b.event.unit); // the news hits the focused battle
+        }
+        if (started.size > visible.length) for (const k of started) if (!visible.some((b) => b.key === k)) started.delete(k);
+      } catch (err) {
+        frameError(err);
+      } finally {
+        ticking = false;
       }
-      if (started.size > visible.length) for (const k of started) if (!visible.some((b) => b.key === k)) started.delete(k);
     });
 
     // keep the address bar shareable (front / whole month / language), throttled
@@ -267,22 +289,23 @@ async function boot(mount: HTMLElement) {
         /* sandboxed / opaque origins refuse; the share button still works */
       }
     };
-    syncUrl(store, world, { read: () => location.search, write: writeSearch });
+    // (writes the starting state at once; production drops the debug switches from the address)
+    syncUrl(store, world, { read: () => location.search, write: writeSearch, keepDebug: DEBUG });
     // back / forward over a mobile overlay entry restores that entry's address: rewrite it from the live state
-    window.addEventListener('popstate', () => writeSearch(nextSearch(store.get(), world, location.search)));
+    window.addEventListener('popstate', () => writeSearch(nextSearch(store.get(), world, location.search, { keepDebug: DEBUG })));
 
-    // debug: ?hover=<org> pins the org highlight (screenshots)
-    const hover = params.get('hover');
-    if (hover && world.orgs[hover]) store.set({ hoverOrg: hover });
+    // debug (dev server / debug build only): ?hover=<org> pins the org highlight (screenshots)
+    const hover = DEBUG ? params.get('hover') : null;
+    if (hover && Object.hasOwn(world.orgs, hover)) store.set({ hoverOrg: hover });
     if (flashLog) Object.assign(window, { __flashStats: flashLog.stats });
-    // dev only: handles for poking the app from the console / harness (--eval)
-    if (import.meta.env.DEV) {
+    // dev server / debug build only: handles for poking the app from the console / harness (--eval)
+    if (DEBUG) {
       Object.assign(window, { __renderer: renderer, __galaxy: galaxy, __store: store, __world: world, __fleets: fleets, __highlight: highlight, __battle: battle, __mobile: mobile });
     }
   } catch (err: unknown) {
     console.error('AI WAR failed to start', err);
     const l = params.get('lang');
-    showLoadError(document.body, l === 'en' || l === 'ja' ? (l as Lang) : 'ja');
+    showLoadError(document.body, l === 'en' || l === 'ja' ? (l as Lang) : 'ja', err instanceof WebGLRequiredError ? 'webglRequired' : 'loadError');
   }
 }
 

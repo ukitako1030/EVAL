@@ -119,7 +119,8 @@ export function createBattleFx(glow: Texture): BattleFx {
       x,
       y,
       color,
-      pale: mixColor(color, 0xffffff, 0.25),
+      // a denied flash draws no near-white at all: its "pale" parts (ring, glints, beam) take the unit colour
+      pale: g > 0 ? mixColor(color, 0xffffff, 0.25) : color,
       gain: colorGain(color),
       grant: g,
       t: 0,

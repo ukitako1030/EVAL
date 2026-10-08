@@ -24,8 +24,11 @@ export interface SwarmLook {
 export interface SwarmView {
   readonly container: Container;
   draw(sim: Swarm, R: number, px: number, look: SwarmLook, dt: number): void;
-  /** a spray of sparks at a normalised point (shockwaves, warp-ins) */
-  burst(x: number, y: number, color: number, n: number, speedPx: number, life: number): void;
+  /**
+   * a spray of sparks at a normalised point (shockwaves, warp-ins). `bright` = the effect's flash-budget request was
+   * granted (pale heads, full alpha); otherwise the spray is dim: unit colour only, `BURST_DIM_ALPHA`, a smaller spread
+   */
+  burst(x: number, y: number, color: number, n: number, speedPx: number, life: number, bright: boolean): void;
   /** forget all sparks (the battle moved to another planet) */
   clear(): void;
   destroy(): void;
@@ -38,6 +41,9 @@ const MAX_SPARKS = 1400;
 const GLOW_SHARE = 0.3;
 /** tails are drawn this much longer than the mockup's (speed × trail) — reads better at planet scale */
 const TAIL = 1.3;
+/** alpha multiplier of a burst whose flash was denied (≤ 40 %), and how much smaller it spreads */
+export const BURST_DIM_ALPHA = 0.4;
+const BURST_DIM_SPREAD = 0.65;
 
 /** 0xRRGGBB → 0xBBGGRR (a particle's tint as PixiJS stores it) */
 const bgr = (c: number) => ((c & 0xff) << 16) | (c & 0xff00) | ((c >> 16) & 0xff);
@@ -89,6 +95,8 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
   const sml = new Float32Array(MAX_SPARKS);
   const sw = new Float32Array(MAX_SPARKS);
   const stint = new Uint32Array(MAX_SPARKS);
+  /** alpha multiplier (dim bursts) */
+  const sa = new Float32Array(MAX_SPARKS);
   const sparks: Particle[] = [];
   for (let i = 0; i < MAX_SPARKS; i++) {
     const p = new Particle({ texture: tex.streak, anchorX: 1, anchorY: 0.5, alpha: 0, scaleX: 0, scaleY: 0 });
@@ -113,7 +121,7 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
   /** normalised units per screen pixel of the last draw (spark speeds are given in px/s) */
   let unitPx = 0.004;
 
-  function addSpark(x: number, y: number, vx: number, vy: number, life: number, color: number, w: number) {
+  function addSpark(x: number, y: number, vx: number, vy: number, life: number, color: number, w: number, a: number) {
     const k = head;
     head = (head + 1) % MAX_SPARKS;
     if (sl[k] <= 0) sparkLive++;
@@ -124,6 +132,7 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
     sl[k] = sml[k] = life;
     sw[k] = w;
     stint[k] = bgr(color);
+    sa[k] = a;
   }
 
   /** draw only the first `used` particles of the pool (the visible ones were packed to the front) */
@@ -137,14 +146,17 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
     }
   }
 
-  function burst(x: number, y: number, color: number, n: number, speedPx: number, life: number) {
+  function burst(x: number, y: number, color: number, n: number, speedPx: number, life: number, bright: boolean) {
     const paleOrg = colorGain(color) < 1;
     const dim = paleOrg ? mixColor(color, 0x000000, 0.35) : color;
-    const pale = paleOrg ? dim : mixColor(color, 0xffffff, 0.3);
+    // a denied flash keeps the spray (the battle stays alive) but drops the pale heads, most of the light and some reach
+    const pale = bright && !paleOrg ? mixColor(color, 0xffffff, 0.3) : dim;
+    const a = bright ? 1 : BURST_DIM_ALPHA;
+    const speed = bright ? speedPx : speedPx * BURST_DIM_SPREAD;
     for (let k = 0; k < n; k++) {
-      const a = rnd() * Math.PI * 2;
-      const v = (0.35 + rnd() * 0.65) * speedPx * unitPx;
-      addSpark(x, y, Math.cos(a) * v, Math.sin(a) * v, life * (0.5 + rnd() * 0.5), k % 5 === 0 ? pale : dim, 1 + rnd());
+      const ang = rnd() * Math.PI * 2;
+      const v = (0.35 + rnd() * 0.65) * speed * unitPx;
+      addSpark(x, y, Math.cos(ang) * v, Math.sin(ang) * v, life * (0.5 + rnd() * 0.5), k % 5 === 0 ? pale : dim, 1 + rnd(), a);
     }
   }
 
@@ -189,7 +201,7 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
         for (let k = 0; k < n; k++) {
           const a = rnd() * Math.PI * 2;
           const v = (40 + rnd() * 150) * sc * unitPx;
-          addSpark(cl.x[q], cl.y[q], Math.cos(a) * v, Math.sin(a) * v, 0.22 + rnd() * 0.35, k === 0 ? paleCol[cl.win[q]] : k & 1 ? lc : wc, 1.1);
+          addSpark(cl.x[q], cl.y[q], Math.cos(a) * v, Math.sin(a) * v, 0.22 + rnd() * 0.35, k === 0 ? paleCol[cl.win[q]] : k & 1 ? lc : wc, 1.1, 1);
         }
       }
 
@@ -271,7 +283,7 @@ export function createSwarmView(capacity: number, tex: { streak: Texture; glow: 
           p.rotation = Math.atan2(svy[q], svx[q]);
           p.scaleX = Math.max(1.5 * px, v * 0.035) / STREAK_W;
           p.scaleY = (sw[q] * (0.5 + 0.5 * f) * px) / STREAK_H;
-          p.color = abgr(stint[q], (f > 0.55 ? 0.8 : 0.5 + 0.55 * f) * f * vis);
+          p.color = abgr(stint[q], (f > 0.55 ? 0.8 : 0.5 + 0.55 * f) * f * vis * sa[q]);
         }
       }
       fit(sparkPc, sparks, used);

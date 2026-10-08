@@ -10,8 +10,11 @@ import {
   isPortrait,
   territories,
   wedgeBrightness,
+  type Frontline,
   type PlanetSlot,
+  type Wedge,
 } from '../../src/render/layout';
+import { frontlinesInto, territoriesInto } from '../../src/render/territoryBuf';
 import { GALAXY_EXTENT } from '../../src/render/camera';
 import { createFlashBudget } from '../../src/fx/flashBudget';
 import { FRONT_IDS } from '../../src/data/types';
@@ -204,6 +207,45 @@ describe('frontlines', () => {
     };
     expect(swing(close)).toBeGreaterThan(swing(far) * 1.5);
     expect(swing(close, 0)).toBe(0);
+  });
+});
+
+describe('territoriesInto / frontlinesInto (no per-frame objects)', () => {
+  const setA = [unit('strong', 50, 95), unit('weak', 30, 60), unit('even', 20, 94), unit('gone', 5, 50, { presence: 0 })];
+  const setB = [unit('weak', 45, 61), unit('strong', 41, 96), unit('even', 25, 93), unit('new', 3, 70, { presence: 0.4 })];
+
+  it('writes exactly what territories / frontlines return', () => {
+    const ws: Wedge[] = [];
+    const bs: Frontline[] = [];
+    for (const set of [setA, setB, setA, [unit('solo', 1, 1)], [], setB]) {
+      expect(territoriesInto(set, ws)).toBe(ws);
+      expect(ws).toEqual(territories(set));
+      expect(frontlinesInto(ws, bs)).toBe(bs);
+      expect(bs).toEqual(frontlines(territories(set)));
+    }
+  });
+
+  it('reuses its objects from frame to frame', () => {
+    const ws: Wedge[] = [];
+    const bs: Frontline[] = [];
+    territoriesInto(setA, ws);
+    frontlinesInto(ws, bs);
+    const w0 = ws[0];
+    const b1 = bs[1];
+    territoriesInto(setB, ws);
+    frontlinesInto(ws, bs);
+    expect(ws[0]).toBe(w0);
+    expect(bs[1]).toBe(b1);
+    expect(b1.prev).toBe(ws[0]);
+    expect(b1.cur).toBe(ws[1]);
+  });
+
+  it('ignores non-finite values like territories does', () => {
+    const ws: Wedge[] = [];
+    const set = [unit('nan', Number.NaN, 50), unit('zero', 0, 50), unit('ok', 10, Number.NaN)];
+    territoriesInto(set, ws);
+    expect(ws).toEqual(territories(set));
+    for (const w of ws) for (const v of [w.a0, w.a1, w.s, w.c, w.share]) expect(Number.isFinite(v)).toBe(true);
   });
 });
 

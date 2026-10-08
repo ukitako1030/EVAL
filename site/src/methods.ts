@@ -1,4 +1,5 @@
 // "Data & method" page entry (methods.html): language from ?lang=, content from world.json.
+import './fonts';
 import { loadWorld } from './data/load';
 import { langFromSearch, renderLoadError, renderMethodsPage } from './ui/methodsPage';
 

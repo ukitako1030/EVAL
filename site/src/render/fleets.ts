@@ -9,7 +9,7 @@
  * changes. Ships live in a fixed pool (looks: ./fleetSprites): nothing is allocated per frame. The deployment is
  * re-read at most four times a second, and only while `t` moves.
  */
-import { orgDeployment } from '../data/timeline';
+import { createFrameSource, orgDeploymentFrom, type FrameSource } from '../data/timeline';
 import type { FrontId, World } from '../data/types';
 import type { AppState, Store } from '../state/store';
 import type { Renderer } from './app';
@@ -25,6 +25,8 @@ import { laneEnvelope, legU, nextLeg, orbitPoint, pickWeighted, rand01, randIn, 
 export interface FleetsOptions {
   world: World;
   store: Store<AppState>;
+  /** the app's shared per-frame frames (main.ts): the deployment is read from them instead of recomputing every front */
+  frames?: FrameSource;
 }
 
 export interface Fleets {
@@ -83,6 +85,7 @@ const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 
 export function createFleets(galaxy: Galaxy, renderer: Renderer, opts: FleetsOptions): Fleets {
   const { world, store } = opts;
+  const frames = opts.frames ?? createFrameSource(world);
   const sprites = createFleetSprites(galaxy, MAX_SHIPS);
   const fronts: FrontId[] = world.fronts.map((f) => f.id);
   const frontIdx = new Map<FrontId, number>(fronts.map((f, i) => [f, i]));
@@ -259,7 +262,8 @@ export function createFleets(galaxy: Galaxy, renderer: Renderer, opts: FleetsOpt
   function refresh(t: number) {
     lastT = t;
     for (const o of orgs) o.weight = o.nf = 0;
-    for (const d of orgDeployment(world, t)) {
+    // this frame's shared frames (already computed for the galaxy: a cache hit, whatever the sort order)
+    for (const d of orgDeploymentFrom(world, frames(t, store.get().sortBy))) {
       const o = orgs[orgIdx.get(d.org) ?? -1];
       if (!o) continue;
       o.weight = fleetWeight(d);
