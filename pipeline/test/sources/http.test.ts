@@ -1,0 +1,237 @@
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { makeFetchCtx, parseRetryAfter, USER_AGENT } from '../../src/sources/http';
+import type { FetchCtx } from '../../src/sources/types';
+
+let server: Server;
+let base: string;
+let hits: string[] = [];
+let handler: (req: IncomingMessage, res: ServerResponse, n: number) => void = () => {};
+
+beforeAll(async () => {
+  server = createServer((req, res) => {
+    hits.push(req.url ?? '');
+    handler(req, res, hits.length);
+  });
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+});
+afterAll(async () => {
+  server.closeAllConnections();
+  await new Promise<void>((r) => server.close(() => r()));
+});
+beforeEach(() => {
+  hits = [];
+  handler = () => {};
+});
+
+const ctx = (retry?: { attempts?: number; timeoutMs?: number; baseDelayMs?: number }): FetchCtx =>
+  makeFetchCtx(new Date('2026-10-12T00:00:00Z'), {}, () => {}, { backfill: false, keys: () => [], retry });
+
+const echoHeaders = (req: IncomingMessage, res: ServerResponse) => {
+  res.writeHead(200, { 'content-type': 'application/json' });
+  res.end(JSON.stringify(req.headers));
+};
+
+describe('headers', () => {
+  it('sends the default User-Agent', async () => {
+    handler = echoHeaders;
+    const h = await ctx().fetchJson<Record<string, string>>(`${base}/h`);
+    expect(h['user-agent']).toBe(USER_AGENT);
+  });
+  it('keeps the headers of a Headers object (and a plain object / tuple list)', async () => {
+    handler = echoHeaders;
+    const c = ctx();
+    const a = await c.fetchJson<Record<string, string>>(`${base}/h`, { headers: new Headers({ 'X-Test': 'yes', Authorization: 'Bearer abc' }) });
+    expect(a['x-test']).toBe('yes');
+    expect(a.authorization).toBe('Bearer abc');
+    expect(a['user-agent']).toBe(USER_AGENT);
+    const b = await c.fetchJson<Record<string, string>>(`${base}/h`, { headers: { 'X-Test': 'obj' } });
+    expect(b['x-test']).toBe('obj');
+    const t = await c.fetchJson<Record<string, string>>(`${base}/h`, { headers: [['X-Test', 'tuple']] });
+    expect(t['x-test']).toBe('tuple');
+  });
+  it('does not override a caller-provided User-Agent (any case)', async () => {
+    handler = echoHeaders;
+    const c = ctx();
+    const a = await c.fetchJson<Record<string, string>>(`${base}/h`, { headers: new Headers({ 'user-agent': 'mine/1' }) });
+    expect(a['user-agent']).toBe('mine/1');
+    const b = await c.fetchJson<Record<string, string>>(`${base}/h`, { headers: { 'User-Agent': 'mine/2' } });
+    expect(b['user-agent']).toBe('mine/2');
+  });
+});
+
+describe('retries', () => {
+  it('retries a 5xx and then succeeds', async () => {
+    handler = (_req, res, n) => {
+      res.writeHead(n === 1 ? 503 : 200);
+      res.end('fine');
+    };
+    expect(await ctx({ baseDelayMs: 5 }).fetchText(`${base}/r`)).toBe('fine');
+    expect(hits).toHaveLength(2);
+  });
+  it('does not retry other 4xx', async () => {
+    handler = (_req, res) => {
+      res.writeHead(404);
+      res.end();
+    };
+    await expect(ctx({ baseDelayMs: 5 }).fetchText(`${base}/missing`)).rejects.toThrow(/HTTP 404/);
+    expect(hits).toHaveLength(1);
+  });
+  it('does not sleep after the last attempt', async () => {
+    handler = (_req, res) => {
+      res.writeHead(500);
+      res.end();
+    };
+    const t0 = Date.now();
+    await expect(ctx({ attempts: 2, baseDelayMs: 400 }).fetchText(`${base}/e`)).rejects.toThrow(/HTTP 500/);
+    const ms = Date.now() - t0;
+    expect(hits).toHaveLength(2);
+    expect(ms).toBeGreaterThanOrEqual(380); // one back-off between the two attempts
+    expect(ms).toBeLessThan(750); // not a second one after the last attempt (would be ~1200 ms)
+  });
+  it('honours Retry-After on a 429 instead of the (short) back-off', async () => {
+    handler = (_req, res, n) => {
+      if (n === 1) res.writeHead(429, { 'retry-after': '0.4' });
+      else res.writeHead(200);
+      res.end('ok');
+    };
+    const t0 = Date.now();
+    expect(await ctx({ baseDelayMs: 5 }).fetchText(`${base}/rl`)).toBe('ok');
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(380);
+    expect(hits).toHaveLength(2);
+  });
+  it('falls back to the normal back-off when a 429 has no usable Retry-After', async () => {
+    handler = (_req, res, n) => {
+      res.writeHead(n === 1 ? 429 : 200, n === 1 ? { 'retry-after': 'soon' } : {});
+      res.end('ok');
+    };
+    const t0 = Date.now();
+    expect(await ctx({ baseDelayMs: 5 }).fetchText(`${base}/rl2`)).toBe('ok');
+    expect(Date.now() - t0).toBeLessThan(300);
+  });
+});
+
+describe('parseRetryAfter', () => {
+  const now = new Date('2026-10-12T00:00:00Z');
+  it('parses seconds (fractions allowed) and caps at 60 s', () => {
+    expect(parseRetryAfter('2', now)).toBe(2000);
+    expect(parseRetryAfter('0.4', now)).toBe(400);
+    expect(parseRetryAfter('0', now)).toBe(0);
+    expect(parseRetryAfter('120', now)).toBe(60_000);
+    expect(parseRetryAfter(' 7 ', now)).toBe(7000);
+  });
+  it('parses an HTTP date, capped and never negative', () => {
+    expect(parseRetryAfter('Mon, 12 Oct 2026 00:00:05 GMT', now)).toBe(5000);
+    expect(parseRetryAfter('Mon, 12 Oct 2026 00:10:00 GMT', now)).toBe(60_000);
+    expect(parseRetryAfter('Sun, 11 Oct 2026 00:00:00 GMT', now)).toBe(0);
+  });
+  it('returns null for missing or unusable values', () => {
+    expect(parseRetryAfter(null, now)).toBeNull();
+    expect(parseRetryAfter('', now)).toBeNull();
+    expect(parseRetryAfter('soon', now)).toBeNull();
+    expect(parseRetryAfter('-3', now)).toBeNull();
+  });
+});
+
+describe('error messages', () => {
+  it('never contain the query string (keys must not reach raw/_status)', async () => {
+    handler = (_req, res) => {
+      res.writeHead(500);
+      res.end();
+    };
+    const err = await ctx({ attempts: 1 })
+      .fetchText(`${base}/data?api_key=SECRET123&x=1#frag`)
+      .then(
+        () => null,
+        (e: Error) => e,
+      );
+    expect(err).toBeInstanceOf(Error);
+    expect(err!.message).toContain(`HTTP 500 for ${base}/data`);
+    expect(err!.message).not.toContain('SECRET123');
+    expect(err!.message).not.toContain('?');
+    expect(err!.message).not.toContain('frag');
+  });
+  it('are scrubbed for an unparseable URL too', async () => {
+    const err = await ctx({ attempts: 1 })
+      .fetchText('http://exa mple.invalid/x?key=SECRET456')
+      .then(
+        () => null,
+        (e: Error) => e,
+      );
+    expect(err).toBeInstanceOf(Error);
+    expect(err!.message).not.toContain('SECRET456');
+  });
+  it('are scrubbed on network errors', async () => {
+    const dead = createServer();
+    await new Promise<void>((r) => dead.listen(0, '127.0.0.1', r));
+    const port = (dead.address() as AddressInfo).port;
+    await new Promise<void>((r) => dead.close(() => r()));
+    const err = await ctx({ attempts: 1 })
+      .fetchText(`http://127.0.0.1:${port}/x?key=SECRET789`)
+      .then(
+        () => null,
+        (e: Error) => e,
+      );
+    expect(err).toBeInstanceOf(Error);
+    expect(err!.message).not.toContain('SECRET789');
+  });
+});
+
+describe('timeout and abort', () => {
+  it('times out while the body is stalled (the timer stays active until the body has been read)', async () => {
+    handler = (_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.write('partial');
+      // never ends
+    };
+    const t0 = Date.now();
+    await expect(ctx({ attempts: 1, timeoutMs: 200 }).fetchText(`${base}/stall?k=SECRET`)).rejects.toThrow(/timeout/i);
+    expect(Date.now() - t0).toBeLessThan(2000);
+    await expect(ctx({ attempts: 1, timeoutMs: 200 }).fetchBytes(`${base}/stall`)).rejects.toThrow(/timeout/i);
+    await expect(ctx({ attempts: 1, timeoutMs: 200 }).fetchJson(`${base}/stall`)).rejects.toThrow(/timeout/i);
+  });
+  it('retries after a stalled body', async () => {
+    handler = (_req, res, n) => {
+      res.writeHead(200);
+      if (n === 1) res.write('partial');
+      else res.end('whole');
+    };
+    expect(await ctx({ attempts: 2, timeoutMs: 200, baseDelayMs: 5 }).fetchText(`${base}/stall2`)).toBe('whole');
+    expect(hits).toHaveLength(2);
+  });
+  it('aborts when the caller signal fires, without retrying', async () => {
+    handler = () => {
+      /* never answers */
+    };
+    const ac = new AbortController();
+    setTimeout(() => ac.abort(), 100);
+    const t0 = Date.now();
+    await expect(ctx({ attempts: 3, timeoutMs: 10_000, baseDelayMs: 5 }).fetchText(`${base}/hang`, { signal: ac.signal })).rejects.toThrow();
+    expect(Date.now() - t0).toBeLessThan(2000);
+    expect(hits).toHaveLength(1);
+  });
+  it('rejects at once for a caller signal that is already aborted', async () => {
+    handler = (_req, res) => res.end('x');
+    const ac = new AbortController();
+    ac.abort();
+    await expect(ctx({ attempts: 3, baseDelayMs: 5 }).fetchText(`${base}/pre`, { signal: ac.signal })).rejects.toThrow();
+    expect(hits).toHaveLength(0);
+  });
+});
+
+describe('fetchJson / fetchBytes', () => {
+  it('parse the body; invalid JSON is an error without retries', async () => {
+    handler = (req, res) => {
+      res.writeHead(200);
+      res.end(req.url === '/json' ? '{"a":1}' : '<html>');
+    };
+    const c = ctx({ baseDelayMs: 5 });
+    expect(await c.fetchJson(`${base}/json`)).toEqual({ a: 1 });
+    expect(Array.from(await c.fetchBytes(`${base}/json`))).toEqual(Array.from(Buffer.from('{"a":1}')));
+    hits = [];
+    await expect(c.fetchJson(`${base}/bad?k=SECRET`)).rejects.toThrow(/invalid JSON/);
+    expect(hits).toHaveLength(1);
+  });
+});
