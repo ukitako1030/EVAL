@@ -37,6 +37,8 @@ import { createIntroCard, showLoadError, type IntroCard } from './ui/introCard';
 const BANNER_SECONDS = 4;
 /** Minimum gap between two `history.replaceState` calls (ms). */
 const URL_THROTTLE_MS = 350;
+/** The parameters `encodeUrl` owns. */
+const SHARE_KEYS = new Set(['front', 't', 'lang']);
 
 const mount = document.getElementById('app');
 if (mount) void boot(mount);
@@ -216,8 +218,8 @@ function syncUrl(store: Store<AppState>, world: World) {
     timer = undefined;
     lastWrite = performance.now();
     const next = new URLSearchParams(encodeUrl(store.get(), world));
-    // keep any other (debug) parameters after the shareable ones
-    for (const [k, v] of new URLSearchParams(location.search)) if (!next.has(k)) next.append(k, v);
+    // keep any other (debug) parameters after the shareable ones (an absent `front` means the galaxy: drop the old one)
+    for (const [k, v] of new URLSearchParams(location.search)) if (!SHARE_KEYS.has(k)) next.append(k, v);
     try {
       history.replaceState(history.state, '', `${location.pathname}?${next.toString()}${location.hash}`);
     } catch {
