@@ -2187,8 +2187,13 @@ import { detectEvents, prettyModel, type FrontCells } from '../../src/compute/ev
 const params = { newModelMinDelta: 3, surgeStrength: 5, surgeScale: 5, leadHysteresis: 1, maxPerFrontMonth: 3 };
 const front = { id: 'general' as const, name: { ja: '総合戦線', en: 'General Front' } };
 
-const cells = (data: Record<string, (null | [number, number, string | null])[]>): FrontCells =>
-  new Map(Object.entries(data).map(([u, arr]) => [u, arr.map((v) => (v ? { s: v[0], c: v[1], bestModel: v[2] } : null))]));
+const cells = (data: Record<string, (null | [number, number, string | null] | [number, number, string | null, string])[]>): FrontCells =>
+  new Map(
+    Object.entries(data).map(([u, arr]) => [
+      u,
+      arr.map((v) => (v ? { s: v[0], c: v[1], bestModel: v[2], q: (v[3] ?? 'high') as 'high' | 'estimated' } : null)),
+    ]),
+  );
 
 describe('prettyModel', () => {
   it('uses release display names, else strips dates and title-cases', () => {
@@ -2241,6 +2246,15 @@ describe('detectEvents', () => {
     expect(ev2.find((e) => e.type === 'new_unit')!.text.ja).toBe('Claude 2 参戦');
     expect(ev2.find((e) => e.type === 'custom')!.month).toBe('2024-01');
   });
+  it('ignores estimated cells for lead changes, model jumps and surges', () => {
+    const est = cells({
+      a: [[100, 50, 'a-1'], [100, 50, 'a-1'], [100, 50, 'a-1']],
+      b: [[94, 50, null, 'estimated'], [100, 70, null, 'estimated'], [80, 70, 'b-1']],
+    });
+    const ev4 = detectEvents({ front, months: ['2024-01', '2024-02', '2024-03'], cells: est, unitNames: { a: 'A', b: 'B' }, params, releases: [], overrides: [], custom: [] });
+    // 2024-02: b is estimated → no surge/lead events; 2024-03: b measured but previous month estimated → no surge
+    expect(ev4.filter((e) => e.unit === 'b' && e.type !== 'new_unit')).toEqual([]);
+  });
   it('caps events per front-month', () => {
     const ev3 = detectEvents({ front, months, cells: c, unitNames: names, params: { ...params, maxPerFrontMonth: 1 }, releases: [], overrides: [], custom: [] });
     expect(ev3.filter((e) => e.month === '2024-03').map((e) => e.type)).toEqual(['lead_change']);
@@ -2257,7 +2271,7 @@ Expected: FAIL — module not found.
 
 `pipeline/src/compute/events.ts`:
 ```ts
-import type { FrontId, Localized } from '../core/types';
+import type { Confidence, FrontId, Localized } from '../core/types';
 import type { Month } from '../core/months';
 import type { CompiledRelease } from '../config/load';
 import type { EventsFile, Method } from '../config/schemas';
@@ -2275,8 +2289,8 @@ export interface WorldEvent {
   from?: string;
 }
 
-/** unitId → per-month cell aligned with `months` (null = not present) */
-export type FrontCells = Map<string, ({ s: number; c: number; bestModel: string | null } | null)[]>;
+/** unitId → per-month cell aligned with `months` (null = not present). `bestModel` comes from the front's event group. */
+export type FrontCells = Map<string, ({ s: number; c: number; bestModel: string | null; q: Confidence } | null)[]>;
 
 const PRIORITY: Record<EventType, number> = { lead_change: 0, new_unit: 1, new_model: 2, scale_lead_change: 3, surge: 4, custom: 5 };
 
@@ -2335,13 +2349,15 @@ export function detectEvents(args: {
   months.forEach((m, i) => {
     const at = (u: string, k: number) => cells.get(u)![k];
     const present = ids.filter((u) => at(u, i));
+    // estimated values are placeholders, not measurements: they never lead and never move
+    const measured = present.filter((u) => at(u, i)!.q !== 'estimated');
     const push = (type: EventType, unit: string, extra: { model?: string; from?: string; down?: boolean } = {}) =>
       raw.push({ month: m, front: front.id, unit, type, text: text(type, front, name(unit), extra), ...(extra.model ? { model: extra.model } : {}), ...(extra.from ? { from: extra.from } : {}) });
 
     // leaders with hysteresis
-    const candS = argmax(present, (u) => at(u, i)!.s);
+    const candS = argmax(measured, (u) => at(u, i)!.s);
     if (candS && candS !== leadS) {
-      const curS = leadS && at(leadS, i) ? at(leadS, i)!.s : null;
+      const curS = leadS && at(leadS, i) && at(leadS, i)!.q !== 'estimated' ? at(leadS, i)!.s : null;
       if (curS === null || at(candS, i)!.s >= curS + params.leadHysteresis) {
         if (i > 0 && leadS) push('lead_change', candS, { from: name(leadS) });
         leadS = candS;
@@ -2363,6 +2379,7 @@ export function detectEvents(args: {
         push('new_unit', u);
         continue;
       }
+      if (cur.q === 'estimated' || prev.q === 'estimated') continue;
       const ds = cur.s - prev.s;
       const newModel = cur.bestModel && prev.bestModel && cur.bestModel !== prev.bestModel && ds >= params.newModelMinDelta;
       if (newModel) push('new_model', u, { model: prettyModel(cur.bestModel!, args.releases) });
@@ -2996,6 +3013,8 @@ export function computeWorld(opts: ComputeOpts): World {
       }
     }
     const strength = computeStrength({ tables, unitIds: ids, months, weights, kinds: method.strength.kinds, minUnits: method.strength.minUnits });
+    // new_model events compare model names within ONE group so that a source going stale doesn't look like a new model
+    const eventGroup = Object.entries(weights).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
 
     // scale
     const signals = buildSignalTable(fUnits, signalObs);
@@ -3025,7 +3044,16 @@ export function computeWorld(opts: ComputeOpts): World {
       world.series[front][u] = arr;
       cells.set(
         u,
-        months.map((m, i) => (arr[i] ? { s: arr[i]!.s, c: arr[i]!.c, bestModel: strength.get(u)!.get(m)!.bestModel } : null)),
+        months.map((m, i) =>
+          arr[i]
+            ? {
+                s: arr[i]!.s,
+                c: arr[i]!.c,
+                q: arr[i]!.q,
+                bestModel: strength.get(u)!.get(m)!.breakdown.find((g) => g.group === eventGroup)?.model ?? null,
+              }
+            : null,
+        ),
       );
       const bd: World['breakdown'][string][string] = {};
       for (const m of months) {
@@ -3295,3 +3323,276 @@ git commit -m "feat(pipeline): fetch/compute/report CLIs and HTML report"
 ```
 
 ---
+
+# Part B — Sources, configuration and the first real run
+
+Part B tasks are **contract-style**: each gives the exact module interface, the URL(s), the field mapping and the tests that must exist. The parsing details (column names, quirks) come from the recon notes and the real fixtures already captured in `pipeline/test/fixtures/<sourceId>/`; read the referenced note section before coding. Parsers are pure functions tested against those fixtures; `fetch()` is thin and is exercised only in Task 33's real run.
+
+Recon notes:
+- LLM/code/agent: `docs/superpowers/recon/sources-llm.md` (if missing, the per-source drafts are in the session scratchpad `recon-llm/notes-{arena,epoch,gh,lbos}.md`)
+- Media: `docs/superpowers/recon/sources-media.md`
+- Scale: `docs/superpowers/recon/sources-scale.md`
+- Arena legacy pickles: `docs/superpowers/recon/sources-arena-legacy.md`
+
+Rules for every source module:
+- File `pipeline/src/sources/<name>.ts`; export `SourceModule` constants (or a small factory + constants).
+- `meta.credit` is the attribution string the site will display (e.g. `"Arena leaderboard dataset (lmarena-ai/leaderboard-dataset), CC BY 4.0"`).
+- `fetch()` returns JSON-serialisable data (string, rows array or object). It must strip personal data (e.g. emails) before returning.
+- `parse()` is pure and deterministic; it must never throw on a single bad row (skip it), but return `[]` only if the whole payload is unusable.
+- Percent values are 0–100. Dates are `YYYY-MM-DD`; months `YYYY-MM`.
+- Tests live in `pipeline/test/sources/<name>.test.ts`, load fixtures with `readFileSync(new URL('../fixtures/<id>/<file>', import.meta.url))`, and assert concrete values taken from the fixture (pick 2–3 specific rows and assert their mapped fields exactly).
+- Commit the fixtures a task uses together with the task (`git add pipeline/test/fixtures/<id>`), after removing any personal data.
+- Do not call any endpoint that a source's robots.txt or terms disallow (notably Design Arena's internal `/api/` website routes, arena.ai and openrouter.ai website pages). Only the URLs named in the task.
+
+### Task 18: Source helper library
+
+**Files:** Create `pipeline/src/sources/lib/{csv,parquet,archive,values,memo}.ts`; Test `pipeline/test/sources/lib.test.ts`.
+
+- `csv.ts`: `parseCsv(text: string): Record<string, string>[]` using `csv-parse/sync` with `{ columns: true, skip_empty_lines: true, relax_column_count: true, bom: true }`. Accepts CRLF and quoted multi-line fields.
+- `parquet.ts`: `readParquetRows(bytes: Uint8Array, opts: { columns: string[]; filter?: (row: Record<string, unknown>) => boolean; chunkRows?: number }): Promise<Record<string, unknown>[]>` using `hyparquet` (`parquetMetadata`, `parquetReadObjects`) with `compressors` from `hyparquet-compressors`; reads in chunks of `chunkRows` (default 50 000) rows so a 58 MB / 1.2 M-row file never materialises all rows at once; applies `filter` per chunk; converts every `bigint` value to `number`.
+- `archive.ts`: `unzipTexts(bytes: Uint8Array, name: RegExp): Record<string, string>` via `fflate.unzipSync` with a filter; `gunzipText(bytes: Uint8Array): string` via `node:zlib` `gunzipSync`.
+- `values.ts`: `toNumber(v: unknown): number | null` (handles number, bigint, numeric strings, `"85.06%"`, `""`/`"-"`/`"🚧"`/null → null, NaN → null); `isoDate(v: unknown): string | null` (accepts `YYYY-MM-DD`, `YYYYMMDD`, ISO datetimes, JS `Date`, Excel serial numbers 20000–80000 → `YYYY-MM-DD`); `lastPerMonth<T>(rows: T[], dateOf: (r: T) => string): T[]` — keeps only rows whose date equals the latest date present in that calendar month.
+- `memo.ts`: `memoBytes(key: string, load: () => Promise<Uint8Array>): Promise<Uint8Array>` — process-level cache so two modules sharing a file (e.g. Arena text_style_control) download it once.
+
+Tests (required): CSV with a quoted multi-line field and CRLF; `toNumber` table of the cases above; `isoDate` for `'20250514'`, `45870` (→ `'2025-08-01'`), `'2025-07-28T09:28:54-04:00'` (→ `'2025-07-28'`); `lastPerMonth` keeps `2025-05-19` and drops `2025-05-11`; gzip round-trip; zip round-trip using `fflate.zipSync` in the test; parquet: write a 3-column, 5-row file with `hyparquet-writer` (add as devDependency; see its README for `parquetWriteBuffer`) including an INT64 column, read it back with `columns` + `filter` + `chunkRows: 2`, assert bigint → number and filtering.
+
+Commit: `feat(pipeline): source helper library (csv, parquet, archive, values)`.
+
+### Task 19: Arena leaderboard modules
+
+**Files:** Create `pipeline/src/sources/arena.ts`; Test `pipeline/test/sources/arena.test.ts`; fixtures `arena-text`, `arena-text-style`, `arena-webdev`, `arena-t2i`, `arena-image-edit`, `arena-t2v`, `arena-i2v`.
+**Notes:** sources-llm.md (Arena sections) / scratchpad `recon-llm/notes-arena.md`; sources-media.md "arena-t2i / …".
+
+Factory `arenaModule(cfg: { id: string; subset: string; group: string; priority?: number; category?: string; name: string })` → `StrengthModule` with `history: 'full'`:
+- `fetch`: `memoBytes(url, …)` of `https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset/resolve/main/${subset}/full-00000-of-00001.parquet` (fetch follows the 302), then `readParquetRows(bytes, { columns: ['model_name','organization','rating','category','leaderboard_publish_date'], filter: r => r.category === (cfg.category ?? 'overall') })`.
+- `parse(rows)`: filter again by category; drop rows whose `rating` is not finite; `lastPerMonth` by `leaderboard_publish_date`; emit `{ series: cfg.id, kind: 'elo', model: model_name, org: organization || undefined, date: leaderboard_publish_date, dateKind: 'snapshot', value: rating }`.
+- `meta`: name `Arena (${cfg.name})`, url `https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset`, license `CC BY 4.0`, credit `Arena leaderboard dataset (lmarena-ai/leaderboard-dataset), CC BY 4.0`.
+
+Exported constants:
+
+| const | id | subset | category | group | priority |
+|---|---|---|---|---|---|
+| `arenaText` | arena-text | text | overall | arena-text | 1 |
+| `arenaTextStyle` | arena-text-style | text_style_control | overall | arena-text | 2 |
+| `arenaCoding` | arena-coding | text_style_control | coding | arena-coding | 2 |
+| `arenaCodingRaw` | arena-coding-raw | text | coding | arena-coding | 1 |
+| `arenaWebdev` | arena-webdev | webdev | overall | arena-webdev | 1 |
+| `arenaT2i` | arena-t2i | text_to_image | overall | arena-image | 1 |
+| `arenaImageEdit` | arena-image-edit | image_edit | overall | arena-image | 1 |
+| `arenaT2v` | arena-t2v | text_to_video | overall | arena-video | 1 |
+| `arenaI2v` | arena-i2v | image_to_video | overall | arena-video | 1 |
+
+(`arena-coding*` give the code front a 2024-04+ history; t2i/edit and t2v/i2v share a group so their scores are averaged.)
+
+Tests (required): for `arena-text` fixture — rows of category `coding` are ignored; of the two May-2025 dates only `2025-05-19` survives; an empty-string organization becomes `undefined`; one specific row's mapped observation equals the expected object. For `arena-image-edit` — dates that only had `multi_image_edit` rows produce nothing. For each of the 7 fixtures, `parse` returns > 0 observations, all with finite values and `kind: 'elo'`.
+
+Commit: `feat(pipeline): Arena leaderboard dataset modules`.
+
+### Task 20: Arena legacy (static, survivorship fix)
+
+**Files:** Create `pipeline/src/sources/arenaLegacy.ts`; Test `pipeline/test/sources/arenaLegacy.test.ts`; `pipeline/scripts/import_arena_legacy.py` (already written by recon — review it, keep it); output `pipeline/raw/arena-legacy/<date>.json`.
+**Notes:** `docs/superpowers/recon/sources-arena-legacy.md`.
+
+- Module `arenaLegacy`: `id 'arena-legacy'`, `role 'strength'`, `group 'arena-text'`, `priority 3`, `history 'full'`, `static: true`, `fetch` throws `Error('static source: run scripts/import_arena_legacy.py')`, `parse(raw)` validates that every item is an `Observation` with `kind 'elo'`, `dateKind 'snapshot'` and returns them (drops invalid ones). Meta credit per the recon licence verdict.
+- Run the script once (documented Python deps in its header), check the output (months covered, a pre-2024 Claude row exists), and commit the raw file.
+- Tests: parse keeps valid items, drops an item with a non-finite value; `runFetch` reports it as skipped (static).
+
+Commit: `feat(pipeline): static Arena legacy snapshots (pre-2025-09, incl. retired models)`.
+
+### Task 21: Epoch modules (ECI + benchmark hub)
+
+**Files:** Create `pipeline/src/sources/epoch.ts`; Test `pipeline/test/sources/epoch.test.ts`; fixtures `epoch-eci`, `epoch-terminalbench`, `epoch-metr`, `epoch-vending`, `epoch-apex`, `epoch-swebench`, `epoch-osworld`, `epoch-osworld2`.
+**Notes:** scratchpad `recon-llm/notes-epoch.md` (zip inventory gives exact file names and score columns).
+
+- `epochEci`: fetch `https://epoch.ai/data/eci_scores.csv`; parse → `{ series 'epoch-eci', kind 'eci', model: Model, org: Organization, date: date, dateKind 'release', value: eci }`; group `epoch-eci`.
+- Factory `epochBenchmark(cfg: { id; file; scoreCol; kind; scale; group; name })`: fetch `memoBytes('https://epoch.ai/data/benchmark_data.zip')`, `unzipTexts` the one file; parse CSV → `{ series: id, kind, model: row['Model version'] || row['Name'], org: row['Organization'], date: isoDate(row['Release date']), dateKind 'release', value: toNumber(row[scoreCol]) * scale }`, skipping rows without model/date/value.
+
+| const | id | score column | kind | scale | group |
+|---|---|---|---|---|---|
+| `epochTerminalBench` | epoch-terminalbench | Accuracy mean | percent | 100 | terminalbench |
+| `epochSwebench` | epoch-swebench | mean_score | percent | 100 | swebench |
+| `epochMetr` | epoch-metr | Time horizon (minutes) | minutes | 1 | metr |
+| `epochVending` | epoch-vending | Score (USD) | eci | 0.001 | vending |
+| `epochApex` | epoch-apex | Pass@1 score | percent | 100 | apex |
+| `epochOsworld` | epoch-osworld | Score (already %) | percent | 1 | osworld |
+| `epochOsworld2` | epoch-osworld2 | Binary accuracy | percent | 100 | osworld |
+
+(Vending-Bench dollars become thousands of dollars compared linearly with τ = 8, so a $8k gap ≈ a 1/(1+e) win probability. Note it in the methods page later.)
+
+Meta: name `Epoch AI Benchmarking Hub` / `Epoch Capabilities Index`, url `https://epoch.ai/data`, license `CC BY 4.0`, credit `Epoch AI, "Data on AI Benchmarking" / "Epoch Capabilities Index", CC BY 4.0`.
+
+Tests (required): one concrete row per fixture mapped exactly (e.g. ECI `Claude Opus 5.5` → value 167.33, date 2026-09-22); fraction → percent scaling; rows with empty `Release date` skipped (the OSWorld fixture has one); the zip path tested by zipping a fixture CSV in-test and running `fetch` with a stubbed `ctx.fetchBytes`.
+
+Commit: `feat(pipeline): Epoch ECI and benchmark-hub modules`.
+
+### Task 22: SWE-bench and Aider
+
+**Files:** `pipeline/src/sources/swebench.ts`, `pipeline/src/sources/aider.ts`; tests; fixtures `swebench`, `aider-edit`, `aider-polyglot`.
+**Notes:** scratchpad `recon-llm/notes-gh.md` (swebench, aider sections).
+
+- `swebench` (id `swebench`, group `swebench`, history full, license `CC BY-NC 4.0`): fetch `https://raw.githubusercontent.com/SWE-bench/swe-bench.github.io/master/data/leaderboards.json`; parse board `Verified`, rows that are mini-SWE-agent runs (`agent === 'mini-SWE-agent'` OR a tag starting `Mini: ` OR key `mini-swe-agent_version`); `model` = `model_display` ?? the `Model: …` tag ?? `name`; `org` = `model_org`; `date` = `isoDate(model_release_date)` ?? `isoDate(date)`; `value` = `resolved`; kind percent; dateKind release.
+- `aiderEdit` / `aiderPolyglot` (group `aider`, priority 1 / 2, license `Apache-2.0`): fetch the YAML from `https://raw.githubusercontent.com/Aider-AI/aider/main/aider/website/_data/{edit,polyglot}_leaderboard.yml`, parse with `yaml` (core schema: dates stay strings; normalise CRLF); `model` = `model`; `value` = `pass_rate_2`; `date` = `isoDate(released ?? _released ?? date)`; kind percent; dateKind release.
+- Tests: number of Verified Mini rows in the fixture equals what the fixture contains (count it in the test from the raw JSON with the same predicate); one concrete mapped row each; the CRLF entry in aider-edit parses.
+
+Commit: `feat(pipeline): SWE-bench (mini-SWE-agent) and Aider modules`.
+
+### Task 23: LiveBench (current release, accumulating)
+
+**Files:** `pipeline/src/sources/livebench.ts`; test; fixture `livebench`.
+**Notes:** scratchpad `recon-llm/notes-lbos.md` (livebench). Historical release tables keep growing after their release date, so they cannot be dated; we snapshot the **current** release on every run and build our own history.
+
+- id `livebench-coding`, group `livebench-coding`, history `accumulate`.
+- fetch: read `LIVE_BENCH_RELEASES` from `https://raw.githubusercontent.com/LiveBench/LiveBench/main/livebench/common.py` (regex all `"\d{4}-\d{2}-\d{2}"` inside it), take the max date `R`, then fetch `https://livebench.ai/table_${R_}.csv` and `https://livebench.ai/categories_${R_}.json` (`R_` = R with `-`→`_`). Return `{ release: R, table, categories }`.
+- parse(raw, { now }): Coding score per model = mean of the `categories.Coding` columns ignoring empty/NaN; emit `{ series 'livebench-coding', kind 'percent', model, date: todayISO(now), dateKind 'snapshot', value }`.
+- License: credit `LiveBench (livebench.ai), Apache-2.0 / CC BY-SA 4.0`.
+- Tests: with `sample.csv` + `categories_2026_06_25.json`, one model's coding mean computed by hand in the test; rows with all-empty coding columns skipped; date equals the injected `now`.
+
+Commit: `feat(pipeline): LiveBench coding snapshots`.
+
+### Task 24: OSWorld-Verified and tau2-bench
+
+**Files:** `pipeline/src/sources/osworld.ts`, `pipeline/src/sources/tau2.ts`; tests; fixtures `osworld`, `tau2`.
+**Notes:** scratchpad `recon-llm/notes-lbos.md` (osworld), `recon-llm/notes-gh.md` (tau2).
+
+- First replace the vulnerable npm `xlsx` with SheetJS's own build: `npm rm xlsx && npm i https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz` (use the newest version listed at https://cdn.sheetjs.com/ if newer). Confirm `npm audit` no longer flags it.
+- `osworld` (group `osworld`, license `CC BY-SA 4.0`, history full): fetch the xlsx bytes from `https://os-world.github.io/static/data/osworld_verified_results.xlsx`, `XLSX.read` → first sheet → `sheet_to_json` rows (`raw: true`), convert the Date column with `isoDate`; parse keeps `Approach type === 'General model'`, numeric score (see notes for the column), emits kind percent, dateKind release, series `osworld-verified`.
+- `tau2` (group `tau2`, license `MIT`, history full): fetch `https://sierra-tau-bench-public.s3.us-west-2.amazonaws.com/submissions/manifest.json`, then each `submission.json` in `submissions` + `legacy_submissions` (never `voice_submissions`); **delete `contact_info` from every object in fetch**. parse: keep `submission_type` missing or `'standard'`; for each domain in `airline`, `retail`, `telecom`, `banking_knowledge` with a numeric `pass_1` emit `{ series: 'tau2@'+domain, kind 'percent', model: model_name, org: model_organization, date: model_release.release_date ?? submission_date, dateKind 'release', value: pass_1 }`.
+- Before committing the tau2 fixtures, replace every email address in them with `"<redacted>"` (e.g. a small node script with the regex `/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g`), and assert in a test that no fixture file under `test/fixtures/tau2/` contains an email address.
+- Tests: OSWorld excludes `Agentic framework` rows and placeholder scores (`🚧`, `-`); one concrete row; tau2 one submission → 4 observations with exact values; custom submissions skipped.
+
+Commit: `feat(pipeline): OSWorld-Verified and tau2-bench modules`.
+
+### Task 25: VBench, TTS Arena, Music Arena
+
+**Files:** `pipeline/src/sources/{vbench,ttsArena,musicArena}.ts`; tests; fixtures `vbench`, `tts-arena`, `music-arena`.
+**Notes:** sources-media.md (vbench, tts-arena, music-arena).
+
+- `vbench` (group `vbench`, history full, credit "VBench leaderboard (Vchitect), cited; no explicit data licence"): fetch `https://vchitect-vbench-leaderboard.hf.space/config`; parse the main T2V table component (notes: component id 20; locate it by id **or** by its header containing the total-score column so a renumbering doesn't break it); model = markdown link text; value = `toNumber("85.06%")`; date = row Date; kind percent; dateKind release; series `vbench`.
+- `ttsArena` (id `tts-arena`, group `tts-arena`, history `accumulate`): fetch `https://tts-agi-tts-arena-v2.hf.space/api/leaderboard`; parse → kind elo (`elo` field), date = `todayISO(now)`, dateKind snapshot.
+- `musicArena` (id `music-arena`, group `music-arena`, history full, CC BY 4.0): **use the official precomputed cumulative TSVs** (no BT needed). fetch: list folders via `https://api.github.com/repos/gclef-cmu/music-arena/contents/components/frontend/ma_frontend/leaderboard` (dirs named `YYYYMMDD`), then for each folder fetch its `vocal_…tsv` and `instrumental_…tsv` (names from the folder listing). Return `[{ date, board, text }]`. parse: TSV (tab-separated, header row; early files use system keys and `+x / -y` CIs) → `{ series: 'music-arena@'+board, kind 'elo', model: Model, date: YYYY-MM-DD of folder, dateKind 'snapshot', value: Arena Score }`.
+- Tests: concrete rows from each fixture; VBench percent parsing and markdown stripping; music early-format and late-format TSV both parse.
+
+Commit: `feat(pipeline): VBench, TTS Arena and Music Arena modules`.
+
+### Task 26: Design Arena (keyed, accumulating)
+
+**Files:** `pipeline/src/sources/designArena.ts`; test; fixture `designarena` (docs example).
+**Notes:** sources-media.md "designarena-*" (endpoint, auth header, response schema, category names). **Use only the documented keyed public API.**
+
+- Factory for categories `image`, `video`, `tts`, `music` → ids `designarena-image|video|tts|music`, groups the same, `needsEnv: ['DESIGNARENA_API_KEY']`, history `accumulate`, credit `Design Arena (designarena.ai)` with the link required by their terms.
+- fetch: `GET https://www.designarena.ai/api/v1/leaderboard/models/{category}` with `Authorization: Bearer ${env.DESIGNARENA_API_KEY}`. parse → kind elo, model per schema, date `todayISO(now)`, dateKind snapshot. An empty board (music today) returns `[]`, which runFetch records as failed with a clear message; that is expected.
+- Tests: the docs-example fixture parses; missing key → skipped by `runFetch`.
+
+Commit: `feat(pipeline): Design Arena modules (requires API key)`.
+
+### Task 27: Scale — CrUX and Tranco
+
+**Files:** `pipeline/src/sources/{crux,tranco}.ts`; tests; fixtures `crux`, `tranco`.
+**Notes:** sources-scale.md (crux, tranco).
+
+- `crux` (role scale, history accumulate, credit "Chrome UX Report (Google), CC BY 4.0, via zakird/crux-top-lists"): fetch the month list from `https://api.github.com/repos/zakird/crux-top-lists/contents/data/global`; months = `ctx.backfill` ? all ≥ `202211` : the last 2 available; for each, download `https://raw.githubusercontent.com/zakird/crux-top-lists/main/data/global/YYYYMM.csv.gz`, `gunzipText`, keep rows whose origin is `https://${h}` or `https://www.${h}` for `h` in `ctx.keys('crux')`. Return `[{ month: 'YYYY-MM', rows: [{ host: h, bucket }] }]` (best bucket per host). parse → `{ signal 'crux', key: host, month, value: REP[bucket] }` with `REP = {1000: 316, 5000: 2236, 10000: 7071, 50000: 22361, 100000: 70711, 500000: 223607, 1000000: 707107}` (representative rank; `signals.ts` turns it into 1/rank).
+- `tranco` (role scale, history accumulate, credit "Tranco list (Le Pochat et al., NDSS 2019), list IDs per month; non-commercial"): months = `ctx.backfill` ? 2022-11 … last complete month : last 2 complete months; per month `GET https://tranco-list.eu/api/lists/date/{last day}?subdomains=true` (on 404 retry −1, −2, −3 days), sleep 1100 ms between API calls, download the daily zip (`https://tranco-list.eu/download_daily/{list_id}`), unzip `top-1m.csv` (CRLF or LF, no header, `rank,domain`), keep `ctx.keys('tranco')`. Return `[{ month, listId, ranks: Record<host, number> }]`; parse → `{ signal 'tranco', key: host, month, value: rank }`.
+- Tests: CrUX fixtures (`sample-202402.csv` etc. and the `.gz`) → bucket mapping incl. the `www.` variant; Tranco `sample-list.csv` scanning and the 404 fallback logic (unit-test a pure `candidateDates(month)` helper).
+
+Commit: `feat(pipeline): CrUX and Tranco scale signals`.
+
+### Task 28: Scale — StatCounter, Wikipedia pageviews, App Store
+
+**Files:** `pipeline/src/sources/{statcounter,wikipedia,itunes}.ts`; tests; fixtures `statcounter`, `wikipedia`, `itunes`.
+**Notes:** sources-scale.md.
+
+- `statcounter` (history full, CC BY-SA 3.0, credit with link https://gs.statcounter.com): fetch the CSV range from 202301 to the **previous** month (URL in notes); parse: sort by Date, drop all-zero rows (missing, not 0%), emit `{ signal 'statcounter', key: <column label>, month: Date, value: share }` for every label except `Date`/`Other`.
+- `wikipedia` (history full, CC0, UA = `USER_AGENT` from http.ts): for each title in `ctx.keys('wikipedia')`, GET `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user/${encodeURIComponent(title.replace(/ /g,'_'))}/monthly/20221101/${lastCompleteMonth}0100`; a 404 for one title is logged and skipped. parse → `{ signal 'wikipedia', key: title, month, value: views }`.
+- `itunes` (history accumulate; credit "Apple App Store (iTunes Lookup API)"): GET `https://itunes.apple.com/lookup?id=${ids.join(',')}&country=us` for `ctx.keys('itunes')`; parse → `{ signal 'itunes', key: String(trackId), month: toMonth(now), value: userRatingCount }`.
+- Tests: StatCounter zero-row handling and label mapping; Wikipedia timestamp `2023010100` → `2023-01`; iTunes concrete app.
+
+Commit: `feat(pipeline): StatCounter, Wikipedia and App Store scale signals`.
+
+### Task 29: Scale — OpenRouter, Ramp, Cloudflare Radar
+
+**Files:** `pipeline/src/sources/{openrouter,ramp,cloudflare}.ts`; tests; fixtures `openrouter`, `ramp`, `cloudflare`.
+**Notes:** sources-scale.md (openrouter, ramp, cloudflare).
+
+- `openrouter` (history accumulate, CC BY 4.0, credit `Source: OpenRouter (openrouter.ai/rankings), as of <date>`): without a key fetch the keyless `https://openrouter.ai/api/v1/datasets/exports/rankings-daily/latest.csv` (rolling 30 days); with `OPENROUTER_API_KEY` and `ctx.backfill`, use the documented keyed `/api/v1/datasets/rankings-daily` from 2025-01-01 in ≤366-day windows. parse: aggregate per (`model_permaslug`, month) the mean of `share_of_daily_tokens` over the days present → `{ signal 'openrouter', key: slug, month, value }`.
+- `ramp`: implement **only if** sources-scale.md's licence verdict is "OK with credit"; otherwise create no module and say so in the commit message. If OK: parse the vendor adoption series per notes → `{ signal 'ramp', key: vendor, month, value: percent }`.
+- `cloudflare` (needsEnv `CLOUDFLARE_API_TOKEN`, CC BY-NC 4.0): generative-AI service ranking time series per notes → `{ signal 'cloudflare', key: service, month, value: rank }` (monthly = best rank in month).
+- Tests: OpenRouter monthly mean from the fixture; Ramp concrete month (if implemented); Cloudflare parse of the documented example.
+
+Commit: `feat(pipeline): OpenRouter, Ramp and Cloudflare Radar scale signals`.
+
+### Task 30: Unit exclusion rule (schema + matching)
+
+**Files:** Modify `pipeline/src/config/schemas.ts`, `pipeline/src/config/load.ts`, `pipeline/src/compute/assign.ts`, `pipeline/src/compute/index.ts`; tests in `test/config/load.test.ts`, `test/compute/assign.test.ts`.
+
+Third-party fine-tunes contain family tokens (`llama-3.1-nemotron`, `hermes-3-llama`, `SWE-Llama`, `Lingma SWE-GPT`, `DeepSWE`…) and some rows combine two models (`DeepSeek R1 + claude-3-5-sonnet`). Add a top-level `exclude: string[]` (regexes, case-insensitive, default `[]`) to `units.yaml`; `parseUnits` returns `exclude: RegExp[]`; `matchUnit(units, obs, exclude: RegExp[] = [])` returns `null` when any exclude regex matches `obs.model`; `assignSeries` gets an `exclude` arg (default `[]`) and passes it; `computeWorld` passes `units.exclude`.
+- Tests: an excluded fine-tune is not assigned; existing tests still pass.
+
+Commit: `feat(pipeline): exclude third-party fine-tunes and multi-model rows from unit matching`.
+
+### Task 31: Registry and method.yaml
+
+**Files:** Modify `pipeline/src/sources/index.ts`; Create `pipeline/config/method.yaml`; Test `pipeline/test/sources/registry.test.ts`.
+
+- `SOURCES` lists every module from Tasks 19–29 (strength first, then scale).
+- `config/method.yaml`:
+```yaml
+start: 2022-11
+strength:
+  minUnits: 2
+  snapshotMaxAgeDays: 92
+  releaseActiveMonths: 3
+  kinds:
+    elo: { scale: 400 }
+    percent: { clampLo: 0.5, clampHi: 99.5 }
+    minutes: { kappa: 1.0 }
+    eci: { tau: 8 }
+  estimate: { floor: 60, step: 6 }
+  weights:
+    general: { arena-text: 0.5, epoch-eci: 0.5 }
+    code: { arena-coding: 0.25, swebench: 0.25, terminalbench: 0.2, arena-webdev: 0.15, aider: 0.15, livebench-coding: 0.1 }
+    agent: { metr: 0.35, osworld: 0.25, tau2: 0.2, vending: 0.1, apex: 0.1 }
+    image: { arena-image: 0.7, designarena-image: 0.3 }
+    video: { arena-video: 0.6, designarena-video: 0.25, vbench: 0.15 }
+    speech: { tts-arena: 0.5, designarena-tts: 0.5 }
+    music: { music-arena: 0.7, designarena-music: 0.3 }
+scale:
+  smoothingMonths: 3
+  announcementStaleMonths: 6
+  metricFactors: { MAU: 1, WAU: 1.4, DAU: 2.5 }
+  floorFactor: 0.5
+  components:
+    users: { weight: 0.45, signals: [announcements] }
+    consumer: { weight: 0.25, signals: [crux, tranco, statcounter, cloudflare] }
+    business: { weight: 0.20, signals: [ramp, openrouter] }
+    attention: { weight: 0.10, signals: [wikipedia, itunes] }
+  base: [consumer, attention]
+events: { newModelMinDelta: 3, surgeStrength: 5, surgeScale: 5, leadHysteresis: 1, maxPerFrontMonth: 3 }
+```
+(The code-front weights add Arena's `coding` category to spec §6.1-5's list to give 2024–25 history; spec allows tuning in this file.)
+- Tests: every module id is unique; every strength module's `group` appears in at least one front's weights; every weights key is a group provided by at least one module; `parseMethod` accepts the file.
+
+Commit: `feat(pipeline): source registry and method configuration`.
+
+### Task 32: Curated data — units, announcements, releases, events
+
+**Files:** Create `pipeline/curated/{units,announcements,releases,events}.yaml`; Test `pipeline/test/curated.test.ts`.
+
+- `units.yaml`: orgs (colours from `mockups/data.js`, plus any new orgs; keep colours distinguishable within each front) and all 7 fronts with the unit rosters of spec §3, `since` = public launch month, model regexes from the recon "family → patterns" tables (use look-around patterns rather than `^` anchors so provider prefixes like `openrouter/` still match; Gemini must not match Gemma; Google video includes `gemini-omni`; Meta's general unit covers `llama` and `muse-spark`/`muse-glimmer`), `orgMatch` where org strings are reliable, the `exclude` list (from recon: `swe-gpt|swe-llama|hermes|nemotron|dracarys|deepswe|skywork|openhands-lm|swe-agent-lm|frog(?:boss|mini)|raft-|reflection-70b|wizardlm|tulu|simpo`, and multi-model strings ` \+ |&`), and scale identifiers from sources-scale.md's product → identifier table (CrUX/Tranco hosts incl. historical hosts like `chat.openai.com`, `bard.google.com`, `grok.x.ai`, `chat.qwenlm.ai`, `www.suno.ai`, `sora.com`, `kling.ai`; StatCounter labels; OpenRouter slug prefixes; Wikipedia titles; iTunes ids; Ramp vendor keys on general-front units only).
+- `announcements.yaml`: one series per product with a consistent metric, seeded from Epoch `ai_companies_usage_reports.csv` (only `Company disclosure`/`Media report` rows with `Confidence` Confident/Likely, excluding `Exclude from graph view`) plus company figures with URLs from the design research (e.g. Gemini app 1B+ monthly users 2026-08-11 https://blog.google/innovation-and-ai/products/gemini-app/one-billion-monthly-users/). Every point needs a URL.
+- `releases.yaml`: release month + display name for every model name that appears in the **first snapshot** of each snapshot-type source (needed for reconstruction) and for headline models used in event text (GPT-4, Claude 3.5 Sonnet, Gemini 2.5 Pro, Nano Banana, Veo 3, Sora 2, Suno v5…). Source each date from the vendor announcement; if unsure, omit the entry.
+- `events.yaml`: `custom: [{ month: 2022-11, front: general, unit: gpt, text: { ja: 'ChatGPT 公開 — 開戦', en: 'ChatGPT launches — the war begins' } }]`.
+- Test (`curated.test.ts`): all four files parse with the real loaders; every unit regex matches at least one model name present in the committed fixtures **or** is listed in an allow-list in the test with a reason; no two units in one front match the same fixture model name.
+
+Commit: `feat(pipeline): curated units, announcements, releases and events`.
+
+### Task 33: First real run, calibration and sanity review
+
+**Files:** `pipeline/raw/**` (generated), `site/public/data/world.json` (generated), `pipeline/config/method.yaml` (calibrated), `docs/superpowers/recon/first-run.md` (new: findings).
+
+- [ ] Run `npm run fetch -- --backfill` (from `pipeline/`); read the summary and `raw/_status/<date>.json`. Fix any module that fails for a reason other than a missing key (add a regression test with the real payload shape when you do).
+- [ ] Run `python scripts/import_arena_legacy.py` if Task 20's output is not committed yet.
+- [ ] Run `npm run compute && npm run report`; open `pipeline/out/report.html` and screenshot each front.
+- [ ] Sanity checks against well-known history (write results into `first-run.md`): general-front strength leader should be GPT through most of 2023–2024, with Claude 3.5 Sonnet / Gemini 2.5 Pro / later leaders appearing at the right months; code front shows Claude strong from 2024-06; image front shows the nano-banana / gpt-image lead changes listed in sources-media.md; Suno is the music scale leader; Google's unit exists on every front. Investigate every surprise (usually a regex or a stale snapshot) before accepting it.
+- [ ] Calibrate `eci.tau` and `minutes.kappa` so that the ECI and METR score spreads among the top 5 units in 2025–2026 are comparable to the Arena spread (report the before/after spreads in `first-run.md`); re-run compute.
+- [ ] `npm test && npm run typecheck`.
+- [ ] Commit raw snapshots, `world.json`, calibrated `method.yaml` and `first-run.md`: `feat(data): first full data run (2022-11 → now)`.
