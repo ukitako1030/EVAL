@@ -139,10 +139,39 @@
   display: none;
 }
 
-/* narrower than the 360 px phones this layout targets: the ⓘ makes way so the title and month stay readable */
+/* the share icon (ui/hud.ts) is for the narrowest phones only */
+.hud-share-ic {
+  display: none;
+}
+
+/* narrower than the 360 px phones this layout targets: share becomes an icon and the language switch drops its globe,
+   so the title, the month and all three tools (data & method included) still fit */
 @media (max-width: 350px) {
-  .m .hud-tools #hud-methods {
+  .m .hud-tools .hud-btn {
+    min-width: 40px;
+  }
+
+  .m .hud-globe {
     display: none;
+  }
+
+  .m .hud-tools #hud-share {
+    width: 40px;
+    padding: 0;
+  }
+
+  .m #hud-share .hud-share-ic {
+    display: block;
+  }
+
+  /* visually hidden, still the button's accessible name */
+  .m #hud-share .hud-share-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 }
 
@@ -358,7 +387,7 @@
 .m .rank-list {
   min-height: calc(var(--m-rank) * 5);
   max-height: calc(var(--m-rank) * 5);
-  overflow: hidden;
+  overflow: clip; /* not even scrollable by focus or script; the rows below 5 are inert while collapsed (ui/mobile.ts) */
 }
 
 /* no units yet: the message fills the (empty) five-row list instead of trailing under it */

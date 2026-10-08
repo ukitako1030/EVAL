@@ -276,6 +276,20 @@ describe('mobile layout: ranking top 5', () => {
     expect($('#m-showall').hidden).toBe(true);
   });
 
+  it('the rows under the top five are out of reach (inert) while the list is collapsed', () => {
+    const t = setup({ units: 7 });
+    const rows = () => [...document.querySelectorAll<HTMLLIElement>('li.rank-row')].filter((li) => !li.hidden);
+    expect(rows().map((li) => li.hasAttribute('inert'))).toEqual([false, false, false, false, false, true, true]);
+    t.mobile.setExpanded(true);
+    expect(rows().some((li) => li.hasAttribute('inert'))).toBe(false);
+    t.mobile.setExpanded(false);
+    expect(rows().filter((li) => li.hasAttribute('inert'))).toHaveLength(2);
+    t.size.w = 1440; // desktop: every row
+    t.size.h = 900;
+    t.mobile.refresh();
+    expect(rows().some((li) => li.hasAttribute('inert'))).toBe(false);
+  });
+
   it('collapses when the window becomes desktop-sized', () => {
     const t = setup({ units: 7 });
     t.mobile.setExpanded(true);
@@ -356,6 +370,7 @@ describe('mobile layout: closing things', () => {
     t.store.set({ selectedUnit: 'gpt' });
     const handle = $<HTMLButtonElement>('.sheet-handle');
     expect(handle.hidden).toBe(false);
+    expect(handle.getAttribute('aria-label')).toBe('詳細シートを閉じる');
     const sheet = t.detail.el;
     Object.defineProperty(sheet, 'offsetHeight', { configurable: true, value: 440 });
 

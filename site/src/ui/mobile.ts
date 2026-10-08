@@ -9,7 +9,7 @@
  */
 import type { FrontId, Lang, World } from '../data/types';
 import { monthIndex } from '../data/timeline';
-import { tr } from '../i18n/strings';
+import { tr, trA11y } from '../i18n/strings';
 import type { AppState, Store } from '../state/store';
 import { frontName, h, setAttr, setText } from './dom';
 import type { HudSlots } from './hud';
@@ -29,7 +29,7 @@ export interface OverlayHistory {
 
 export interface MobileOptions {
   hud: { el: HTMLElement; slots: Pick<HudSlots, 'panel' | 'timeline'> };
-  ranking: { setRowHeight(px: number): void };
+  ranking: { setRowHeight(px: number): void; setVisibleRows?(n: number | null): void };
   detail: { el: HTMLElement };
   /** the stage canvas: horizontal swipes on it step the front */
   stage: HTMLElement;
@@ -128,6 +128,9 @@ export function createMobile(world: World, store: Store<AppState>, o: MobileOpti
     return n;
   }
 
+  /** the collapsed list shows the top TOP_N: the rows under them are out of reach (inert) until "すべて表示" */
+  const syncVisibleRows = () => o.ranking.setVisibleRows?.(active && !expanded ? TOP_N : null);
+
   function render(s: AppState): void {
     if (s.front) lastFront = s.front;
     const map = mapOpen();
@@ -151,6 +154,7 @@ export function createMobile(world: World, store: Store<AppState>, o: MobileOpti
     setAttr(prev, 'aria-label', `${tr('prevFront', l)}: ${p ? frontName(world, p, l) : ''}`);
     setAttr(next, 'aria-label', `${tr('nextFront', l)}: ${n ? frontName(world, n, l) : ''}`);
     setText(mapLabel, tr(map ? 'backToFront' : 'galaxyMap', l));
+    setAttr(handle, 'aria-label', trA11y('closeSheet', l));
     setAttr(mapBtn, 'aria-pressed', String(map));
     showAll.hidden = !active || map || (!many && !expanded);
     setText(showAll, expanded ? `${tr('showTop', l)} ▴` : `${tr('showAll', l)} ▾`);
@@ -213,6 +217,7 @@ export function createMobile(world: World, store: Store<AppState>, o: MobileOpti
     o.ranking.setRowHeight(rowH);
     root.style.setProperty('--m-rank', `${rowH}px`); // the collapsed list shows exactly TOP_N rows
     if (!active) expanded = false;
+    syncVisibleRows();
     key = '';
     // the mobile view is one planet: arriving from the desktop galaxy overview shows the last front (default general)
     if (entering && store.get().front === null) store.set({ front: lastFront, selectedUnit: null });
@@ -225,6 +230,7 @@ export function createMobile(world: World, store: Store<AppState>, o: MobileOpti
     const v = on && active;
     if (v === expanded) return;
     expanded = v;
+    syncVisibleRows();
     render(store.get());
     syncHistory();
   }

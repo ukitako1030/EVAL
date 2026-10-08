@@ -55,9 +55,21 @@ function build(world: World, front: FrontId, id: string, i: number, lang: Lang, 
   ];
 }
 
+/** What identifies a focusable element of the panel body across a rebuild: the title, or a link / button by its text. */
+function focusKey(el: Element): string {
+  if (el.classList.contains('detail-name')) return 'title';
+  const href = el instanceof HTMLAnchorElement ? el.href : '';
+  return `${el.tagName}|${href}|${el.textContent ?? ''}`;
+}
+
+/** The focusable elements of the panel body (the title is focusable from script only). */
+const FOCUSABLE = 'a[href], button, [tabindex]';
+
 /**
  * Unit detail panel (a bottom sheet on narrow screens): shown while `state.selectedUnit` is a unit of
  * `state.front ?? 'general'`; values, confidence, history and the source breakdown of the current whole month.
+ * Keyboard focus: opening a unit moves focus to its name; a month change (playback) rebuilds the body but puts focus
+ * back on the same element (or the name); closing returns focus to where it was when the panel opened.
  */
 export function createDetail(root: HTMLElement, world: World, store: Store<AppState>): Detail {
   const titleId = uid('detail-title');
@@ -68,6 +80,33 @@ export function createDetail(root: HTMLElement, world: World, store: Store<AppSt
 
   let key = '';
   let shown = '';
+  /** focused when the panel opened (a ranking row, a chip…): gets focus back when it closes */
+  let opener: HTMLElement | null = null;
+  const doc = root.ownerDocument;
+
+  function rebuild(nodes: Node[]): void {
+    const active = doc.activeElement;
+    const had = active instanceof HTMLElement && body.contains(active) ? focusKey(active) : null;
+    body.replaceChildren(...nodes);
+    if (had === null) return;
+    let to: HTMLElement | null = null;
+    for (const c of body.querySelectorAll<HTMLElement>(FOCUSABLE)) {
+      if (focusKey(c) === had) {
+        to = c;
+        break;
+      }
+    }
+    (to ?? body.querySelector<HTMLElement>('.detail-name'))?.focus({ preventScroll: true });
+  }
+
+  function giveFocusBack(): void {
+    const back = opener;
+    opener = null;
+    // only if focus was in the panel (now hidden) or nowhere; never steal it from something the reader moved to
+    const active = doc.activeElement;
+    const lost = !active || active === doc.body || el.contains(active);
+    if (lost && back && back.isConnected && !back.closest('[hidden], [inert]')) back.focus({ preventScroll: true });
+  }
 
   function update(state: AppState): void {
     el.classList.toggle('reduced-motion', state.reducedMotion);
@@ -76,9 +115,11 @@ export function createDetail(root: HTMLElement, world: World, store: Store<AppSt
     const id = state.selectedUnit;
     const unit = id && world.units[front] && Object.hasOwn(world.units[front], id) ? world.units[front][id] : undefined;
     if (!id || !unit) {
+      const wasOpen = !el.hidden;
       el.hidden = true;
       key = '';
       shown = '';
+      if (wasOpen) giveFocusBack();
       return;
     }
     const i = monthIndex(world, state.t);
@@ -86,11 +127,13 @@ export function createDetail(root: HTMLElement, world: World, store: Store<AppSt
     if (k !== key) {
       key = k;
       setAccent(el, world.orgs[unit.org]?.color);
-      body.replaceChildren(...build(world, front, id, i, state.lang, titleId).filter((n): n is Node => n !== null));
+      rebuild(build(world, front, id, i, state.lang, titleId).filter((n): n is Node => n !== null));
     }
     el.hidden = false;
     if (shown !== `${front}|${id}`) {
       shown = `${front}|${id}`;
+      const active = doc.activeElement;
+      if (active instanceof HTMLElement && active !== doc.body && !el.contains(active)) opener = active;
       body.querySelector<HTMLElement>('.detail-name')?.focus({ preventScroll: true }); // announce the newly opened unit
     }
   }

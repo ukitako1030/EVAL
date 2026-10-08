@@ -31,6 +31,8 @@ export interface Ranking {
   update(state: AppState): void;
   /** row pitch in px (default `ROW_H`; the mobile layout uses shorter rows) */
   setRowHeight(px: number): void;
+  /** only the top `n` rows are on screen (the collapsed mobile list): the rest are `inert`; null = all rows */
+  setVisibleRows(n: number | null): void;
   destroy(): void;
 }
 
@@ -44,7 +46,9 @@ export function deltaMark(u: Pick<UnitFrame, 'rankDelta'>, isNew: boolean, lang:
 
 /**
  * Standings of `state.front ?? 'general'` at `state.t`: one absolutely positioned `<li>` per unit that slides to its
- * rank (CSS transition; none under reduced motion). Click → `selectedUnit`, hover / focus → `hoverOrg`.
+ * rank (CSS transition; none under reduced motion). Click → `selectedUnit`, hover / focus → `hoverOrg`. The `<li>`s are
+ * kept in rank order in the DOM too, so the tab / reading order matches the screen (moved with `moveBefore` where the
+ * browser has it — focus and the slide survive — otherwise re-inserted, re-focused and the slide replayed).
  * `opts.frames` shares the app's per-frame `frontFrame`s (main.ts); without it the ranking computes its own.
  */
 export function createRanking(root: HTMLElement, world: World, store: Store<AppState>, opts: { frames?: FrameSource } = {}): Ranking {
@@ -70,6 +74,11 @@ export function createRanking(root: HTMLElement, world: World, store: Store<AppS
   let front: FrontId | null = null;
   let lang: Lang | null = null;
   let rowH = ROW_H;
+  let visibleRows: number | null = null;
+  /** rows of the current frame in rank order (reused) */
+  const order: HTMLLIElement[] = [];
+  /** true while rows are re-ordered: a focused row's blur / focus there is not a hover change */
+  let moving = false;
 
   function makeRow(id: string, unit: { org: string; name: string }): Row {
     const color = world.orgs[unit.org]?.color;
@@ -99,9 +108,11 @@ export function createRanking(root: HTMLElement, world: World, store: Store<AppS
     ]);
     setAccent(li, color);
     btn.addEventListener('click', () => store.set({ selectedUnit: id }));
-    const hoverOn = () => store.set({ hoverOrg: unit.org });
+    const hoverOn = () => {
+      if (!moving) store.set({ hoverOrg: unit.org });
+    };
     const hoverOff = () => {
-      if (store.get().hoverOrg === unit.org) store.set({ hoverOrg: null });
+      if (!moving && store.get().hoverOrg === unit.org) store.set({ hoverOrg: null });
     };
     li.addEventListener('pointerenter', hoverOn);
     li.addEventListener('pointerleave', hoverOff);
@@ -120,6 +131,49 @@ export function createRanking(root: HTMLElement, world: World, store: Store<AppS
       list.appendChild(row.li);
     }
     lang = null; // new rows need their labels
+  }
+
+  type Movable = HTMLElement & { moveBefore?: (node: Node, child: Node | null) => void };
+
+  /** one row to just before `ref`, keeping its focus and its slide */
+  function moveRow(li: HTMLLIElement, ref: Element | null, reduced: boolean): void {
+    const host = list as Movable;
+    if (typeof host.moveBefore === 'function') {
+      try {
+        host.moveBefore(li, ref);
+        return;
+      } catch {
+        /* fall back to a plain re-insert */
+      }
+    }
+    // a re-inserted element has no style to transition from: replay the slide from where it is now
+    const from = !reduced && typeof li.animate === 'function' ? getComputedStyle(li).transform : '';
+    list.insertBefore(li, ref);
+    if (from && from !== 'none') li.animate([{ transform: from }, { transform: li.style.transform }], { duration: 400, easing: 'cubic-bezier(0.2, 0.9, 0.2, 1)' });
+  }
+
+  /** DOM order = rank order (rows not on the board trail behind) */
+  function reorder(reduced: boolean): void {
+    let node = list.firstElementChild;
+    let i = 0;
+    while (i < order.length && node === order[i]) {
+      node = node.nextElementSibling;
+      i++;
+    }
+    if (i === order.length) return;
+    const doc = list.ownerDocument;
+    const active = doc.activeElement;
+    const keep = active instanceof HTMLElement && list.contains(active) ? active : null;
+    moving = true;
+    try {
+      for (let k = i; k < order.length; k++) {
+        const at = list.children[k] ?? null;
+        if (at !== order[k]) moveRow(order[k], at, reduced);
+      }
+      if (keep && doc.activeElement !== keep) keep.focus({ preventScroll: true });
+    } finally {
+      moving = false;
+    }
   }
 
   function relabel(l: Lang, f: FrontId): void {
@@ -155,11 +209,14 @@ export function createRanking(root: HTMLElement, world: World, store: Store<AppS
     const i0 = monthIndex(world, state.t);
     const series = world.series[f] ?? {};
     const shown = new Set<string>();
+    order.length = 0;
     for (const u of frame) {
       const r = rows.get(u.id);
       if (!r) continue;
       shown.add(u.id);
+      order.push(r.li);
       r.li.hidden = false;
+      r.li.toggleAttribute('inert', visibleRows !== null && u.rank > visibleRows);
       setStyle(r.li, 'transform', `translateY(${(u.rank - 1) * rowH}px)`);
       setStyle(r.li, 'opacity', u.presence.toFixed(2));
       setAttr(r.li, 'data-rank', String(u.rank));
@@ -181,6 +238,7 @@ export function createRanking(root: HTMLElement, world: World, store: Store<AppS
       setText(r.cVal, `${fmt1(u.c)}%`);
     }
     for (const [id, r] of rows) if (!shown.has(id)) r.li.hidden = true;
+    reorder(state.reducedMotion);
     setStyle(list, 'height', `${frame.length * rowH}px`);
     empty.hidden = frame.length > 0;
   }
@@ -197,6 +255,12 @@ export function createRanking(root: HTMLElement, world: World, store: Store<AppS
     setRowHeight(px) {
       if (!(px > 0) || px === rowH) return;
       rowH = px;
+      update(store.get());
+    },
+    setVisibleRows(n) {
+      const v = n !== null && n > 0 ? n : null;
+      if (v === visibleRows) return;
+      visibleRows = v;
       update(store.get());
     },
     destroy() {

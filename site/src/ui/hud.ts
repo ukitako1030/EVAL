@@ -3,7 +3,7 @@ import { monthIndex, monthLabel } from '../data/timeline';
 import { tr, type StringKey } from '../i18n/strings';
 import type { AppState, Store } from '../state/store';
 import { encodeUrl } from '../state/url';
-import { h, setAttr, setText } from './dom';
+import { h, setAttr, setText, svg } from './dom';
 
 /** Empty containers the other HUD components mount into (`createRanking(slots.ranking, …)` etc.). */
 export interface HudSlots {
@@ -62,7 +62,15 @@ export function mountHud(root: HTMLElement, store: Store<AppState>, world: World
     langToggleCode,
   ]);
 
-  const shareBtn = h('button', { id: 'hud-share', class: 'hud-btn', attrs: { type: 'button' } });
+  // the label is the accessible name; the icon stands in for it on the narrowest phones (styles/mobile.css)
+  const shareLabel = h('span', { class: 'hud-share-label' });
+  const shareIcon = svg('svg', { class: 'hud-share-ic', viewBox: '0 0 16 16', width: 16, height: 16, 'aria-hidden': 'true', focusable: 'false' }, [
+    svg('path', { d: 'M10.4 4.4 5.6 7.1M5.6 8.9l4.8 2.7', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5 }),
+    svg('circle', { cx: 12, cy: 3.6, r: 2.1, fill: 'currentColor' }),
+    svg('circle', { cx: 4, cy: 8, r: 2.1, fill: 'currentColor' }),
+    svg('circle', { cx: 12, cy: 12.4, r: 2.1, fill: 'currentColor' }),
+  ]);
+  const shareBtn = h('button', { id: 'hud-share', class: 'hud-btn', attrs: { type: 'button' } }, [shareIcon, shareLabel]);
   const shareStatus = h('span', { id: 'hud-share-status', class: 'hud-share-status', attrs: { role: 'status', 'aria-live': 'polite' } });
   const methods = h('a', { id: 'hud-methods', class: 'hud-btn hud-link' });
   const tools = h('nav', { id: 'hud-tools', class: 'hud-tools' }, [updated, langGroup, langToggle, shareBtn, methods, shareStatus]);
@@ -131,7 +139,7 @@ export function mountHud(root: HTMLElement, store: Store<AppState>, world: World
     setText(prelim, tr('preliminary', l));
     setText(updatedKey, tr('lastUpdated', l));
     setAttr(langGroup, 'aria-label', tr('language', l));
-    setText(shareBtn, tr('share', l));
+    setText(shareLabel, tr('share', l));
     setText(methods, tr('methods', l));
     methods.setAttribute('href', `methods.html?lang=${l}`); // constant, not from world.json
     setText(lgArea.text, tr('legendArea', l));

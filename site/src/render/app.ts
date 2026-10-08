@@ -28,6 +28,8 @@ export interface FocusOptions {
   durationMs?: number;
   /** start the move from this camera instead of the current one (e.g. an intro warp-in) */
   from?: Camera;
+  /** a move under way keeps its start and progress and just heads for the new target (no restart, no snap) */
+  retarget?: boolean;
 }
 
 /** `dt` is the frame time in seconds clamped to 0.1 s (for animation); `rawDt` is unclamped (for the quality governor). */
@@ -180,6 +182,7 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
     },
     focus(next, o = {}) {
       target = next;
+      if (o.retarget && tween) return;
       const dur = (o.durationMs ?? CAMERA_MS) / 1000;
       if (o.instant || reduced || dur <= 0) {
         tween = null;

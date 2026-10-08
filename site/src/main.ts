@@ -31,6 +31,7 @@ import { createBannerQueue, holdCounts, selectEvents } from './events/queue';
 import { mountHud } from './ui/hud';
 import { createRanking } from './ui/ranking';
 import { createDeployment } from './ui/deployment';
+import { createFrontTabs } from './ui/frontTabs';
 import { createTimelineBar } from './ui/timelineBar';
 import { createBanners } from './ui/banners';
 import { createDetail } from './ui/detail';
@@ -98,6 +99,7 @@ async function boot(mount: HTMLElement) {
     const hud = mountHud(mount, store, world, { nativeShare: () => mobile.active });
     const ranking = createRanking(hud.slots.ranking, world, store, { frames });
     createDeployment(hud.slots.deployment, world, store, { frames });
+    createFrontTabs(hud.slots.panel, world, store, { frames }); // desktop: the keyboard way into a front
     const timeline = createTimelineBar(hud.slots.timeline, world, store);
     const banners = createBanners(hud.slots.banners, world, store);
     const detail = createDetail(hud.slots.detail, world, store);
@@ -158,9 +160,10 @@ async function boot(mount: HTMLElement) {
       timeline.setCompact(mobile.active);
       reframe({ aim: false, animate: false });
     });
-    const aim = (instant: boolean) => renderer.focus(galaxy.cameraTarget(store.get().front), { instant });
-    aim(true);
-    galaxy.onLayoutChange(() => aim(true));
+    renderer.focus(galaxy.cameraTarget(store.get().front), { instant: true });
+    // a re-arranged galaxy (resize; on phones also the first frame, once the HUD insets apply) moves the target: a camera
+    // move under way (the intro fly-in) is re-aimed, otherwise the camera follows at once
+    galaxy.onLayoutChange(() => renderer.focus(galaxy.cameraTarget(store.get().front), { instant: true, retarget: true }));
 
     // ---- playback + battle news ----
     const playbackFor = (front: FrontId | null) => createPlayback({ lastIndex: last, eventMonths: holdCounts(world, front), maxHoldSeconds: MAX_HOLD_SECONDS });

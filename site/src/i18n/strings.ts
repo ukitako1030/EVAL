@@ -114,3 +114,17 @@ export type StringKey = keyof typeof STRINGS;
 export function tr(key: StringKey, lang: Lang): string {
   return STRINGS[key][lang];
 }
+
+// ---- UI strings added with the accessibility review: a separate block (and lookup) so parallel edits merge cleanly ----
+export const STRINGS_A11Y = {
+  /** the desktop front selector (ui/frontTabs.ts) */
+  fronts: { ja: '戦線', en: 'Fronts' },
+  /** the mobile bottom sheet's drag handle (ui/mobile.ts) */
+  closeSheet: { ja: '詳細シートを閉じる', en: 'Close the details sheet' },
+} as const satisfies Record<string, { ja: string; en: string }>;
+
+export type StringKeyA11y = keyof typeof STRINGS_A11Y;
+
+export function trA11y(key: StringKeyA11y, lang: Lang): string {
+  return STRINGS_A11Y[key][lang];
+}

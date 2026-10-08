@@ -108,6 +108,32 @@ describe('ranking panel', () => {
     expect(root.querySelector('.rank-front')?.textContent).toBe('generalJA');
   });
 
+  it('keeps the rows in rank order in the DOM (tab / reading order), with focus staying on a moved row', () => {
+    const { root, store } = setup({ t: 0 });
+    const domOrder = () => [...root.querySelectorAll<HTMLLIElement>('li.rank-row')].filter((li) => !li.hidden).map((li) => li.dataset.unit);
+    expect(domOrder()).toEqual(['gpt', 'claude']); // 2025-01
+    const gptBtn = row(root, 'gpt').querySelector<HTMLButtonElement>('button.rank-name')!;
+    gptBtn.focus();
+    expect(store.get().hoverOrg).toBe('openai');
+    store.set({ t: 2 }); // Claude takes the lead, Gemini arrives
+    expect(domOrder()).toEqual(['claude', 'gpt', 'gemini']);
+    expect(document.activeElement).toBe(gptBtn); // re-focused after the move
+    expect(store.get().hoverOrg).toBe('openai'); // the move is not a blur
+    store.set({ sortBy: 'scale' });
+    expect(domOrder()).toEqual(['gpt', 'claude', 'gemini']);
+    expect(row(root, 'gpt').style.transform).toBe('translateY(0px)'); // still placed by rank on screen
+  });
+
+  it('setVisibleRows makes the rows below the cut inert (the collapsed mobile list) until it is lifted', () => {
+    const { root, ranking } = setup();
+    ranking.setVisibleRows(2);
+    expect(row(root, 'claude').hasAttribute('inert')).toBe(false);
+    expect(row(root, 'gpt').hasAttribute('inert')).toBe(false);
+    expect(row(root, 'gemini').hasAttribute('inert')).toBe(true);
+    ranking.setVisibleRows(null);
+    expect(row(root, 'gemini').hasAttribute('inert')).toBe(false);
+  });
+
   it('switches language and turns transitions off under reduced motion', () => {
     const { root, store } = setup();
     store.set({ lang: 'en', reducedMotion: true });

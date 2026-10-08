@@ -11,7 +11,8 @@ export interface BackButton {
 
 /**
  * "◀ 銀河に戻る / Back to galaxy": a HUD button under the title, shown only while a front is focused. Leaving the front
- * also closes the unit detail (the same unit id can belong to a different front's standings).
+ * also closes the unit detail (the same unit id can belong to a different front's standings). It sits right after the
+ * title in the DOM, so the tab order follows the screen.
  */
 export function createBackButton(root: HTMLElement, store: Store<AppState>): BackButton {
   const label = h('span', { class: 'hud-back-label' });
@@ -19,7 +20,9 @@ export function createBackButton(root: HTMLElement, store: Store<AppState>): Bac
     h('span', { class: 'hud-back-arrow', attrs: { 'aria-hidden': 'true' } }, ['◀']),
     label,
   ]);
-  root.appendChild(el);
+  const title = root.querySelector(':scope > #hud-title');
+  if (title) title.after(el);
+  else root.appendChild(el);
   el.addEventListener('click', () => store.set({ front: null, selectedUnit: null }));
 
   let lang: Lang | null = null;
