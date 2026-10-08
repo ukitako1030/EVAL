@@ -3,7 +3,20 @@ import type { FetchCtx } from './types';
 export const USER_AGENT = 'AI-WAR-data-pipeline/0.1 (non-commercial research visualisation; https://github.com/ukitako1030)';
 
 /** A server-requested back-off (Retry-After) is never honoured for longer than this. */
-const MAX_RETRY_AFTER_MS = 60_000;
+export const MAX_RETRY_AFTER_MS = 60_000;
+
+/** A failed HTTP response. The message stays `HTTP <status> for <url>` (query string stripped), which sources match on. */
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    readonly url: string,
+    /** the server's `Retry-After` in ms (capped at 60 s), when it sent a usable one */
+    readonly retryAfterMs?: number,
+  ) {
+    super(`HTTP ${status} for ${url}`);
+    this.name = 'HttpError';
+  }
+}
 
 export interface RetryOpts {
   /** total tries per request (default 3) */
@@ -107,9 +120,9 @@ async function request<T>(url: string, init: RequestInit, read: (res: Response) 
       }
       if (res.ok) return await read(res);
       void res.body?.cancel().catch(() => {});
-      lastErr = new Error(`HTTP ${res.status} for ${safeUrl}`);
+      const ra = res.status === 429 ? parseRetryAfter(res.headers.get('retry-after')) : null;
+      lastErr = new HttpError(res.status, safeUrl, ra ?? undefined);
       if (res.status === 429) {
-        const ra = parseRetryAfter(res.headers.get('retry-after'));
         if (ra != null) delay = ra;
       } else if (res.status < 500) {
         break;

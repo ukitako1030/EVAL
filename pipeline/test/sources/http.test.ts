@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { makeFetchCtx, parseRetryAfter, USER_AGENT } from '../../src/sources/http';
+import { HttpError, makeFetchCtx, parseRetryAfter, USER_AGENT } from '../../src/sources/http';
 import type { FetchCtx } from '../../src/sources/types';
 
 let server: Server;
@@ -271,5 +271,75 @@ describe('http fetch path', () => {
     expect(await plainCtx().fetchText('http://example.test/b')).toBe('plain');
     vi.stubGlobal('fetch', vi.fn(async () => new Response('no url')));
     expect(await plainCtx().fetchText('https://example.test/c')).toBe('no url');
+  });
+});
+
+// --- HttpError (used by sources that handle 429 themselves, e.g. wikipedia) ---
+describe('HttpError', () => {
+  it('keeps the "HTTP <status> for <url>" message that the sources match on', () => {
+    const e = new HttpError(429, 'https://x.example/a', 5_000);
+    expect(e).toBeInstanceOf(Error);
+    expect(e.message).toBe('HTTP 429 for https://x.example/a');
+    expect(e).toMatchObject({ status: 429, retryAfterMs: 5_000 });
+    expect(new HttpError(404, 'https://x.example/b').retryAfterMs).toBeUndefined();
+  });
+});
+
+describe('makeFetchCtx fetch helpers on HTTP 429', () => {
+  const reply = (status: number, headers: Record<string, string> = {}, body = 'ok') => new Response(body, { status, headers });
+  const ctx = () => makeFetchCtx(new Date('2026-10-08T00:00:00Z'), {}, () => {}, { backfill: false, keys: () => [] });
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('waits for Retry-After (not the 1 s default backoff) before retrying', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(reply(429, { 'Retry-After': '7' }))
+      .mockResolvedValueOnce(reply(200, {}, 'done'));
+    vi.stubGlobal('fetch', fetchMock);
+    const p = ctx().fetchText('https://x.example/a');
+    await vi.advanceTimersByTimeAsync(6_999);
+    expect(fetchMock).toHaveBeenCalledTimes(1); // the default backoff would already have retried after 1 s
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await p).toBe('done');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('falls back to exponential backoff without a usable Retry-After', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(reply(429)).mockResolvedValueOnce(reply(200, {}, 'done'));
+    vi.stubGlobal('fetch', fetchMock);
+    const p = ctx().fetchText('https://x.example/a');
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await p).toBe('done');
+  });
+
+  it('after the last attempt throws an HttpError that carries the (capped) Retry-After', async () => {
+    const fetchMock = vi.fn(async () => reply(429, { 'Retry-After': '300' }));
+    vi.stubGlobal('fetch', fetchMock);
+    const p = ctx().fetchJson('https://x.example/a');
+    const settled = p.then(
+      () => null,
+      (e: unknown) => e,
+    );
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    const err = await settled;
+    expect(err).toBeInstanceOf(HttpError);
+    expect(err).toMatchObject({ message: 'HTTP 429 for https://x.example/a', status: 429, retryAfterMs: 60_000 });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not retry a plain 404 and reports it as an HttpError', async () => {
+    const fetchMock = vi.fn(async () => reply(404));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(ctx().fetchText('https://x.example/missing')).rejects.toMatchObject({ message: 'HTTP 404 for https://x.example/missing', status: 404 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
