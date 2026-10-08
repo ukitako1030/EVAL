@@ -1,5 +1,6 @@
 import type { Observation } from '../core/types';
 import { isoDate, toNumber } from './lib/values';
+import { isObject } from './lib/privacy';
 import type { StrengthModule } from './types';
 
 const LEADERBOARDS_URL = 'https://raw.githubusercontent.com/SWE-bench/swe-bench.github.io/master/data/leaderboards.json';
@@ -7,10 +8,6 @@ const BOARD = 'Verified';
 
 /** The few entry fields the parser reads; `per_instance_details` (500 instances per row) makes up most of the 4 MB file. */
 const KEEP = ['name', 'agent', 'model_display', 'model_org', 'model_release_date', 'date', 'resolved', 'tags', 'mini-swe-agent_version', 'folder'];
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
-}
 
 function text(v: unknown): string | null {
   return typeof v === 'string' && v.trim() ? v.trim() : null;
@@ -26,10 +23,10 @@ function isMiniRun(entry: Record<string, unknown>): boolean {
 }
 
 function boardResults(raw: unknown, name: string): Record<string, unknown>[] | null {
-  if (!isRecord(raw) || !Array.isArray(raw.leaderboards)) return null;
-  const board = raw.leaderboards.find((b) => isRecord(b) && b.name === name);
-  if (!isRecord(board) || !Array.isArray(board.results)) return null;
-  return board.results.filter(isRecord);
+  if (!isObject(raw) || !Array.isArray(raw.leaderboards)) return null;
+  const board = raw.leaderboards.find((b) => isObject(b) && b.name === name);
+  if (!isObject(board) || !Array.isArray(board.results)) return null;
+  return board.results.filter(isObject);
 }
 
 /**

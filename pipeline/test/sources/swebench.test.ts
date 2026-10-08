@@ -84,6 +84,8 @@ describe('swebench', () => {
       expect(swebench.parse({ leaderboards: [{ name: 'Lite', results: [] }] }, { now: NOW })).toEqual([]);
       expect(swebench.parse('nope', { now: NOW })).toEqual([]);
       expect(swebench.parse(null, { now: NOW })).toEqual([]);
+      expect(swebench.parse([], { now: NOW })).toEqual([]); // an array is not the top-level object
+      expect(swebench.parse({ leaderboards: [['Verified']] }, { now: NOW })).toEqual([]); // nor is an array a board
     });
   });
 
