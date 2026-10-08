@@ -32,7 +32,8 @@ export interface PlanetDecor {
   /** above everything: core, rim light, ring front half, dashes, the moon when in front */
   readonly front: Container;
   rebuild(s: DecorState): void;
-  update(time: number, ph: number, hover: number, reduced: boolean): void;
+  /** `redash`: redraw the travelling ring dashes this frame (they move slowly; the planet does it at its geometry rate) */
+  update(time: number, ph: number, hover: number, reduced: boolean, redash: boolean): void;
   destroy(): void;
 }
 
@@ -98,9 +99,11 @@ export function createPlanetDecor(tex: PlanetTextures): PlanetDecor {
   let st: DecorState = { R: 1, px: 1, hub: false, atm: 0x3cc8ff, lead: 0x5a7bb0 };
   let rx = 1;
   let ry = 1;
+  let dashPx = -1;
 
   function rebuild(s: DecorState) {
     st = s;
+    dashPx = -1; // size or zoom changed: redraw the dashes on the next update
     const { R, px, hub } = s;
     rx = R * (hub ? 1.62 : 1.42);
     ry = rx * 0.22;
@@ -198,9 +201,12 @@ export function createPlanetDecor(tex: PlanetTextures): PlanetDecor {
     back,
     front,
     rebuild,
-    update(time, ph, hover, reduced) {
+    update(time, ph, hover, reduced, redash) {
       const t = reduced ? 0 : time;
-      dashes(t);
+      if (redash || dashPx !== st.px) {
+        dashes(t);
+        dashPx = st.px;
+      }
       const m = t * (st.hub ? 0.35 : 0.5) + ph;
       const behind = Math.sin(m) < 0;
       const [mx, my] = ringPoint(rx * 1.08, ry * 1.08, m);

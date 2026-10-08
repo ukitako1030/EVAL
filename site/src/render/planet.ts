@@ -330,7 +330,7 @@ export function createPlanet(slot0: PlanetSlot, tex: PlanetTextures): Planet {
       fog.update(f.time, R, rangeAt, f.reduced);
       surface.rotation = tAnim * 0.008;
       hoverAmt += ((f.hover ? 1 : 0) - hoverAmt) * Math.min(1, dt * 8);
-      decor.update(f.time, slot.ph, hoverAmt, f.reduced);
+      decor.update(f.time, slot.ph, hoverAmt, f.reduced, f.rebuild && !f.reduced);
     },
     borderAt,
     rangeAt,

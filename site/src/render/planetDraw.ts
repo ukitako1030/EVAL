@@ -80,7 +80,8 @@ export function drawFrontline(g: Graphics, b: Frontline, a: Float64Array, NS: nu
     }
     return g;
   };
-  const style = { cap: 'round', join: 'round' } as const;
+  // miter joins: the lines bend gently, and round joins / caps would multiply the triangles to tessellate
+  const style = { cap: 'butt', join: 'miter', miterLimit: 2 } as const;
   // inner edge glow on both sides: the line offset into each territory (prev lies at smaller angles)
   const band = (side: number, off: number) => {
     for (let i = 0; i <= NS; i++) {
@@ -99,7 +100,8 @@ export function drawFrontline(g: Graphics, b: Frontline, a: Float64Array, NS: nu
     const col = hexColor(w.color);
     const lv = level * colorGain(col);
     if (lv <= 0.004) continue;
-    band(side, R * 0.045 * thin).stroke({ ...style, width: R * 0.09 * thin, color: col, alpha: (0.05 + 0.14 * lv) * room });
+    // the wide soft band only shows on big planets
+    if (sr >= 95) band(side, R * 0.045 * thin).stroke({ ...style, width: R * 0.09 * thin, color: col, alpha: (0.05 + 0.14 * lv) * room });
     band(side, R * 0.016 * thin).stroke({ ...style, width: Math.max(1.2 * px, R * 0.03 * thin), color: col, alpha: (0.1 + 0.26 * lv) * Math.sqrt(room) });
   }
   path().stroke({ ...style, width: 10 * wS * px * thin, color: sc, alpha: (0.06 + 0.13 * b.fierce) * room });
