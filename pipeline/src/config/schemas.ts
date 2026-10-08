@@ -31,7 +31,12 @@ export const UnitSchema = z
     orgMatch: z.string().optional(),
     scale: UnitScaleSchema.default({}),
   })
-  .strict();
+  .strict()
+  .superRefine((u, ctx) => {
+    if (u.until !== undefined && u.until < u.since) {
+      ctx.addIssue({ code: 'custom', path: ['until'], message: `until (${u.until}) must not be before since (${u.since})` });
+    }
+  });
 
 export const UnitsFileSchema = z.object({
   orgs: z.record(z.string(), z.object({ name: z.string(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/) })),
@@ -46,7 +51,11 @@ export const MethodSchema = z.object({
     releaseActiveMonths: z.number().int().min(0),
     kinds: z.object({
       elo: z.object({ scale: z.number().positive() }),
-      percent: z.object({ clampLo: z.number(), clampHi: z.number() }),
+      percent: z.object({ clampLo: z.number(), clampHi: z.number() }).superRefine((p, ctx) => {
+        if (!(p.clampLo > 0 && p.clampLo < p.clampHi && p.clampHi < 100)) {
+          ctx.addIssue({ code: 'custom', message: 'expected 0 < clampLo < clampHi < 100' });
+        }
+      }),
       minutes: z.object({ kappa: z.number().positive() }),
       eci: z.object({ tau: z.number().positive() }),
     }),
@@ -83,7 +92,7 @@ export const AnnouncementsSchema = z.object({
           date: DateStr,
           value: z.number().positive(),
           metric: MetricSchema.optional(),
-          url: z.string().url(),
+          url: z.url({ protocol: /^https?$/ }),
           note: z.string().optional(),
         }),
       ),
