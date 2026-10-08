@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { frontFrame, orgDeployment, orgDeploymentFrom, allFrames, createFrameSource, monthLabel, clampT, FOG } from '../../src/data/timeline';
+import { frontFrame, orgDeployment, orgDeploymentFrom, allFrames, createFrameSource, monthLabel, clampT, ranksAt, FOG } from '../../src/data/timeline';
 import { makeWorld } from '../fixtures/world';
 
 describe('frontFrame', () => {
@@ -46,6 +46,16 @@ describe('frontFrame', () => {
     for (const t of [0, 0.5]) {
       for (const u of frontFrame(bad, 'general', t)) for (const v of [u.s, u.c, u.fog, u.fogBlend, u.presence]) expect(Number.isFinite(v), `${u.id} @${t}`).toBe(true);
     }
+  });
+  it('memoises whole-month ranks per (front, month, sortBy): playback frames rebuild no rank maps', () => {
+    const m = ranksAt(w, 'general', 2, 'strength');
+    expect(ranksAt(w, 'general', 2, 'strength')).toBe(m);
+    expect(ranksAt(w, 'general', 2, 'scale')).not.toBe(m);
+    expect(ranksAt(w, 'general', 1, 'strength')).not.toBe(m);
+    expect([...m.entries()]).toEqual([['claude', 1], ['gpt', 2], ['gemini', 3]]);
+    expect([...ranksAt(w, 'general', 2, 'scale').entries()]).toEqual([['gpt', 1], ['claude', 2], ['gemini', 3]]);
+    // another world (a reload) gets its own ranks
+    expect(ranksAt(makeWorld(), 'general', 2, 'strength')).not.toBe(m);
   });
   it('treats a non-finite t as the last month (never NaN)', () => {
     for (const t of [NaN, Infinity, -Infinity]) expect(clampT(w, t)).toBe(3);

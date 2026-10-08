@@ -12,7 +12,6 @@
 import { CanvasTextMetrics, Container, Text, TextStyle } from 'pixi.js';
 import type { FrontId, Lang, Localized } from '../data/types';
 import type { Planet } from './planet';
-import type { Wedge } from './layout';
 import { hexColor } from './color';
 import { createDynMesh } from './dynMesh';
 import { createPath, fillCircle, pathPush, pathReset, rgba, strokePath } from './meshBuild';
@@ -87,9 +86,10 @@ interface UnitLabel extends Label {
 interface PlanetUnits {
   units: Map<string, UnitLabel>;
   list: UnitLabel[];
-  /** wedge indices by share, largest first (for `wedges`) */
+  /** wedge indices by share, largest first (for the planet's wedges at `revision`) */
   order: number[];
-  wedges: readonly Wedge[] | null;
+  /** `planet.revision` the order was computed for (the planet rewrites its wedges in place), −1 = never */
+  revision: number;
 }
 
 /** insert `v` into `arr` at `j` (Array.splice would allocate its result) */
@@ -246,14 +246,14 @@ export function createGalaxyLabels(): GalaxyLabels {
   function unitsOf(p: Planet): PlanetUnits {
     let u = perPlanet.get(p.id);
     if (!u) {
-      u = { units: new Map(), list: [], order: [], wedges: null };
+      u = { units: new Map(), list: [], order: [], revision: -1 };
       perPlanet.set(p.id, u);
       planetUnits.push(u);
     }
     // territory order by share, largest first (stable), recomputed only when the territories change
-    if (u.wedges !== p.wedges) {
+    if (u.revision !== p.revision) {
       const ws = p.wedges;
-      u.wedges = ws;
+      u.revision = p.revision;
       const o = u.order;
       o.length = 0;
       for (let i = 0; i < ws.length; i++) {

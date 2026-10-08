@@ -94,7 +94,8 @@ async function boot(mount: HTMLElement) {
     await Promise.race([fonts, new Promise((r) => setTimeout(r, 1500))]);
     const galaxy = createGalaxy(renderer, { world, store, flashes });
     const now = () => galaxy.time; // the shared clock
-    const fleets = createFleets(galaxy, renderer, { world, store });
+    const frames = createFrameSource(world);
+    const fleets = createFleets(galaxy, renderer, { world, store, frames });
     const highlight = createHighlight(galaxy, { world, store, flashes, fleets });
     const battle = createBattle(renderer, galaxy, { store, flashes, now });
     const refreshText = () => {
@@ -105,7 +106,6 @@ async function boot(mount: HTMLElement) {
     preloadFontGlyphs(world).then(refreshText, () => undefined);
 
     // ---- HUD ----
-    const frames = createFrameSource(world);
     const hud = mountHud(mount, store, world, { nativeShare: () => mobile.active });
     const ranking = createRanking(hud.slots.ranking, world, store, { frames });
     createDeployment(hud.slots.deployment, world, store, { frames });

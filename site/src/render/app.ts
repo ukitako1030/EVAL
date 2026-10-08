@@ -6,7 +6,7 @@
 import { Application, Container, UPDATE_PRIORITY, type Ticker } from 'pixi.js';
 import { AdvancedBloomFilter } from 'pixi-filters/advanced-bloom';
 import type { QualityLevel } from '../fx/quality';
-import { createBackground } from './background';
+import { createBackground, type BackgroundView } from './background';
 import { cameraFor, ease, worldToScreen, worldTransform, type Camera, type CameraTarget, type Viewport } from './camera';
 import { createErrorLog } from '../util/errorLog';
 import { requireWebGL } from './webgl';
@@ -159,6 +159,10 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
     if (frameStart === frameStart) workMs = performance.now() - frameStart;
   }
 
+  // reused every frame
+  const GALAXY: CameraTarget = { kind: 'galaxy' };
+  const bgView: BackgroundView = { cam, viewport, overviewScale: 1, warp: 0 };
+
   function step(ticker: Ticker) {
     const rawDt = ticker.elapsedMS / 1000;
     const dt = Math.min(MAX_DT, Math.max(0, ticker.deltaMS / 1000));
@@ -179,7 +183,11 @@ export async function createRenderer(canvasParent: HTMLElement, opts: RendererOp
     world.position.set(wt.x, wt.y);
     world.scale.set(wt.scale);
 
-    bg.update(dt, { cam, viewport, overviewScale: cameraFor({ kind: 'galaxy' }, viewport).scale, warp });
+    bgView.cam = cam;
+    bgView.viewport = viewport;
+    bgView.overviewScale = cameraFor(GALAXY, viewport).scale;
+    bgView.warp = warp;
+    bg.update(dt, bgView);
     for (const cb of callbacks) {
       try {
         cb(dt, rawDt);

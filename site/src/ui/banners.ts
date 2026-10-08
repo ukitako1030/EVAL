@@ -73,9 +73,14 @@ export function createBanners(root: HTMLElement, world: World, store: Store<AppS
   }
 
   function render(banners: readonly Banner[]): void {
-    const keys = new Set(banners.map((b) => b.key));
+    // called every frame, and almost always with the banners already shown: check that without allocating
+    let same = banners.length === live.size;
+    for (let i = 0; same && i < banners.length; i++) same = live.has(banners[i].key);
+    if (same) return;
     for (const [k, v] of live) {
-      if (keys.has(k)) continue;
+      let keep = false;
+      for (let i = 0; i < banners.length && !keep; i++) keep = banners[i].key === k;
+      if (keep) continue;
       live.delete(k);
       retire(v.el);
     }

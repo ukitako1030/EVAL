@@ -47,12 +47,39 @@ const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 const keyOf = (sortBy: SortBy) => (m: { s: number; c: number }) => (sortBy === 'strength' ? m.s : m.c);
 
-function ranksAt(world: World, front: FrontId, i: number, sortBy: SortBy): Map<string, number> {
+function computeRanks(world: World, front: FrontId, i: number, sortBy: SortBy): Map<string, number> {
   const S = world.series[front] ?? {};
   const key = keyOf(sortBy);
   const ids = Object.keys(S).filter((u) => S[u][i]);
   ids.sort((a, b) => key(S[b][i] as UnitMonth) - key(S[a][i] as UnitMonth) || cmp(a, b));
   return new Map(ids.map((u, k) => [u, k + 1]));
+}
+
+type RankCache = Record<SortBy, Partial<Record<FrontId, ReadonlyMap<string, number>[]>>>;
+/** world data never changes after load: whole-month ranks are computed once per (world, front, month, sortBy) */
+const rankCache = new WeakMap<World, RankCache>();
+const NO_RANKS: ReadonlyMap<string, number> = new Map();
+
+/** Unit id → 1-based rank among the units with data in whole month `i` (memoised; do not mutate the result). */
+export function ranksAt(world: World, front: FrontId, i: number, sortBy: SortBy): ReadonlyMap<string, number> {
+  let c = rankCache.get(world);
+  if (!c) {
+    c = { strength: {}, scale: {} };
+    rankCache.set(world, c);
+  }
+  const byMonth = (c[sortBy][front] ??= []);
+  return (byMonth[i] ??= computeRanks(world, front, i, sortBy));
+}
+
+/** world.units[front] as entries, computed once per world */
+const unitEntryCache = new WeakMap<World, Partial<Record<FrontId, [string, World['units'][FrontId][string]][]>>>();
+function unitEntries(world: World, front: FrontId): [string, World['units'][FrontId][string]][] {
+  let c = unitEntryCache.get(world);
+  if (!c) {
+    c = {};
+    unitEntryCache.set(world, c);
+  }
+  return (c[front] ??= Object.entries(world.units[front] ?? {}));
 }
 
 export function frontFrame(world: World, front: FrontId, t: number, sortBy: SortBy = 'strength'): UnitFrame[] {
@@ -61,7 +88,7 @@ export function frontFrame(world: World, front: FrontId, t: number, sortBy: Sort
   const i1 = Math.min(i0 + 1, world.months.length - 1);
   const f = Math.max(0, tt - i0); // tt can sit up to 1e-9 below a whole month, where i0 already rounds up
   const out: UnitFrame[] = [];
-  for (const [id, u] of Object.entries(world.units[front] ?? {})) {
+  for (const [id, u] of unitEntries(world, front)) {
     const arr = world.series[front]?.[id] ?? [];
     const a = arr[i0];
     const b = arr[i1];
@@ -92,14 +119,15 @@ export function frontFrame(world: World, front: FrontId, t: number, sortBy: Sort
   const key = keyOf(sortBy);
   const rankKey = (u: UnitFrame) => key(u) * u.presence;
   out.sort((x, y) => rankKey(y) - rankKey(x) || cmp(x.id, y.id));
-  const prev = i0 > 0 ? ranksAt(world, front, i0 - 1, sortBy) : new Map<string, number>();
+  const prev = i0 > 0 ? ranksAt(world, front, i0 - 1, sortBy) : NO_RANKS;
   const cur = ranksAt(world, front, i0, sortBy);
-  out.forEach((u, k) => {
+  for (let k = 0; k < out.length; k++) {
+    const u = out[k];
     u.rank = k + 1;
     const p = prev.get(u.id);
     const r = cur.get(u.id);
     u.rankDelta = p !== undefined && r !== undefined ? p - r : 0;
-  });
+  }
   return out;
 }
 
