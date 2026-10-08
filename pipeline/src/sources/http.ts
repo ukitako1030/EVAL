@@ -15,8 +15,10 @@ export class HttpError extends Error {
     readonly url: string,
     /** the server's `Retry-After` in ms (capped at 60 s), when it sent a usable one */
     readonly retryAfterMs?: number,
+    /** start of the error body of a 4xx response (APIs explain bad requests there; never contains our credentials) */
+    readonly detail?: string,
   ) {
-    super(`HTTP ${status} for ${url}`);
+    super(`HTTP ${status} for ${url}${detail ? ` (${detail})` : ''}`);
     this.name = 'HttpError';
   }
 }
@@ -122,9 +124,10 @@ async function request<T>(url: string, init: RequestInit, read: (res: Response) 
         break;
       }
       if (res.ok) return await read(res);
-      void res.body?.cancel().catch(() => {});
+      const detail = res.status >= 400 && res.status < 500 && res.status !== 429 ? await errorDetail(res) : undefined;
+      if (detail === undefined) void res.body?.cancel().catch(() => {});
       const ra = res.status === 429 ? parseRetryAfter(res.headers.get('retry-after')) : null;
-      lastErr = new HttpError(res.status, safeUrl, ra ?? undefined);
+      lastErr = new HttpError(res.status, safeUrl, ra ?? undefined, detail || undefined);
       if (res.status === 429) {
         if (ra != null) delay = ra;
       } else if (res.status < 500) {
@@ -139,6 +142,15 @@ async function request<T>(url: string, init: RequestInit, read: (res: Response) 
     if (i < attempts - 1) await sleep(delay);
   }
   throw lastErr;
+}
+
+/** The first 200 characters of an error body on one line; empty when it cannot be read. */
+async function errorDetail(res: Response): Promise<string> {
+  try {
+    return (await res.text()).replace(/\s+/g, ' ').trim().slice(0, 200);
+  } catch {
+    return '';
+  }
 }
 
 export function makeFetchCtx(

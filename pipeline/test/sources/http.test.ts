@@ -367,9 +367,16 @@ describe('makeFetchCtx fetch helpers on HTTP 429', () => {
   });
 
   it('does not retry a plain 404 and reports it as an HttpError', async () => {
-    const fetchMock = vi.fn(async () => reply(404));
+    const fetchMock = vi.fn(async () => reply(404, {}, ''));
     vi.stubGlobal('fetch', fetchMock);
     await expect(ctx().fetchText('https://x.example/missing')).rejects.toMatchObject({ message: 'HTTP 404 for https://x.example/missing', status: 404 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it('a 4xx error carries the start of the error body on one line', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => reply(400, {}, '{"success":false,\n "errors":[{"message":"bad dateEnd"}]}')));
+    await expect(ctx().fetchText('https://x.example/q?token=1')).rejects.toMatchObject({
+      message: 'HTTP 400 for https://x.example/q ({"success":false, "errors":[{"message":"bad dateEnd"}]})',
+      status: 400,
+    });
   });
 });
