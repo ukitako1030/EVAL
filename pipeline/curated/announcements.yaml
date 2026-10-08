@@ -12,18 +12,22 @@ series:
     points:
       - { date: 2023-03-25, value: 50000000, url: 'https://cdn.openai.com/pdf/a253471f-8260-40c6-a2cc-aa93fe9f142e/economic-research-chatgpt-usage-paper.pdf', note: 'OpenAI/NBER usage paper, consumer plans (reported 2025-09)' }
       - { date: 2023-09-20, value: 80000000, url: 'https://cdn.openai.com/pdf/a253471f-8260-40c6-a2cc-aa93fe9f142e/economic-research-chatgpt-usage-paper.pdf', note: 'OpenAI/NBER usage paper, consumer plans' }
+      - { date: 2023-11-06, value: 100000000, url: 'https://techcrunch.com/2023/11/06/openais-chatgpt-now-has-100-million-weekly-active-users/', note: 'Sam Altman at DevDay 2023' }
       - { date: 2024-03-20, value: 125000000, url: 'https://cdn.openai.com/pdf/a253471f-8260-40c6-a2cc-aa93fe9f142e/economic-research-chatgpt-usage-paper.pdf', note: 'OpenAI/NBER usage paper, consumer plans' }
-      - { date: 2024-09-15, value: 240000000, url: 'https://www.nber.org/papers/w34255', note: 'OpenAI/NBER usage paper, consumer plans' }
+      - { date: 2024-08-29, value: 200000000, url: 'https://www.axios.com/2024/08/29/openai-chatgpt-200-million-weekly-active-users', note: 'OpenAI statement to Axios' }
+      - { date: 2024-10-02, value: 250000000, url: 'https://openai.com/index/scale-the-benefits-of-ai/', note: '"Every week, over 250 million people"' }
       - { date: 2024-12-04, value: 300000000, url: 'https://x.com/OpenAINewsroom/status/1864373399218475440' }
-      - { date: 2025-03-13, value: 430000000, url: 'https://cdn.openai.com/pdf/a253471f-8260-40c6-a2cc-aa93fe9f142e/economic-research-chatgpt-usage-paper.pdf', note: 'OpenAI/NBER usage paper, consumer plans' }
+      - { date: 2025-02-20, value: 400000000, url: 'https://www.cnbc.com/2025/02/20/openai-tops-400-million-users-despite-deepseeks-emergence.html', note: 'COO Brad Lightcap to CNBC' }
+      - { date: 2025-03-31, value: 500000000, url: 'https://openai.com/index/march-funding-updates/', note: '"500 million people who use ChatGPT every week"' }
       # Epoch's 2025-07-15 row ("ChatGPT 700M WAU", value 770000000) is left out: its value contradicts its own
-      # label and OpenAI's 700M figure of 2025-08-04.
+      # label and OpenAI's 700M figure of 2025-08-04. The NBER paper's 2025-03-13 consumer-plan figure (430M) is
+      # dropped in favour of OpenAI's own all-plan statement two weeks later (500M).
       - { date: 2025-08-04, value: 700000000, url: 'https://www.cnbc.com/2025/08/04/openai-chatgpt-700-million-users.html' }
       - { date: 2025-10-06, value: 800000000, url: 'https://techcrunch.com/2025/10/06/sam-altman-says-chatgpt-has-hit-800m-weekly-active-users/', note: 'Sam Altman at DevDay 2025' }
-      - { date: 2025-12-09, value: 900000000, url: 'https://www.theinformation.com/newsletters/ai-agenda/chatgpt-nears-900-million-weekly-active-users-gemini-catching', note: 'media report ("nears 900M")' }
-      - { date: 2026-02-28, value: 920000000, url: 'https://www.theinformation.com/articles/openai-tops-25-billion-annualized-revenue-anthropic-narrows-gap', note: 'media report' }
-      - { date: 2026-07-28, value: 1000000000, url: 'https://www.theinformation.com/articles/openais-chatgpt-nears-1-billion-weekly-active-users-seven-months-target', note: 'media report ("nears 1B")' }
-      - { date: 2026-09-29, value: 1200000000, url: 'https://openai.com/index/devday-2026-recap/' }
+      # media "nears 900M / 1B" reports replaced by OpenAI's own statements
+      - { date: 2026-02-27, value: 900000000, url: 'https://openai.com/index/scaling-ai-for-everyone/', note: '"more than 900M weekly active users"' }
+      - { date: 2026-08-06, value: 1000000000, url: 'https://openai.com/index/improving-gpt-5-6-sol-in-chatgpt/', note: '"Every week, 1 billion people turn to ChatGPT"' }
+      - { date: 2026-10-05, value: 1200000000, url: 'https://openai.com/index/new-chatgpt-ads-format-and-measurement/', note: '"ChatGPT reaches 1.2 billion people each week" (DevDay 2026-09-29 said 1.2B "collective")' }
   gemini-app:
     metric: MAU
     points:
@@ -31,6 +35,9 @@ series:
       - { date: 2025-05-20, value: 400000000, url: 'https://techcrunch.com/2025/05/20/googles-gemini-ai-app-has-400m-monthly-active-users/', note: 'Sundar Pichai at Google I/O 2025 ("400M+")' }
       - { date: 2025-07-23, value: 450000000, url: 'https://www.theverge.com/news/712638/alphabet-google-earnings-q2-2025-ceo-sundar-pichai-ai', note: 'Alphabet Q2 2025 earnings' }
       - { date: 2025-10-29, value: 650000000, url: 'https://s206.q4cdn.com/479360582/files/doc_financials/2025/q3/2025q3-alphabet-earnings-release.pdf', note: 'Alphabet Q3 2025 earnings release' }
+      - { date: 2026-02-04, value: 750000000, url: 'https://blog.google/company-news/inside-google/message-ceo/alphabet-earnings-q4-2025/', note: 'Alphabet Q4 2025 earnings ("over 750 million")' }
+      - { date: 2026-05-19, value: 900000000, url: 'https://blog.google/innovation-and-ai/sundar-pichai-io-2026/', note: 'Google I/O 2026 ("surpassed 900 million")' }
+      - { date: 2026-07-22, value: 950000000, url: 'https://blog.google/company-news/inside-google/message-ceo/alphabet-earnings-q2-2026/', note: 'Alphabet Q2 2026 earnings' }
       - { date: 2026-08-11, value: 1000000000, url: 'https://blog.google/innovation-and-ai/products/gemini-app/one-billion-monthly-users/', note: '"1B+ monthly users"' }
   meta-ai:
     metric: MAU
@@ -45,3 +52,10 @@ series:
     metric: MAU
     points:
       - { date: 2025-09-17, value: 64000000, url: 'https://www.nytimes.com/2025/09/18/technology/elon-musk-artificial-intelligence-xai.html', note: 'media report' }
+      # SpaceX S-1: "MAUs that used Grok's AI features" (incl. Grok inside X); combined X+Grok MAU figures are not used
+      - { date: 2026-03-31, value: 117000000, url: 'https://www.sec.gov/Archives/edgar/data/1181412/000162828026036936/spaceexplorationtechnologi.htm', note: 'SpaceX S-1 (filed 2026-05-20)' }
+  qwen-app:
+    metric: MAU
+    points:
+      - { date: 2026-01-15, value: 100000000, url: 'https://www.alizila.com/alibabas-qwen-app-advances-agentic-ai-strategy-by-turning-core-ecosystem-services-into-executable-ai-capabilities/', note: 'Qwen app, two months after the public beta' }
+      - { date: 2026-02-28, value: 300000000, url: 'https://www.alibabagroup.com/en-US/document-1971014025827319808', note: 'Alibaba Dec-quarter 2025 results: consumer-facing Qwen "across all platforms"' }

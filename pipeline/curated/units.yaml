@@ -165,6 +165,7 @@ fronts:
           - '(?<![a-z0-9(])(?:code)?(?:qwen|qwq|qvq)(?![a-z])(?!.*(?:image|tts|omni|realtime|audio|[-_ .(]live(?![a-z])))'
         orgMatch: &qwen_org 'alibaba|qwen|tongyi'
         scale: &qwen_scale
+          announcements: qwen-app
           crux: [chat.qwen.ai, chat.qwenlm.ai]
           tranco: [chat.qwen.ai, chat.qwenlm.ai, qwen.ai]
           openrouter: [qwen/]
