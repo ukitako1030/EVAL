@@ -31,7 +31,8 @@ import { createTimelineBar } from './ui/timelineBar';
 import { createBanners } from './ui/banners';
 import { createDetail } from './ui/detail';
 import { createBackButton } from './ui/backButton';
-import { createIntroCard, showLoadError, type IntroCard } from './ui/introCard';
+import { createIntroCard, type IntroCard } from './ui/introCard';
+import { showLoadError } from './ui/loadError';
 
 /** Banners stay up this long (s); the focused view shows one at a time, the galaxy two. */
 const BANNER_SECONDS = 4;

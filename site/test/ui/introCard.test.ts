@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { createIntroCard, showLoadError, INTRO_CARD_SECONDS, INTRO_FADE_MS } from '../../src/ui/introCard';
+import { createIntroCard, INTRO_CARD_SECONDS, INTRO_FADE_MS } from '../../src/ui/introCard';
+import { showLoadError } from '../../src/ui/loadError';
 import { createStore, defaultState, type AppState } from '../../src/state/store';
 import { makeWorld } from '../fixtures/world';
 
