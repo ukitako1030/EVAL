@@ -40,6 +40,11 @@ describe('frontFrame', () => {
     expect(clampT(w, 99)).toBe(3);
     expect(frontFrame(w, 'general', 99).map((u) => u.id)).toEqual(['claude', 'gpt', 'gemini']);
   });
+  it('treats a non-finite t as the last month (never NaN)', () => {
+    for (const t of [NaN, Infinity, -Infinity]) expect(clampT(w, t)).toBe(3);
+    expect(frontFrame(w, 'general', NaN)).toEqual(frontFrame(w, 'general', 3));
+    expect(frontFrame(w, 'general', NaN).every((u) => Number.isFinite(u.s) && Number.isFinite(u.c))).toBe(true);
+  });
 });
 
 describe('monthLabel', () => {
@@ -48,6 +53,11 @@ describe('monthLabel', () => {
     expect(monthLabel(w, 0)).toBe('2025.01');
     expect(monthLabel(w, 1.99)).toBe('2025.02');
     expect(monthLabel(w, 3)).toBe('2025.04');
+  });
+  it('never sees NaN: a non-finite t labels the last month', () => {
+    const w = makeWorld();
+    expect(monthLabel(w, NaN)).toBe('2025.04');
+    expect(monthLabel(w, Infinity)).toBe('2025.04');
   });
 });
 

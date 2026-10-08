@@ -45,4 +45,27 @@ describe('playback clock', () => {
     expect(r.s).toEqual({ t: 3, playing: false, speed: 4 });
     expect(pb.tick(0.5, { t: 1.2, playing: false, speed: 1 })).toEqual({ t: 1.2, playing: false, speed: 1, crossed: [], holding: false });
   });
+  it('ignores a dt that is not finite or not positive', () => {
+    const pb = createPlayback({ lastIndex: 40, eventMonths: new Set() });
+    const st = { t: 5.5, playing: true, speed: 2 as const };
+    for (const dt of [NaN, Infinity, -Infinity, -0.1, 0]) {
+      expect(pb.tick(dt, st), String(dt)).toEqual({ ...st, crossed: [], holding: false });
+    }
+  });
+  it('caps dt at 0.25 s so a long stall cannot skip months', () => {
+    const pb = createPlayback({ lastIndex: 40, eventMonths: new Set() });
+    const r = pb.tick(30, { t: 0, playing: true, speed: 1 });
+    expect(r.t).toBeCloseTo(0.25 / BASE_SECONDS_PER_MONTH, 10);
+    expect(r.crossed).toEqual([]);
+  });
+  it('a bad dt does not shorten an ongoing hold', () => {
+    const pb = createPlayback({ lastIndex: 40, eventMonths: new Set([1]) });
+    let r = run(pb, { t: 0, playing: true, speed: 1 }, 1.5); // reaches month 1 at 1.4 s, holding
+    expect(r.s.t).toBe(1);
+    expect(pb.tick(NaN, { ...r.s }).holding).toBe(true);
+    r = run(pb, r.s, 1.8); // 0.1 s of the 2 s hold already spent
+    expect(r.s.t).toBe(1);
+    r = run(pb, r.s, 0.3);
+    expect(r.s.t).toBeGreaterThan(1);
+  });
 });

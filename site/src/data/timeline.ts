@@ -23,8 +23,10 @@ export interface UnitFrame {
 
 export const FOG: Record<Confidence, number> = { high: 0, medium: 0.25, reconstructed: 0.5, estimated: 0.8 };
 
+/** Clamps `t` to the month range; a non-finite `t` (NaN, ±Infinity) maps to the last month so no caller ever sees NaN. */
 export function clampT(world: World, t: number): number {
-  return Math.min(Math.max(t, 0), world.months.length - 1);
+  const last = world.months.length - 1;
+  return Number.isFinite(t) ? Math.min(Math.max(t, 0), last) : last;
 }
 
 export function monthLabel(world: World, t: number): string {

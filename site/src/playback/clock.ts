@@ -1,4 +1,6 @@
 export const BASE_SECONDS_PER_MONTH = 1.4;
+/** Longest step a single tick may advance (s); a stalled tab or a long GC pause must not skip months. */
+export const MAX_DT = 0.25;
 export const HOLD_SECONDS: Record<1 | 2 | 4, number> = { 1: 2, 2: 1.5, 4: 0.8 };
 
 export interface PlaybackState {
@@ -16,11 +18,13 @@ export interface TickResult extends PlaybackState {
 export function createPlayback(opts: { lastIndex: number; eventMonths: ReadonlySet<number> }) {
   let hold = 0;
   return {
-    tick(dt: number, st: PlaybackState): TickResult {
+    tick(rawDt: number, st: PlaybackState): TickResult {
       if (!st.playing) {
         hold = 0;
         return { ...st, crossed: [], holding: false };
       }
+      if (!Number.isFinite(rawDt) || rawDt <= 0) return { ...st, crossed: [], holding: hold > 0 };
+      const dt = Math.min(rawDt, MAX_DT);
       if (hold > 0) {
         hold = Math.max(0, hold - dt);
         return { ...st, crossed: [], holding: hold > 0 };
