@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { REQUEST_GAP_MS, fetchWikipedia, lastCompleteMonth, pageviewsUrl, parseWikipedia, wikipedia } from '../../src/sources/wikipedia';
-import { USER_AGENT } from '../../src/sources/http';
+import { HttpError, USER_AGENT } from '../../src/sources/http';
 import type { FetchCtx } from '../../src/sources/types';
 
 const fixtureText = (name: string) => readFileSync(new URL(`../fixtures/wikipedia/${name}`, import.meta.url), 'utf8');
@@ -10,7 +10,16 @@ const fixture = (name: string) => JSON.parse(fixtureText(name)) as { items: { ar
 describe('lastCompleteMonth / pageviewsUrl', () => {
   it('is the month before `now`', () => {
     expect(lastCompleteMonth(new Date('2026-10-08T06:00:00Z'))).toBe('2026-09');
-    expect(lastCompleteMonth(new Date('2027-01-01T00:00:00Z'))).toBe('2026-12');
+    expect(lastCompleteMonth(new Date('2026-10-03T00:00:00Z'))).toBe('2026-09');
+    expect(lastCompleteMonth(new Date('2027-01-03T00:00:00Z'))).toBe('2026-12');
+  });
+
+  it('is the month before the previous one on the 1st and 2nd, because the data lags about a day', () => {
+    expect(lastCompleteMonth(new Date('2026-10-01T00:00:00Z'))).toBe('2026-08');
+    expect(lastCompleteMonth(new Date('2026-10-02T23:59:59Z'))).toBe('2026-08');
+    expect(lastCompleteMonth(new Date('2027-01-01T00:00:00Z'))).toBe('2026-11');
+    expect(lastCompleteMonth(new Date('2027-02-02T12:00:00Z'))).toBe('2026-12');
+    expect(lastCompleteMonth(new Date('2026-03-01T00:00:00Z'))).toBe('2026-01');
   });
 
   it('builds the per-article monthly URL ending on the last day of the last complete month', () => {
@@ -150,6 +159,62 @@ describe('fetchWikipedia', () => {
 
     const banned = stub({ serve: (url) => { throw new Error(`HTTP 403 for ${url}`); } });
     await expect(fetchWikipedia(banned.ctx, banned.deps)).rejects.toThrow('HTTP 403');
+  });
+
+  it('on the 1st or 2nd of a month ends the range at the last day of the month before the previous one', async () => {
+    const first = stub({ titles: ['ChatGPT'] });
+    first.ctx.now = new Date('2026-10-01T06:00:00Z');
+    await fetchWikipedia(first.ctx, first.deps);
+    expect(first.urls).toEqual(['https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user/ChatGPT/monthly/20221101/20260831']);
+
+    const third = stub({ titles: ['ChatGPT'] });
+    third.ctx.now = new Date('2026-10-03T06:00:00Z');
+    await fetchWikipedia(third.ctx, third.deps);
+    expect(third.urls[0]).toMatch(/\/20260930$/);
+  });
+
+  it('on a 429 waits for the Retry-After the server sent (in seconds) instead of the default schedule', async () => {
+    let calls = 0;
+    const s = stub({
+      titles: ['ChatGPT'],
+      serve: (url) => {
+        if (calls++ < 2) throw new HttpError(429, url, calls === 1 ? 12_000 : 30_000);
+        return fixture('sample-chatgpt.json');
+      },
+    });
+    expect(await fetchWikipedia(s.ctx, s.deps)).toHaveLength(1);
+    expect(s.naps).toEqual([12_000, 30_000]);
+    expect(s.logs.filter((l) => l.includes('429'))).toHaveLength(2);
+  });
+
+  it('caps a long Retry-After at 60 s and falls back to the default schedule when the header is missing', async () => {
+    let calls = 0;
+    const capped = stub({
+      titles: ['ChatGPT'],
+      serve: (url) => {
+        if (calls++ === 0) throw new HttpError(429, url, 600_000);
+        return fixture('sample-chatgpt.json');
+      },
+    });
+    await fetchWikipedia(capped.ctx, capped.deps);
+    expect(capped.naps).toEqual([60_000]);
+
+    let n = 0;
+    const plain = stub({
+      titles: ['ChatGPT'],
+      serve: (url) => {
+        if (n++ < 2) throw new HttpError(429, url); // no Retry-After header
+        return fixture('sample-chatgpt.json');
+      },
+    });
+    await fetchWikipedia(plain.ctx, plain.deps);
+    expect(plain.naps).toEqual([5_000, 15_000]);
+  });
+
+  it('gives up after the allowed number of 429 retries', async () => {
+    const s = stub({ titles: ['ChatGPT'], serve: (url) => { throw new HttpError(429, url, 1_000); } });
+    await expect(fetchWikipedia(s.ctx, s.deps)).rejects.toThrow('HTTP 429');
+    expect(s.naps).toEqual([1_000, 1_000, 1_000]);
   });
 
   it('fails when no title is configured, when all titles are 404 and when the body has no items', async () => {

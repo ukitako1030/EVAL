@@ -1,6 +1,6 @@
 import { addMonths, monthEnd, toMonth, type Month } from '../core/months';
 import type { SignalObs } from '../core/types';
-import { sleep, USER_AGENT } from './http';
+import { HttpError, MAX_RETRY_AFTER_MS, sleep, USER_AGENT } from './http';
 import type { FetchCtx, ScaleModule } from './types';
 
 const BASE = 'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user';
@@ -21,9 +21,12 @@ export interface WikipediaDeps {
   gapMs: number;
 }
 
-/** The last fully elapsed calendar month; the API returns the current month as a partial sum. */
+/**
+ * The last calendar month the API has all days of. It returns the current month as a partial sum, and its data runs about
+ * a day behind, so on the 1st and 2nd the previous month's last day may not be in yet and the month before it is the safe end.
+ */
 export function lastCompleteMonth(now: Date): Month {
-  return addMonths(toMonth(now), -1);
+  return addMonths(toMonth(now), now.getUTCDate() <= 2 ? -2 : -1);
 }
 
 /**
@@ -53,8 +56,10 @@ export async function fetchWikipedia(ctx: FetchCtx, deps: WikipediaDeps = { slee
       } catch (e) {
         if (httpStatus(e, 404)) break; // unknown title, or no views in the range (the two look alike)
         if (httpStatus(e, 429) && attempt < RATE_LIMIT_WAITS_MS.length) {
-          ctx.log(`wikipedia ${title}: HTTP 429, waiting ${RATE_LIMIT_WAITS_MS[attempt] / 1000}s`);
-          await deps.sleep(RATE_LIMIT_WAITS_MS[attempt]);
+          // the server's own Retry-After (seconds, never more than a minute) beats the default schedule
+          const waitMs = e instanceof HttpError && e.retryAfterMs !== undefined ? Math.min(e.retryAfterMs, MAX_RETRY_AFTER_MS) : RATE_LIMIT_WAITS_MS[attempt];
+          ctx.log(`wikipedia ${title}: HTTP 429, waiting ${waitMs / 1000}s`);
+          await deps.sleep(waitMs);
           continue;
         }
         throw e; // a partial snapshot would silently replace the full history, so do not skip other failures
