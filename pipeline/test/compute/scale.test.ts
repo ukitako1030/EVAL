@@ -53,6 +53,12 @@ describe('scaleMonth', () => {
     const r2 = scaleMonth(['a', 'b'], '2025-04', tbl({ wikipedia: { a: { '2025-01': 3 }, b: { '2025-04': 1 } } }), method);
     expect(r2.get('a')!.components).toBe(0);
   });
+  it('gives units without base data floorFactor × the MEDIAN base share (neutral prior, not the minimum)', () => {
+    const r = scaleMonth(['a', 'b', 'c', 'x'], '2025-01', tbl({ wikipedia: { a: { '2025-01': 5 }, b: { '2025-01': 3 }, c: { '2025-01': 2 } } }), method);
+    // base .5/.3/.2, x = 0.5 × median(.3) = .15 → renormalised over 1.15
+    expect(r.get('x')!.share).toBeCloseTo(0.15 / 1.15, 10);
+    expect(r.get('x')!.components).toBe(0);
+  });
   it('gives units without any base signal a floor and uniform shares when no data at all', () => {
     const r = scaleMonth(['a', 'b'], '2025-01', tbl({ wikipedia: { a: { '2025-01': 1 } } }), method);
     expect(r.get('b')!.share).toBeCloseTo(1 / 3, 10); // floor 0.5 of a's 1.0 → 1 : 0.5

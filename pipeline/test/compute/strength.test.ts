@@ -38,6 +38,11 @@ describe('winProb', () => {
     expect(winProb('minutes', 30, 60, K)).toBeCloseTo(1 / (1 + Math.E), 10); // log2 gap −1
     expect(winProb('eci', 142, 150, K)).toBeCloseTo(1 / (1 + Math.E), 10);
   });
+  it('scales the percent logit gap when percent.scale is set (default 1)', () => {
+    const k2: KindParams = { ...K, percent: { ...K.percent, scale: 0.5 } };
+    expect(winProb('percent', 50, 75, k2)).toBeCloseTo(1 / (1 + Math.exp(0.5 * Math.log(3))), 10);
+    expect(winProb('percent', 50, 75, K)).toBeCloseTo(0.25, 10);
+  });
   it('clamps percent at the edges', () => {
     expect(Number.isFinite(winProb('percent', 0, 100, K))).toBe(true);
   });
@@ -123,21 +128,34 @@ describe('computeStrength', () => {
 
 describe('fillEstimatedStrength', () => {
   const empty = (): StrengthCell => ({ s: null, measured: 0, reconstructed: 0, estimated: false, breakdown: [], bestModel: null });
-  it('copies the strength of the unit with the closest scale share', () => {
+  it('gives never-measured units the median strength of the measured units (neutral prior)', () => {
     const cells = new Map([
       ['a', new Map([['2025-01', { ...empty(), s: 100, measured: 1 }]])],
       ['b', new Map([['2025-01', { ...empty(), s: 80, measured: 1 }]])],
+      ['c', new Map([['2025-01', { ...empty(), s: 60, measured: 1 }]])],
       ['x', new Map([['2025-01', empty()]])],
     ]);
     const shares = new Map([
       ['a', new Map([['2025-01', 50]])],
       ['b', new Map([['2025-01', 10]])],
-      ['x', new Map([['2025-01', 12]])],
+      ['c', new Map([['2025-01', 5]])],
+      ['x', new Map([['2025-01', 49]])], // close to the leader's share, but it must NOT inherit the leader's 100
     ]);
     fillEstimatedStrength({ cells, shares, months: ['2025-01'], exists: () => true, floor: 60, step: 6 });
     const x = cells.get('x')!.get('2025-01')!;
     expect(x.s).toBe(80);
     expect(x.estimated).toBe(true);
+  });
+  it('carries the last measured strength forward for up to 6 months before falling back', () => {
+    const months = ['2025-01', '2025-02', '2025-03', '2025-04', '2025-05', '2025-06', '2025-07', '2025-08'];
+    const a = new Map(months.map((m) => [m, { ...empty(), s: 100, measured: 1 }]));
+    const x = new Map(months.map((m, i) => [m, i === 0 ? { ...empty(), s: 70, measured: 1 } : empty()]));
+    const cells = new Map([['a', a], ['x', x]]);
+    const shares = new Map([['a', new Map(months.map((m) => [m, 50]))], ['x', new Map(months.map((m) => [m, 49]))]]);
+    fillEstimatedStrength({ cells, shares, months, exists: () => true, floor: 60, step: 6 });
+    expect(cells.get('x')!.get('2025-02')).toMatchObject({ s: 70, estimated: true });
+    expect(cells.get('x')!.get('2025-07')!.s).toBe(70); // 6 months after the last measurement
+    expect(cells.get('x')!.get('2025-08')!.s).toBe(100); // carry expired → median of the measured units (only a)
   });
   it('ranks by scale when nothing is measured', () => {
     const cells = new Map([

@@ -53,7 +53,8 @@ export const MethodSchema = z.object({
     releaseActiveMonths: z.number().int().min(0),
     kinds: z.object({
       elo: z.object({ scale: z.number().positive() }),
-      percent: z.object({ clampLo: z.number(), clampHi: z.number() }).superRefine((p, ctx) => {
+      // scale (default 1) multiplies the logit gap: < 1 softens benchmarks whose top models are far apart
+      percent: z.object({ clampLo: z.number(), clampHi: z.number(), scale: z.number().positive().optional() }).superRefine((p, ctx) => {
         if (!(p.clampLo > 0 && p.clampLo < p.clampHi && p.clampHi < 100)) {
           ctx.addIssue({ code: 'custom', message: 'expected 0 < clampLo < clampHi < 100' });
         }

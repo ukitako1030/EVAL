@@ -142,7 +142,10 @@ export function scaleMonth(
     base = new Map(present.map((u) => [u, 1 / present.length]));
   } else {
     const r = baseFixedPoint(covered, baseSignals.map((s) => sigShare.get(s)!));
-    const floor = Math.min(...r.values()) * method.floorFactor;
+    // units without base data get a neutral prior (floorFactor × the median covered share), shown as estimated
+    const sorted = [...r.values()].sort((x, y) => x - y);
+    const median = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+    const floor = median * method.floorFactor;
     base = normalise(new Map(present.map((u) => [u, r.get(u) ?? floor])));
   }
   // each component: every signal spreads the base mass of the units it covers; signals are averaged; components are weighted

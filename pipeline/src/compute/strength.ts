@@ -1,5 +1,5 @@
 import type { ValueKind } from '../core/types';
-import type { Month } from '../core/months';
+import { monthDiff, type Month } from '../core/months';
 import { clamp, logit, sigmoid, weightedMean } from '../core/math';
 import type { KindParams } from '../config/schemas';
 import type { SeriesTable } from './assign';
@@ -33,7 +33,7 @@ export function winProb(kind: ValueKind, x: number, lead: number, k: KindParams)
       return 1 / (1 + 10 ** ((lead - x) / k.elo.scale));
     case 'percent': {
       const c = (v: number) => clamp(v, k.percent.clampLo, k.percent.clampHi) / 100;
-      return sigmoid(logit(c(x)) - logit(c(lead)));
+      return sigmoid((k.percent.scale ?? 1) * (logit(c(x)) - logit(c(lead))));
     }
     case 'minutes':
       return sigmoid(k.minutes.kappa * (Math.log2(Math.max(x, 1e-6)) - Math.log2(Math.max(lead, 1e-6))));
@@ -113,6 +113,9 @@ export function computeStrength(args: {
   return out;
 }
 
+/** How long a unit's last measured strength is carried through a data gap before the neighbour/rank rules apply. */
+const CARRY_STRENGTH_MONTHS = 6;
+
 /** Spec §6.1-7: fill s for existing units that have no strength data. Mutates `cells`. */
 export function fillEstimatedStrength(args: {
   cells: Map<string, Map<Month, StrengthCell>>;
@@ -125,21 +128,30 @@ export function fillEstimatedStrength(args: {
 }): void {
   const ids = [...args.cells.keys()];
   const share = (u: string, m: Month) => args.shares.get(u)?.get(m) ?? 0;
+  /** last month each unit had a measured or reconstructed value (estimated values never refresh it) */
+  const lastKnown = new Map<string, { s: number; month: Month }>();
   for (const m of args.months) {
     const present = ids.filter((u) => args.exists(u, m));
     const cell = (u: string) => args.cells.get(u)!.get(m);
     const measured = present.filter((u) => cell(u)?.s != null);
+    for (const u of measured) lastKnown.set(u, { s: cell(u)!.s!, month: m });
     const missing = present.filter((u) => cell(u)?.s == null);
     if (!missing.length) continue;
     const estimates = new Map<string, number>();
-    if (measured.length) {
-      for (const u of missing) {
-        let best = measured[0];
-        for (const v of measured) if (Math.abs(share(u, m) - share(v, m)) < Math.abs(share(u, m) - share(best, m))) best = v;
-        estimates.set(u, cell(best)!.s!);
-      }
-    } else {
-      const ranked = [...missing].sort((a, b) => share(b, m) - share(a, m));
+    // a unit that was measured recently keeps its last value (avoids jumping to a neighbour's value during a data gap)
+    const fresh: string[] = [];
+    for (const u of missing) {
+      const k = lastKnown.get(u);
+      if (k && monthDiff(k.month, m) <= CARRY_STRENGTH_MONTHS) estimates.set(u, k.s);
+      else fresh.push(u);
+    }
+    if (fresh.length && measured.length) {
+      // never (or long ago) measured: neutral prior = median of this month's measured strengths (never the leader's 100)
+      const vals = measured.map((v) => cell(v)!.s!).sort((a, b) => a - b);
+      const mid = vals.length % 2 ? vals[(vals.length - 1) / 2] : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
+      for (const u of fresh) estimates.set(u, mid);
+    } else if (fresh.length) {
+      const ranked = [...fresh].sort((a, b) => share(b, m) - share(a, m));
       ranked.forEach((u, i) => estimates.set(u, Math.max(args.floor, 100 - args.step * i)));
     }
     for (const [u, s] of estimates) {
