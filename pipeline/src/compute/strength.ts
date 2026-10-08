@@ -74,7 +74,7 @@ export function computeStrength(args: {
       }
       perSeries.push({ table: t, scores });
     }
-    // 2) per group: highest-priority series with data, ties averaged
+    // 2) per group: highest-priority series with measured data (any data if none is measured), ties averaged
     const groups = new Map<string, typeof perSeries>();
     for (const s of perSeries) {
       if (!groups.has(s.table.group)) groups.set(s.table.group, []);
@@ -84,8 +84,11 @@ export function computeStrength(args: {
     for (const [group, list] of groups) {
       const weight = args.weights[group] ?? 0;
       if (weight <= 0) continue;
-      const maxP = Math.max(...list.map((s) => s.table.priority));
-      const top = list.filter((s) => s.table.priority === maxP);
+      // a series that is only reconstructed this month must neither be averaged with nor override a measured one
+      const hasMeasured = (s: (typeof perSeries)[number]) => [...s.scores.values()].some((h) => !h.reconstructed);
+      const pool = list.some(hasMeasured) ? list.filter(hasMeasured) : list;
+      const maxP = Math.max(...pool.map((s) => s.table.priority));
+      const top = pool.filter((s) => s.table.priority === maxP);
       const ids = new Set(top.flatMap((s) => [...s.scores.keys()]));
       for (const uid of ids) {
         const hits = top.map((s) => s.scores.get(uid)).filter((h): h is UnitSeriesScore => h !== undefined);

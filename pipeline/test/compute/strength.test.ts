@@ -73,6 +73,41 @@ describe('computeStrength', () => {
     expect(cells.get('a')!.get('2025-01')!.s).toBe(100);
     expect(cells.get('b')!.get('2025-01')!.s).toBe(100);
   });
+  it('does not average a measured series with a reconstructed one of equal priority', () => {
+    const tables = [
+      table('arena', 'x', 1, 'elo', { a: { '2025-01': 1300 }, b: { '2025-01': 1200 } }),
+      table('arena', 'y', 1, 'elo', { a: { '2025-01': [1200, true] }, b: { '2025-01': [1300, true] } }),
+    ];
+    const cells = computeStrength({ tables, unitIds: ['a', 'b'], months: ['2025-01'], weights: { arena: 1 }, kinds: K, minUnits: 2 });
+    const a = cells.get('a')!.get('2025-01')!;
+    const b = cells.get('b')!.get('2025-01')!;
+    expect(a.s).toBeCloseTo(100, 10);
+    expect(b.s).toBeCloseTo(200 / (1 + 10 ** 0.25), 10);
+    expect(a.measured).toBe(1);
+    expect(a.reconstructed).toBe(0);
+    expect(b.measured).toBe(1);
+    expect(b.reconstructed).toBe(0);
+  });
+  it('does not let a higher-priority reconstructed series override a measured one', () => {
+    const tables = [
+      table('arena', 'plain', 1, 'elo', { a: { '2025-01': 1300 }, b: { '2025-01': 1200 } }),
+      table('arena', 'style', 2, 'elo', { a: { '2025-01': [1200, true] }, b: { '2025-01': [1300, true] } }),
+    ];
+    const cells = computeStrength({ tables, unitIds: ['a', 'b'], months: ['2025-01'], weights: { arena: 1 }, kinds: K, minUnits: 2 });
+    const a = cells.get('a')!.get('2025-01')!;
+    expect(a.s).toBeCloseTo(100, 10);
+    expect(a.measured).toBe(1);
+    expect(a.reconstructed).toBe(0);
+  });
+  it('still uses a higher-priority series when it is measured', () => {
+    const tables = [
+      table('arena', 'plain', 1, 'elo', { a: { '2025-01': [1000, true] }, b: { '2025-01': [1400, true] } }),
+      table('arena', 'style', 2, 'elo', { a: { '2025-01': 1300 }, b: { '2025-01': 1300 } }),
+    ];
+    const cells = computeStrength({ tables, unitIds: ['a', 'b'], months: ['2025-01'], weights: { arena: 1 }, kinds: K, minUnits: 2 });
+    expect(cells.get('a')!.get('2025-01')!.s).toBe(100);
+    expect(cells.get('a')!.get('2025-01')!.measured).toBe(1);
+  });
   it('flags reconstructed groups and ignores groups without weight', () => {
     const tables = [
       table('arena', 'arena', 1, 'elo', { a: { '2024-01': [1300, true] }, b: { '2024-01': [1300, true] } }),
