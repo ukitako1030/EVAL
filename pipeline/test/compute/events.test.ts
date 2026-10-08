@@ -73,6 +73,32 @@ describe('detectEvents', () => {
     // 2024-03: b measured but the previous month was estimated → no surge
     expect(ev4.filter((e) => e.unit === 'b').map((e) => e.type)).toEqual(['scale_lead_change']);
   });
+  it('keeps the lead while the leader\'s cell is estimated (no flip-flop)', () => {
+    const flip = cells({
+      a: [[100, 50, 'a-1'], [100, 50, 'a-1', 'estimated'], [100, 50, 'a-1']],
+      b: [[95, 40, 'b-1'], [95, 40, 'b-1'], [95, 40, 'b-1']],
+    });
+    const e = detectEvents({ front, months: ['2024-01', '2024-02', '2024-03'], cells: flip, unitNames: { a: 'A', b: 'B' }, params, releases: [], overrides: [], custom: [] });
+    expect(e.filter((x) => x.type === 'lead_change' || x.type === 'scale_lead_change')).toEqual([]);
+  });
+  it('hands the strength lead to the best measured unit as soon as the leader is gone (no hysteresis)', () => {
+    const gone = cells({
+      a: [[100, 50, 'a-1'], [100, 50, 'a-1'], null],
+      b: [[99.8, 40, 'b-1'], [99.8, 40, 'b-1'], [99.8, 40, 'b-1']],
+      c: [[10, 5, 'c-1'], [10, 5, 'c-1'], [100, 45, null, 'estimated']],
+    });
+    const e = detectEvents({ front, months: ['2024-01', '2024-02', '2024-03'], cells: gone, unitNames: { a: 'A', b: 'B', c: 'C' }, params, releases: [], overrides: [], custom: [] });
+    // estimated c (s=100) must not take the lead; measured b does
+    expect(e.filter((x) => x.type === 'lead_change').map((x) => `${x.month}:${x.unit}`)).toEqual(['2024-03:b']);
+  });
+  it('hands the scale lead over as soon as the scale leader is gone', () => {
+    const gone = cells({
+      a: [[100, 80, 'a-1'], [100, 80, 'a-1'], null],
+      b: [[90, 79.5, 'b-1'], [90, 79.5, 'b-1'], [90, 79.5, 'b-1']],
+    });
+    const e = detectEvents({ front, months: ['2024-01', '2024-02', '2024-03'], cells: gone, unitNames: { a: 'A', b: 'B' }, params, releases: [], overrides: [], custom: [] });
+    expect(e.filter((x) => x.type === 'scale_lead_change').map((x) => `${x.month}:${x.unit}`)).toEqual(['2024-03:b']);
+  });
   it('caps events per front-month', () => {
     const ev3 = detectEvents({ front, months, cells: c, unitNames: names, params: { ...params, maxPerFrontMonth: 1 }, releases: [], overrides: [], custom: [] });
     expect(ev3.filter((e) => e.month === '2024-03').map((e) => e.type)).toEqual(['lead_change']);

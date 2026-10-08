@@ -81,19 +81,22 @@ export function detectEvents(args: {
     const push = (type: EventType, unit: string, extra: { model?: string; from?: string; down?: boolean } = {}) =>
       raw.push({ month: m, front: front.id, unit, type, text: text(type, front, name(unit), extra), ...(extra.model ? { model: extra.model } : {}), ...(extra.from ? { from: extra.from } : {}) });
 
-    // leaders with hysteresis
+    // leaders with hysteresis. A leader whose cell is merely *estimated* keeps the lead (an estimate is a placeholder,
+    // not evidence that it fell behind); the lead is handed over without hysteresis only when the leader's cell is null.
     const candS = argmax(measured, (u) => at(u, i)!.s);
-    if (candS && candS !== leadS) {
-      const curS = leadS && at(leadS, i) && at(leadS, i)!.q !== 'estimated' ? at(leadS, i)!.s : null;
-      if (curS === null || at(candS, i)!.s >= curS + params.leadHysteresis) {
+    if (candS) {
+      const cellS = leadS ? at(leadS, i) : null;
+      const take = !leadS || !cellS || (cellS.q !== 'estimated' && candS !== leadS && at(candS, i)!.s >= cellS.s + params.leadHysteresis);
+      if (take) {
         if (i > 0 && leadS) push('lead_change', candS, { from: name(leadS) });
         leadS = candS;
       }
     }
     const candC = argmax(present, (u) => at(u, i)!.c);
-    if (candC && candC !== leadC) {
-      const curC = leadC && at(leadC, i) ? at(leadC, i)!.c : null;
-      if (curC === null || at(candC, i)!.c >= curC + params.leadHysteresis) {
+    if (candC) {
+      const cellC = leadC ? at(leadC, i) : null;
+      const take = !leadC || !cellC || (candC !== leadC && at(candC, i)!.c >= cellC.c + params.leadHysteresis);
+      if (take) {
         if (i > 0 && leadC) push('scale_lead_change', candC, { from: name(leadC) });
         leadC = candC;
       }
