@@ -5,3 +5,11 @@ custom:
     front: general
     unit: gpt
     text: { ja: 'ChatGPT 公開 — 開戦', en: 'ChatGPT launches — the war begins' }
+  - month: 2026-03
+    front: video
+    unit: sora
+    text: { ja: 'OpenAI が Sora の提供終了を発表', en: 'OpenAI announces the end of Sora' }
+  - month: 2026-04
+    front: video
+    unit: sora
+    text: { ja: 'Sora 撤退 — アプリ終了（API も 9 月に終了）', en: 'Sora withdraws — the app closes (the API follows in September)' }

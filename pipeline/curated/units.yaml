@@ -403,6 +403,10 @@ fronts:
         org: openai
         name: Sora
         since: 2024-12 # Sora public launch (2024-12-09)
+        # discontinued: announced 2026-03-24, app and web closed 2026-04-26, API sunset 2026-09-24
+        # (help.openai.com/en/articles/20001152). It leaves with the app: after 2026-04 only stale traffic to its
+        # old hosts remained, which would keep a closed product at ~15 % scale.
+        until: 2026-04
         match:
           # sora, sora-2, sora-2-pro, "Sora 2"; look-behind rejects "-" so Open-Sora is not Sora
           - '(?<![a-z0-9-])sora(?![a-z])'
