@@ -295,9 +295,8 @@ const TITLE_ROOM = { top: 26, bottom: 14 };
 /**
  * Desktop layout: the framed area is the window minus the HUD boxes, measured from the DOM (layout boxes, so the
  * detail panel's slide-in transform doesn't count): below the title, left of the ranking panel, above the legend
- * and the timeline (plus TITLE_ROOM in the galaxy overview). An open unit detail panel on the left pushes the frame
- * right, so the focused planet glides into the free space beside it (the galaxy overview only when the frame stays
- * landscape — a portrait frame would re-arrange the planets).
+ * and the timeline (plus TITLE_ROOM in the galaxy overview, `focused` false). An open unit detail panel on the left
+ * pushes the frame right, so the planet glides into the free space beside it, as far as the frame stays landscape.
  */
 function desktopInsets(w: number, h: number, hud: HTMLElement, detail: HTMLElement, focused: boolean): Insets {
   const box = (sel: string) => {
@@ -313,11 +312,12 @@ function desktopInsets(w: number, h: number, hud: HTMLElement, detail: HTMLEleme
   const top = (title ? title.offsetTop + title.offsetHeight + HUD_GAP : 56) + room.top;
   const floor = Math.min(timeline ? timeline.offsetTop : h - 88, legend ? legend.offsetTop : h);
   const bottom = Math.max(0, h - floor + HUD_GAP) + room.bottom;
-  // a detail panel on the left pushes the frame right; short windows show it over the ranking panel instead
+  // a detail panel on the left pushes the frame right (short windows show it over the ranking panel instead) — but
+  // never so far that the frame turns portrait: that would flip the galaxy into its phone arrangement (render/layout)
   let left = 0;
   if (!detail.hidden && detail.offsetWidth > 0 && detail.offsetLeft < w / 2) {
     const l = detail.offsetLeft + detail.offsetWidth + HUD_GAP;
-    if (focused || w - l - right >= h - top - bottom) left = l;
+    left = Math.max(0, Math.min(l, w - right - (h - top - bottom)));
   }
   return { top, right, bottom, left };
 }
