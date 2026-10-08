@@ -43,7 +43,8 @@ export function releaseOf(releases: CompiledRelease[], model: string): CompiledR
 
 /**
  * All observations must belong to ONE series (same series id, kind, dateKind) or this throws.
- * Observations with a non-finite value are dropped (with one warning); dates are normalised to YYYY-MM-DD.
+ * Observations with a non-finite value are dropped (with one warning; if none remain the table is empty);
+ * dates are normalised to YYYY-MM-DD.
  */
 export function assignSeries(args: {
   front: FrontId;
@@ -61,7 +62,11 @@ export function assignSeries(args: {
   if (dropped > 0) {
     console.warn(`assignSeries: dropped ${dropped} observation(s) with non-finite value in series "${args.observations[0].series}"`);
   }
-  if (!finite.length) throw new Error(`assignSeries: no finite observations in series "${args.observations[0].series}"`);
+  if (!finite.length) {
+    // one broken source must not crash the whole computation: contribute nothing
+    const f = args.observations[0];
+    return { front: args.front, group: args.group, series: f.series, priority: args.priority, kind: f.kind, points: new Map() };
+  }
   // a time part ("2024-05-31T12:00:00Z") must not push a row out of its month
   const obs = finite.map((o) => ({ ...o, date: o.date.slice(0, 10) }));
   const first = obs[0];

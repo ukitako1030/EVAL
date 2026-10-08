@@ -152,10 +152,14 @@ describe('assignSeries — input hygiene', () => {
       warn.mockRestore();
     }
   });
-  it('throws when every value is non-finite', () => {
+  it('returns an empty table (with a warning) when every value is non-finite, so one broken source cannot crash the run', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      expect(() => run([ob({ value: NaN })])).toThrow(/assignSeries/);
+      const t = run([ob({ value: NaN }), ob({ model: 'claude-3', value: Infinity })]);
+      expect(t.points.size).toBe(0);
+      expect(t.series).toBe('s');
+      expect(t.kind).toBe('elo');
+      expect(warn).toHaveBeenCalledTimes(1);
     } finally {
       warn.mockRestore();
     }
