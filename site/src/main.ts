@@ -109,6 +109,14 @@ async function boot(mount: HTMLElement) {
     let queue = queueFor(store.get().front);
     let ticking = false; // store writes from the playback tick (anything else moving `t` is the user)
     const started = new Set<string>();
+    let card: IntroCard | null = null;
+    /** Playback starts at month 0 (after the intro card, or "play again" from the end): announce 開戦 and hold on it. */
+    const startFromTheTop = () => {
+      const s = store.get();
+      if (!s.playing || monthIndex(world, s.t) !== 0) return;
+      queue.push(selectEvents(world, 0, s.front));
+      playback.holdAt(0, s.speed); // month 0 has news too: let it be read before moving on
+    };
 
     store.subscribe((s, prev) => {
       if (s.front !== prev.front) {
@@ -118,6 +126,7 @@ async function boot(mount: HTMLElement) {
         aim(false);
       } else if (!ticking && s.t !== prev.t) {
         queue.clear(); // scrubbed / stepped / skipped: news from the old position is stale
+        if (!card) startFromTheTop();
       }
       if (s.speed !== prev.speed) queue.setMinSeconds(HOLD_SECONDS[s.speed]);
       if (s.reducedMotion !== prev.reducedMotion) renderer.setReducedMotion(s.reducedMotion);
@@ -134,7 +143,6 @@ async function boot(mount: HTMLElement) {
     });
 
     // ---- first-visit intro: title card (playback waits), then the war from month 0 at 1× ----
-    let card: IntroCard | null = null;
     if (store.get().intro) {
       store.set({ speed: 1 });
       card = createIntroCard(hud.el, world, store);
@@ -142,12 +150,6 @@ async function boot(mount: HTMLElement) {
       const cam = renderer.camera;
       renderer.focus(galaxy.cameraTarget(store.get().front), { from: { ...cam, scale: cam.scale * 0.45 }, durationMs: 2600 });
     }
-    const startIntro = () => {
-      const s = store.get();
-      if (!s.playing || monthIndex(world, s.t) !== 0) return;
-      queue.push(selectEvents(world, 0, s.front)); // 開戦
-      playback.holdAt(0, s.speed); // month 0 has news too: let it be read before moving on
-    };
 
     // ---- frame loop ----
     renderer.onFrame((dt, rawDt) => {
@@ -158,7 +160,7 @@ async function boot(mount: HTMLElement) {
       let s = store.get();
       if (card) {
         if (!s.intro) card.close(); // skipped
-        else if (card.advance(dt)) startIntro();
+        else if (card.advance(dt)) startFromTheTop(); // 開戦
         if (card.closed) card = null;
       } else if (!timeline.isDragging()) {
         const r = playback.tick(rawDt, s);
