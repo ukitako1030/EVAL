@@ -2,7 +2,7 @@
 
 > 非公式・非商用のプロジェクトです。各 AI 企業とは関係ありません。
 
-**サイト：<https://ukitako1030.github.io/EVAL/>**
+**サイト：<https://ukitako1030.github.io/EVAL/>** · [English](README.en.md)
 
 ![AI WAR の画面。中央の大きな惑星が総合戦線、まわりの惑星がコード・エージェント・画像・動画・音声・音楽の戦線。右にランキングと陣営展開、下に 2022 年から現在までのタイムライン。](mockups/shots/site-galaxy-latest.jpg)
 
