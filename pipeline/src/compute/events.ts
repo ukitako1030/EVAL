@@ -14,7 +14,7 @@ export interface WorldEvent {
   text: Localized;
   model?: string;
   from?: string;
-  /** lead changes, scale lead changes, custom events and the new model of the month's strength leader */
+  /** lead changes, scale lead changes, custom events, and new models on the general front or of a front's leader */
   major: boolean;
 }
 
@@ -23,6 +23,8 @@ export interface EventCell {
   c: number;
   /** model of the front's event group */
   bestModel: string | null;
+  /** the best model of every contributing strength group, highest weight first (defaults to [bestModel]) */
+  models?: string[];
   q: Confidence;
   /** strength source groups that contributed to `s` (its breakdown; empty for an estimate) */
   groups: string[];
@@ -35,6 +37,16 @@ export type FrontCells = Map<string, (EventCell | null)[]>;
 
 /** Units ranked in the top N by strength in a month get new_model events. */
 const NEW_MODEL_TOP = 3;
+
+/**
+ * The model family behind a display name: the reasoning effort and a trailing "Max" variant are dropped, so
+ * "Claude Fable 5.1 Max", "Claude Fable 5.1 (high)", "Claude Fable 5.1 Max Effort" and "Claude Fable 5.1" are one release.
+ */
+export function modelFamily(display: string): string {
+  return display
+    .replace(/\s*\((?:xhigh|high|medium|low|minimal|max)\)$/i, '')
+    .replace(/\s+(?:(?:max|xhigh|high|medium|low|minimal)\s+effort|max)$/i, '');
+}
 
 const PRIORITY: Record<EventType, number> = { lead_change: 0, new_unit: 1, new_model: 2, scale_lead_change: 3, surge: 4, custom: 5 };
 
@@ -119,6 +131,10 @@ function text(type: EventType, front: { name: Localized }, unit: string, extra: 
   }
 }
 
+function modelsOf(c: EventCell): string[] {
+  return c.models ?? (c.bestModel ? [c.bestModel] : []);
+}
+
 function argmax(ids: string[], v: (id: string) => number): string | null {
   let best: string | null = null;
   for (const id of ids) if (best === null || v(id) > v(best)) best = id;
@@ -166,6 +182,7 @@ export function detectEvents(args: {
   let leadS: string | null = null;
   let leadC: string | null = null;
   const seen = new Set<string>(); // units that have had a cell in any earlier month (or this one)
+  const families = new Map<string, Set<string>>(); // unit → model families it has fielded so far
 
   months.forEach((m, i) => {
     const at = (u: string, k: number) => cells.get(u)![k];
@@ -224,21 +241,40 @@ export function detectEvents(args: {
         leadC = candC;
       }
     }
-    if (i === 0) return;
+    if (i === 0) {
+      // the first month's models are the starting line-up, not news
+      for (const u of present) {
+        families.set(u, new Set(modelsOf(at(u, i)!).map((b) => modelFamily(prettyModel(b, args.releases)))));
+      }
+      return;
+    }
     // new models are news only near the top: the units ranked in the top 3 by (measured) strength this month
     const ranked = measured.map((u) => at(u, i)!.s).sort((a, b) => b - a);
     const topCut = ranked[Math.min(NEW_MODEL_TOP, ranked.length) - 1];
     for (const u of present) {
       const cur = at(u, i)!;
       const prev = at(u, i - 1);
+      const known = families.get(u) ?? new Set<string>();
+      families.set(u, known);
+      // the first family this month that the unit has never fielded before, from the highest-weight group that shows one
+      const curFamilies = modelsOf(cur).map((b) => modelFamily(prettyModel(b, args.releases)));
+      const family = curFamilies.find((f) => !known.has(f)) ?? null;
+      const firstSeen = family !== null;
+      for (const f of curFamilies) known.add(f);
       if (!prev) {
         if (fresh.has(u)) push('new_unit', u);
         continue;
       }
       if (cur.q === 'estimated' || prev.q === 'estimated') continue;
       const ds = cur.s - prev.s;
-      const newModel = cur.s >= topCut && cur.bestModel && prev.bestModel && cur.bestModel !== prev.bestModel && ds >= params.newModelMinDelta;
-      if (newModel) push('new_model', u, { model: prettyModel(cur.bestModel!, args.releases), major: u === leadS });
+      // A family seen for the first time is news by itself near the top: strength is relative to the leader, so when the
+      // leading armies all field new models in the same month their scores barely move (2026-09: Fable 5.1, GPT-6, ...).
+      // A new variant of a known family still needs a real jump.
+      const changed = cur.bestModel && prev.bestModel && cur.bestModel !== prev.bestModel;
+      const newModel = cur.s >= topCut && (firstSeen || (changed && ds >= params.newModelMinDelta));
+      // major (shown on the galaxy overview) on the general front, or for the front's leader: the same release arrives on
+      // several fronts at once, and the overview should announce it once, not three times
+      if (newModel) push('new_model', u, { model: firstSeen ? family! : prettyModel(cur.bestModel!, args.releases), major: front.id === 'general' || u === leadS });
       // only upward moves are news (a fall is visible on the map anyway); see sourcesChanged for the like-for-like rule
       else if ((ds >= params.surgeStrength && likeS(u) - prev.s >= params.surgeStrength) || cur.c - prev.c >= params.surgeScale) push('surge', u);
     }

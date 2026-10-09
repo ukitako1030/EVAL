@@ -13,3 +13,7 @@ custom:
     front: video
     unit: sora
     text: { ja: 'Sora 撤退 — アプリ終了（API も 9 月に終了）', en: 'Sora withdraws — the app closes (the API follows in September)' }
+  - month: 2026-09
+    front: general
+    unit: claude
+    text: { ja: '9月の大激戦 — Fable 5.1・GPT-6 Astra/Sol/Luna・Opus 5.5・Sonnet 5.5・GPT-6.1 Sol が相次ぎ投入', en: 'The September onslaught — Fable 5.1, GPT-6 Astra/Sol/Luna, Opus 5.5, Sonnet 5.5 and GPT-6.1 Sol all deployed' }

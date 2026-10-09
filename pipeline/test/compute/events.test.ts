@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { detectEvents, prettyModel, type FrontCells } from '../../src/compute/events';
+import { detectEvents, modelFamily, prettyModel, type FrontCells } from '../../src/compute/events';
 
 const params = { newModelMinDelta: 3, surgeStrength: 5, surgeScale: 5, leadHysteresis: 1, maxPerFrontMonth: 3 };
 const front = { id: 'general' as const, name: { ja: '総合戦線', en: 'General Front' } };
@@ -245,18 +245,32 @@ describe('detectEvents', () => {
       expect(e.map((x) => `${x.month}:${x.type}:${x.unit}`)).toEqual(['2024-02:lead_change:b', '2024-02:new_unit:b']);
     });
   });
-  it('reports new models only for units ranked in the top 3 by strength that month; only the leader\'s is major', () => {
+  it('reports a first-seen model family of a top-3 unit even without a strength jump (all of them major)', () => {
     const c2 = cells({
-      a: [[100, 40, 'a-1'], [100, 40, 'a-2']], // leader, new model (+0: below newModelMinDelta)
-      b: [[90, 30, 'b-1'], [94, 30, 'b-2']], // 2nd, new model +4
-      c: [[86, 20, 'c-1'], [90, 20, 'c-2']], // 3rd, new model +4
-      d: [[82, 10, 'd-1'], [86, 10, 'd-2']], // 4th, new model +4 → not reported
+      a: [[100, 40, 'a-1'], [100, 40, 'a-2']], // leader, new family, +0: the leading armies all upgrade at once
+      b: [[90, 30, 'b-1'], [90, 30, 'b-2']], // 2nd, new family, +0
+      c: [[86, 20, 'c-1'], [86, 20, 'c-2']], // 3rd, new family, +0
+      d: [[82, 10, 'd-1'], [86, 10, 'd-2']], // 4th, new family → not reported
     });
     const e = detectEvents({ front, months: months.slice(0, 2), cells: c2, unitNames: {}, params, releases: [], overrides: [], custom: [] });
-    expect(e.map((x) => `${x.type}:${x.unit}:${x.major}`)).toEqual(['new_model:b:false', 'new_model:c:false']);
-    const lead = cells({ a: [[100, 40, 'a-1'], [104, 40, 'a-2']], b: [[90, 30, 'b-1'], [90, 30, 'b-1']] });
-    const e2 = detectEvents({ front, months: months.slice(0, 2), cells: lead, unitNames: {}, params, releases: [], overrides: [], custom: [] });
-    expect(e2.map((x) => `${x.type}:${x.unit}:${x.major}`)).toEqual(['new_model:a:true']);
+    expect(e.map((x) => `${x.type}:${x.unit}:${x.major}`)).toEqual(['new_model:a:true', 'new_model:b:true', 'new_model:c:true']);
+  });
+  it('a new effort variant of a known family needs a real jump; a family returning is not new again', () => {
+    const c2 = cells({
+      a: [[100, 40, 'a-1'], [100, 40, 'a-1-high'], [100, 40, 'a-2'], [100, 40, 'a-1']],
+      b: [[90, 30, 'b-1'], [94, 30, 'b-1_max'], [94, 30, 'b-1'], [94, 30, 'b-1']],
+    });
+    const e = detectEvents({ front, months: months.slice(0, 4), cells: c2, unitNames: {}, params, releases: [], overrides: [], custom: [] });
+    expect(e.filter((x) => x.type === 'new_model').map((x) => `${x.month}:${x.unit}:${x.model}`)).toEqual([
+      `${months[1]}:b:B 1 (max)`, // same family, but +4
+      `${months[2]}:a:A 2`, // first-seen family
+    ]);
+  });
+  it('modelFamily drops the effort and a trailing Max', () => {
+    expect(modelFamily('Claude Fable 5.1 Max')).toBe('Claude Fable 5.1');
+    expect(modelFamily('Claude Opus 5.5 (high)')).toBe('Claude Opus 5.5');
+    expect(modelFamily('GPT 6 Astra')).toBe('GPT 6 Astra');
+    expect(modelFamily('Claude Sonnet 5.5 Max Effort')).toBe('Claude Sonnet 5.5');
   });
   it('ignores estimated cells for lead changes, model jumps and surges', () => {
     const est = cells({

@@ -239,6 +239,7 @@ export function computeWorld(opts: ComputeOpts): World {
             c: arr[i]!.c,
             q: arr[i]!.q,
             bestModel: breakdown.find((g) => g.group === eventGroup)?.model ?? null,
+            models: breakdown.map((g) => g.model),
             groups: breakdown.map((g) => g.group),
             parts: Object.fromEntries(breakdown.map((g) => [g.group, { value: g.score, weight: g.weight }])),
           };
