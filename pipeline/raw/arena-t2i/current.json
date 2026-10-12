@@ -1,4 +1,4 @@
-{"sourceId":"arena-t2i","date":"2026-10-08","items":[
+{"sourceId":"arena-t2i","date":"2026-10-12","items":[
 {"series":"arena-t2i","kind":"elo","model":"imagen-3.0-generate-002","org":"google","date":"2025-01-28","dateKind":"snapshot","value":1105.1604610135985},
 {"series":"arena-t2i","kind":"elo","model":"recraft-v3","org":"recraft","date":"2025-01-28","dateKind":"snapshot","value":1034.1680453884371},
 {"series":"arena-t2i","kind":"elo","model":"ideogram-v2","org":"ideogram","date":"2025-01-28","dateKind":"snapshot","value":1027.1411190764438},

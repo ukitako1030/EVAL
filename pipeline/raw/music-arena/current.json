@@ -1,4 +1,4 @@
-{"sourceId":"music-arena","date":"2026-10-08","items":[
+{"sourceId":"music-arena","date":"2026-10-12","items":[
 {"series":"music-arena@vocal","kind":"elo","model":"riffusion-fuzz-1-0","org":"Riffusion","date":"2025-08-31","dateKind":"snapshot","value":1172.5},
 {"series":"music-arena@vocal","kind":"elo","model":"riffusion-fuzz-1-1","org":"Riffusion","date":"2025-08-31","dateKind":"snapshot","value":1087.3},
 {"series":"music-arena@vocal","kind":"elo","model":"preview-ocelot","date":"2025-08-31","dateKind":"snapshot","value":1045.7},

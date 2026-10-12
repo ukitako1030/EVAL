@@ -1,4 +1,4 @@
-{"sourceId":"epoch-terminalbench","date":"2026-10-08","items":[
+{"sourceId":"epoch-terminalbench","date":"2026-10-12","items":[
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5.5_unknown","date":"2026-04-23","dateKind":"release","value":84.7191011236,"org":"OpenAI"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5.5_unknown","date":"2026-04-23","dateKind":"release","value":83.1460674157,"org":"OpenAI"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5.5_unknown","date":"2026-04-23","dateKind":"release","value":82.2471910112,"org":"OpenAI"},

@@ -1,4 +1,4 @@
-{"sourceId":"arena-image-edit","date":"2026-10-08","items":[
+{"sourceId":"arena-image-edit","date":"2026-10-12","items":[
 {"series":"arena-image-edit","kind":"elo","model":"gpt-image-1","org":"openai","date":"2025-06-24","dateKind":"snapshot","value":1199.2975881480727},
 {"series":"arena-image-edit","kind":"elo","model":"gemini-2.0-flash-preview-image-generation","org":"google","date":"2025-06-24","dateKind":"snapshot","value":1092.7372115818296},
 {"series":"arena-image-edit","kind":"elo","model":"bagel","org":"bytedance","date":"2025-06-24","dateKind":"snapshot","value":1069.3735540977589},

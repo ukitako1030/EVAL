@@ -1,4 +1,4 @@
-{"sourceId":"epoch-vending","date":"2026-10-08","items":[
+{"sourceId":"epoch-vending","date":"2026-10-12","items":[
 {"series":"epoch-vending","kind":"eci","model":"gpt-6-astra_unknown","date":"2026-09-03","dateKind":"release","value":15.514701666666667,"org":"OpenAI"},
 {"series":"epoch-vending","kind":"eci","model":"gpt-6-sol_unknown","date":"2026-09-22","dateKind":"release","value":14.427848333333333,"org":"OpenAI"},
 {"series":"epoch-vending","kind":"eci","model":"gemini-4-argon_unknown","date":"2026-09-30","dateKind":"release","value":13.718158333333333,"org":"Google DeepMind"},
