@@ -1,4 +1,4 @@
-{"sourceId":"epoch-eci","date":"2026-10-08","items":[
+{"sourceId":"epoch-eci","date":"2026-10-12","items":[
 {"series":"epoch-eci","kind":"eci","model":"Claude Opus 5.5","date":"2026-09-22","dateKind":"release","value":167.33,"org":"Anthropic"},
 {"series":"epoch-eci","kind":"eci","model":"GPT-6 Astra","date":"2026-09-03","dateKind":"release","value":166.45,"org":"OpenAI"},
 {"series":"epoch-eci","kind":"eci","model":"GPT-6.1 Sol","date":"2026-09-29","dateKind":"release","value":166.09,"org":"OpenAI"},

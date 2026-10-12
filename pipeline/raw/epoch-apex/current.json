@@ -1,4 +1,4 @@
-{"sourceId":"epoch-apex","date":"2026-10-08","items":[
+{"sourceId":"epoch-apex","date":"2026-10-12","items":[
 {"series":"epoch-apex","kind":"percent","model":"gemini-4-argon_unknown","date":"2026-09-30","dateKind":"release","value":82.2,"org":"Google DeepMind"},
 {"series":"epoch-apex","kind":"percent","model":"claude-sonnet-5-5_max","date":"2026-09-28","dateKind":"release","value":75.5,"org":"Anthropic"},
 {"series":"epoch-apex","kind":"percent","model":"claude-opus-5-5_max","date":"2026-09-22","dateKind":"release","value":73.5,"org":"Anthropic"},

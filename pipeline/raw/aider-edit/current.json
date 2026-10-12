@@ -1,4 +1,4 @@
-{"sourceId":"aider-edit","date":"2026-10-08","items":[
+{"sourceId":"aider-edit","date":"2026-10-12","items":[
 {"series":"aider-edit","kind":"percent","model":"claude-3-opus-20240229","date":"2024-02-29","dateKind":"release","value":68.4},
 {"series":"aider-edit","kind":"percent","model":"claude-3-sonnet-20240229","date":"2024-02-29","dateKind":"release","value":54.9},
 {"series":"aider-edit","kind":"percent","model":"gemini-1.5-pro-001","date":"2024-05-03","dateKind":"release","value":57.1},

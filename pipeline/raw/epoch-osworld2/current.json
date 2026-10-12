@@ -1,4 +1,4 @@
-{"sourceId":"epoch-osworld2","date":"2026-10-08","items":[
+{"sourceId":"epoch-osworld2","date":"2026-10-12","items":[
 {"series":"epoch-osworld2","kind":"percent","model":"claude-opus-5_max","date":"2026-07-24","dateKind":"release","value":31.430000000000003,"org":"Anthropic"},
 {"series":"epoch-osworld2","kind":"percent","model":"claude-opus-5_xhigh","date":"2026-07-24","dateKind":"release","value":30.210000000000004,"org":"Anthropic"},
 {"series":"epoch-osworld2","kind":"percent","model":"claude-opus-5_high","date":"2026-07-24","dateKind":"release","value":28.98,"org":"Anthropic"},
