@@ -1,4 +1,4 @@
-{"sourceId":"vbench","date":"2026-10-08","items":[
+{"sourceId":"vbench","date":"2026-10-19","items":[
 {"series":"vbench","kind":"percent","model":"HiDream-O1-Video","date":"2026-08-07","dateKind":"release","value":89.74},
 {"series":"vbench","kind":"percent","model":"IPOW","date":"2025-08-06","dateKind":"release","value":88.26},
 {"series":"vbench","kind":"percent","model":"Vidu Q1 (2025-04-17)","date":"2025-04-21","dateKind":"release","value":87.41},

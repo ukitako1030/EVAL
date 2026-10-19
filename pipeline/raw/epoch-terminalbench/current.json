@@ -1,4 +1,4 @@
-{"sourceId":"epoch-terminalbench","date":"2026-10-08","items":[
+{"sourceId":"epoch-terminalbench","date":"2026-10-19","items":[
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5.5_unknown","date":"2026-04-23","dateKind":"release","value":84.7191011236,"org":"OpenAI"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5.5_unknown","date":"2026-04-23","dateKind":"release","value":83.1460674157,"org":"OpenAI"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5.5_unknown","date":"2026-04-23","dateKind":"release","value":82.2471910112,"org":"OpenAI"},
@@ -45,10 +45,10 @@
 {"series":"epoch-terminalbench","kind":"percent","model":"gemini-3-pro-preview","date":"2025-11-18","dateKind":"release","value":62.2,"org":"Google DeepMind"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gemini-3-pro-preview","date":"2025-11-18","dateKind":"release","value":61.79775280900001,"org":"Google DeepMind"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5.1-codex-mini","date":"2025-11-12","dateKind":"release","value":61.5730337079,"org":"OpenAI"},
+{"series":"epoch-terminalbench","kind":"percent","model":"gemini-3.1-pro-preview","date":"2026-02-19","dateKind":"release","value":61.4232209738,"org":"Google DeepMind"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gemini-3-pro-preview","date":"2025-11-18","dateKind":"release","value":61.1235955056,"org":"Google DeepMind"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5.2-2025-12-11_unknown","date":"2025-12-11","dateKind":"release","value":60.6741573034,"org":"OpenAI"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5.1-codex-max","date":"2025-11-19","dateKind":"release","value":60.4494382022,"org":"OpenAI"},
-{"series":"epoch-terminalbench","kind":"percent","model":"gemini-3.1-pro-preview","date":"2026-02-19","dateKind":"release","value":59.3632958801,"org":"Google DeepMind"},
 {"series":"epoch-terminalbench","kind":"percent","model":"claude-opus-4-5-20251101_unknown","date":"2025-11-24","dateKind":"release","value":59.101123595500006,"org":"Anthropic"},
 {"series":"epoch-terminalbench","kind":"percent","model":"claude-opus-4-5-20251101_128K","date":"2025-11-24","dateKind":"release","value":59.099999999999994,"org":"Anthropic"},
 {"series":"epoch-terminalbench","kind":"percent","model":"claude-opus-4-5-20251101_unknown","date":"2025-11-24","dateKind":"release","value":58.426966292100005,"org":"Anthropic"},
@@ -156,6 +156,7 @@
 {"series":"epoch-terminalbench","kind":"percent","model":"Qwen3-Coder-480B-A35B-Instruct","date":"2025-07-31","dateKind":"release","value":25.4,"org":"Alibaba"},
 {"series":"epoch-terminalbench","kind":"percent","model":"grok-4-0709","date":"2025-07-09","dateKind":"release","value":25.393258427,"org":"xAI"},
 {"series":"epoch-terminalbench","kind":"percent","model":"Qwen3-Coder-480B-A35B-Instruct","date":"2025-07-31","dateKind":"release","value":25.393258427,"org":"Alibaba"},
+{"series":"epoch-terminalbench","kind":"percent","model":"qwen3.6-35b-a3b","date":"2026-04-14","dateKind":"release","value":24.6254681648,"org":"Alibaba"},
 {"series":"epoch-terminalbench","kind":"percent","model":"glm-4.6","date":"2025-09-30","dateKind":"release","value":24.531835206,"org":"Z.ai (Zhipu AI),Tsinghua University"},
 {"series":"epoch-terminalbench","kind":"percent","model":"glm-4.6","date":"2025-09-30","dateKind":"release","value":24.5,"org":"Z.ai (Zhipu AI),Tsinghua University"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5-mini-2025-08-07_unknown","date":"2025-08-07","dateKind":"release","value":24.0449438202,"org":"OpenAI"},
@@ -164,7 +165,6 @@
 {"series":"epoch-terminalbench","kind":"percent","model":"Qwen3-Coder-480B-A35B-Instruct","date":"2025-07-31","dateKind":"release","value":23.8951310861,"org":"Alibaba"},
 {"series":"epoch-terminalbench","kind":"percent","model":"grok-4-0709","date":"2025-07-09","dateKind":"release","value":23.1460674157,"org":"xAI"},
 {"series":"epoch-terminalbench","kind":"percent","model":"grok-4-0709","date":"2025-07-09","dateKind":"release","value":23.1,"org":"xAI"},
-{"series":"epoch-terminalbench","kind":"percent","model":"qwen3.6-35b-a3b","date":"2026-04-14","dateKind":"release","value":23.0337078652,"org":"Alibaba"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5-mini-2025-08-07_unknown","date":"2025-08-07","dateKind":"release","value":22.2471910112,"org":"OpenAI"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5-mini-2025-08-07_medium","date":"2025-08-07","dateKind":"release","value":22.2,"org":"OpenAI"},
 {"series":"epoch-terminalbench","kind":"percent","model":"gpt-5-nano-2025-08-07_unknown","date":"2025-08-07","dateKind":"release","value":21.797752809,"org":"OpenAI"},
