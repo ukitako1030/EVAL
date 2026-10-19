@@ -1,4 +1,4 @@
-{"sourceId":"epoch-osworld","date":"2026-10-08","items":[
+{"sourceId":"epoch-osworld","date":"2026-10-19","items":[
 {"series":"epoch-osworld","kind":"percent","model":"claude-sonnet-4-6","date":"2026-02-17","dateKind":"release","value":72.1,"org":"Anthropic"},
 {"series":"epoch-osworld","kind":"percent","model":"claude-sonnet-4-5-20250929","date":"2025-09-29","dateKind":"release","value":62.9,"org":"Anthropic"},
 {"series":"epoch-osworld","kind":"percent","model":"claude-sonnet-4-5-20250929","date":"2025-09-29","dateKind":"release","value":58.1,"org":"Anthropic"},
