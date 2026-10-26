@@ -1,4 +1,4 @@
-{"sourceId":"epoch-swebench","date":"2026-10-08","items":[
+{"sourceId":"epoch-swebench","date":"2026-10-26","items":[
 {"series":"epoch-swebench","kind":"percent","model":"glm-5.2_max","date":"2026-06-16","dateKind":"release","value":78.7,"org":"Z.ai (Zhipu AI)"},
 {"series":"epoch-swebench","kind":"percent","model":"qwen3.7-max","date":"2026-05-19","dateKind":"release","value":77.27272727272727,"org":"Alibaba"},
 {"series":"epoch-swebench","kind":"percent","model":"deepseek-v4-pro_max","date":"2026-04-24","dateKind":"release","value":77.63975155279503,"org":"DeepSeek"},

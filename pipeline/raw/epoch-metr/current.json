@@ -1,4 +1,4 @@
-{"sourceId":"epoch-metr","date":"2026-10-08","items":[
+{"sourceId":"epoch-metr","date":"2026-10-26","items":[
 {"series":"epoch-metr","kind":"minutes","model":"claude-mythos-preview-early","date":"2026-04-07","dateKind":"release","value":1044.780145,"org":"Anthropic"},
 {"series":"epoch-metr","kind":"minutes","model":"claude-opus-4-6_unknown","date":"2026-02-05","dateKind":"release","value":718.80683,"org":"Anthropic"},
 {"series":"epoch-metr","kind":"minutes","model":"gemini-3.1-pro-preview","date":"2026-02-19","dateKind":"release","value":384.147435,"org":"Google DeepMind"},

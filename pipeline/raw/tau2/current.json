@@ -1,4 +1,4 @@
-{"sourceId":"tau2","date":"2026-10-08","items":[
+{"sourceId":"tau2","date":"2026-10-26","items":[
 {"series":"tau2@airline","kind":"percent","model":"Claude Opus 4.5","org":"Anthropic","date":"2025-11-24","dateKind":"release","value":84},
 {"series":"tau2@retail","kind":"percent","model":"Claude Opus 4.5","org":"Anthropic","date":"2025-11-24","dateKind":"release","value":79.61},
 {"series":"tau2@telecom","kind":"percent","model":"Claude Opus 4.5","org":"Anthropic","date":"2025-11-24","dateKind":"release","value":92.32},
