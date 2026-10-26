@@ -1,11 +1,13 @@
-{"sourceId":"epoch-vending","date":"2026-10-08","items":[
+{"sourceId":"epoch-vending","date":"2026-10-26","items":[
 {"series":"epoch-vending","kind":"eci","model":"gpt-6-astra_unknown","date":"2026-09-03","dateKind":"release","value":15.514701666666667,"org":"OpenAI"},
 {"series":"epoch-vending","kind":"eci","model":"gpt-6-sol_unknown","date":"2026-09-22","dateKind":"release","value":14.427848333333333,"org":"OpenAI"},
 {"series":"epoch-vending","kind":"eci","model":"gemini-4-argon_unknown","date":"2026-09-30","dateKind":"release","value":13.718158333333333,"org":"Google DeepMind"},
 {"series":"epoch-vending","kind":"eci","model":"claude-opus-5_unknown","date":"2026-07-24","dateKind":"release","value":11.18187333333333,"org":"Anthropic"},
+{"series":"epoch-vending","kind":"eci","model":"claude-sonnet-5-5_unknown","date":"2026-09-28","dateKind":"release","value":11.16527833333333,"org":"Anthropic"},
 {"series":"epoch-vending","kind":"eci","model":"claude-opus-4-7_unknown","date":"2026-04-16","dateKind":"release","value":10.936763333333335,"org":"Anthropic"},
 {"series":"epoch-vending","kind":"eci","model":"grok-4.7_unknown","date":"2026-09-21","dateKind":"release","value":10.536831666666668,"org":"xAI"},
 {"series":"epoch-vending","kind":"eci","model":"gpt-5.6-sol_unknown","date":"2026-07-09","dateKind":"release","value":9.619367999999998,"org":"OpenAI"},
+{"series":"epoch-vending","kind":"eci","model":"muse-wonder-1.0_unknown","date":"2026-10-12","dateKind":"release","value":9.43218,"org":"Meta AI"},
 {"series":"epoch-vending","kind":"eci","model":"claude-opus-5-5_unknown","date":"2026-09-22","dateKind":"release","value":9.235248333333331,"org":"Anthropic"},
 {"series":"epoch-vending","kind":"eci","model":"grok-4.6_unknown","date":"2026-08-12","dateKind":"release","value":9.047032500000002,"org":"xAI"},
 {"series":"epoch-vending","kind":"eci","model":"glm-5.2_unknown","date":"2026-06-16","dateKind":"release","value":8.313778333333335,"org":"Z.ai (Zhipu AI)"},
@@ -42,6 +44,7 @@
 {"series":"epoch-vending","kind":"eci","model":"claude-sonnet-4-5-20250929_unknown","date":"2025-09-29","dateKind":"release","value":3.8387400000000005,"org":"Anthropic"},
 {"series":"epoch-vending","kind":"eci","model":"gemini-3.1-pro-preview-customtools","date":"2026-02-19","dateKind":"release","value":3.774254,"org":"Google DeepMind"},
 {"series":"epoch-vending","kind":"eci","model":"gemini-3-flash-preview","date":"2025-12-17","dateKind":"release","value":3.634715999999999,"org":"Google DeepMind"},
+{"series":"epoch-vending","kind":"eci","model":"claude-haiku-5-5_unknown","date":"2026-10-07","dateKind":"release","value":3.6024633333333345,"org":"Anthropic"},
 {"series":"epoch-vending","kind":"eci","model":"gpt-5.2-2025-12-11_unknown","date":"2025-12-11","dateKind":"release","value":3.5913259999999996,"org":"OpenAI"},
 {"series":"epoch-vending","kind":"eci","model":"deepseek-v4-pro_unknown","date":"2026-04-24","dateKind":"release","value":3.284519999999999,"org":"DeepSeek"},
 {"series":"epoch-vending","kind":"eci","model":"claude-opus-4-8_max","date":"2026-05-28","dateKind":"release","value":2.992344,"org":"Anthropic"},
