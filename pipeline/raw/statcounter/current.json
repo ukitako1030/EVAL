@@ -1,4 +1,4 @@
-{"sourceId":"statcounter","date":"2026-10-08","items":[
+{"sourceId":"statcounter","date":"2026-11-09","items":[
 {"signal":"statcounter","key":"ChatGPT","month":"2025-04","value":84.21},
 {"signal":"statcounter","key":"Perplexity","month":"2025-04","value":12.07},
 {"signal":"statcounter","key":"Google Gemini","month":"2025-04","value":2.31},
@@ -106,5 +106,11 @@
 {"signal":"statcounter","key":"Google Gemini","month":"2026-09","value":10.94},
 {"signal":"statcounter","key":"Microsoft Copilot","month":"2026-09","value":1.78},
 {"signal":"statcounter","key":"Claude","month":"2026-09","value":0.95},
-{"signal":"statcounter","key":"Deepseek","month":"2026-09","value":0.02}
+{"signal":"statcounter","key":"Deepseek","month":"2026-09","value":0.02},
+{"signal":"statcounter","key":"ChatGPT","month":"2026-10","value":51.03},
+{"signal":"statcounter","key":"Perplexity","month":"2026-10","value":15.22},
+{"signal":"statcounter","key":"Google Gemini","month":"2026-10","value":29.22},
+{"signal":"statcounter","key":"Microsoft Copilot","month":"2026-10","value":2.17},
+{"signal":"statcounter","key":"Claude","month":"2026-10","value":2.32},
+{"signal":"statcounter","key":"Deepseek","month":"2026-10","value":0.05}
 ]}
